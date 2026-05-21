@@ -1,0 +1,22 @@
+{
+  "name": "EduNation",
+  "short_name": "EduNation",
+  "description": "Plateforme Scolaire Numérique du Burkina Faso",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a4d2e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
