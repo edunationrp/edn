@@ -4,9 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/verify-production-env.mjs && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:local": "next build"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

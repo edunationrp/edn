@@ -15,8 +15,10 @@ export function getEmailFrom() {
   return process.env.EMAIL_FROM ?? 'EduNation <onboarding@resend.dev>'
 }
 
+import { getPublicAppUrl } from '@/lib/env/public'
+
 export function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  return getPublicAppUrl()
 }
 
 export function isEmailConfigured() {
