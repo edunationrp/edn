@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EduNation</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f6fb;font-family:'Segoe UI',Inter,Arial,sans-serif;color:#111827;">
+  <div style="display:none;max-height:0;overflow:hidden;">Confirmez le changement d'adresse email de votre compte EduNation.</div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f6fb;padding:36px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:20px;overflow:hidden;border:1px solid #e5e7eb;box-shadow:0 18px 40px rgba(27,58,107,0.08);">
+          <tr>
+            <td style="padding:28px;background:linear-gradient(135deg, #0f2447 0%, #1B3A6B 100%);">
+              <div style="font-size:30px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;">
+                Edu<span style="color:#7AB832;">Nation</span>
+              </div>
+              <div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.82);">
+                Accompagner chaque apprenant vers l'excellence
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 28px;">
+              
+    <table cellpadding="0" cellspacing="0" style="margin:0 0 18px;">
+      <tr>
+        <td style="padding:6px 12px;background:#f0f9e8;border:1px solid #d9f0c0;border-radius:999px;font-size:11px;font-weight:700;color:#1a4d2e;letter-spacing:0.08em;text-transform:uppercase;">
+          Modification email
+        </td>
+      </tr>
+    </table>
+    <h1 style="margin:0 0 8px;font-size:26px;line-height:1.25;font-weight:800;color:#111827;letter-spacing:-0.02em;">
+      Confirmez votre nouvelle adresse
+    </h1>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#6B7280;">Sécurisez la mise à jour de votre compte.</p><p style="margin:0 0 16px;font-size:15px;line-height:1.75;color:#374151;">Vous avez demandé à modifier l'adresse email associée à votre compte EduNation. Confirmez <strong>{{ .Email }}</strong> pour finaliser le changement.</p>
+    <table cellpadding="0" cellspacing="0" style="margin:28px 0 8px;">
+      <tr>
+        <td align="center" style="border-radius:12px;background:linear-gradient(135deg, #1a4d2e 0%, #236b42 100%);box-shadow:0 8px 20px rgba(26,77,46,0.22);">
+          <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:15px 28px;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.01em;">
+            Confirmer la nouvelle adresse
+          </a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:16px 0 0;font-size:12px;line-height:1.7;color:#6B7280;word-break:break-all;">
+      Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br />
+      <a href="{{ .ConfirmationURL }}" style="color:#1a4d2e;">{{ .ConfirmationURL }}</a>
+    </p><p style="margin:0 0 16px;font-size:15px;line-height:1.75;color:#374151;">Si vous n'êtes pas à l'origine de cette modification, contactez-nous immédiatement.</p><p style="margin:0 0 16px;font-size:15px;line-height:1.75;color:#374151;">Une question ? Notre équipe vous accompagne à <a href="mailto:support@algocodebf.com" style="color:#1a4d2e;font-weight:600;">support@algocodebf.com</a>.</p>
+    <p style="margin:24px 0 0;font-size:14px;line-height:1.7;color:#374151;">
+      Avec toute notre considération,<br />
+      <strong style="color:#1a4d2e;">L'équipe EduNation</strong><br />
+      <span style="font-size:12px;color:#6B7280;">Plateforme scolaire numérique · Burkina Faso</span>
+    </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px 24px;background:#fafbfd;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;line-height:1.7;color:#6B7280;text-align:center;">
+                EduNation · <a href="{{ .SiteURL }}" style="color:#1a4d2e;text-decoration:none;">{{ .SiteURL }}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

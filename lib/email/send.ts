@@ -5,10 +5,16 @@ import {
   accountCreatedEmail,
   notificationEmail,
   paymentReceiptEmail,
+  staffInviteEmail,
+  trialEndedEmail,
+  trialReminderEmail,
   welcomeDirectorEmail,
   type AccountCreatedEmailData,
   type NotificationEmailData,
   type PaymentReceiptEmailData,
+  type StaffInviteEmailData,
+  type TrialEndedEmailData,
+  type TrialReminderEmailData,
   type WelcomeDirectorEmailData,
 } from '@/lib/email/templates'
 
@@ -56,6 +62,30 @@ export async function sendAccountCreatedEmail(
   payload: AccountCreatedEmailData
 ): Promise<SendEmailResult> {
   const { subject, html } = accountCreatedEmail(payload)
+  return sendEmail(to, subject, html)
+}
+
+export async function sendTrialReminderEmail(
+  to: string,
+  payload: TrialReminderEmailData
+): Promise<SendEmailResult> {
+  const { subject, html } = trialReminderEmail(payload)
+  return sendEmail(to, subject, html)
+}
+
+export async function sendTrialEndedEmail(
+  to: string,
+  payload: TrialEndedEmailData
+): Promise<SendEmailResult> {
+  const { subject, html } = trialEndedEmail(payload)
+  return sendEmail(to, subject, html)
+}
+
+export async function sendStaffInviteEmail(
+  to: string,
+  payload: StaffInviteEmailData
+): Promise<SendEmailResult> {
+  const { subject, html } = staffInviteEmail(payload)
   return sendEmail(to, subject, html)
 }
 

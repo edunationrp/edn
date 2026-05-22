@@ -1,0 +1,17 @@
+EduNation — Templates email Supabase Auth
+=========================================
+
+Copiez chaque fichier .html dans Supabase Dashboard :
+Authentication > Email Templates
+
+Fichiers :
+- confirm-signup  → Confirm signup
+- recovery        → Reset password
+- magic-link      → Magic Link
+- invite          → Invite user
+- email-change    → Change email address
+
+Pour chaque template, copiez aussi le sujet depuis le fichier .subject.txt correspondant.
+
+Variables Go utilisées : {{ .ConfirmationURL }}, {{ .SiteURL }}, {{ .Email }}, {{ .Token }}
+Documentation : https://supabase.com/docs/guides/auth/auth-email-templates
