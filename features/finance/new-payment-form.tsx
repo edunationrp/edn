@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { recordPaymentWithEmail } from '@/lib/actions/payments'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,9 +11,12 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Search, User, CreditCard, CheckCircle, Loader2, AlertCircle, Receipt } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { notify } from '@/lib/feedback/toast'
+import { TOAST_SUCCESS } from '@/lib/feedback/messages'
 
 interface NewPaymentFormProps {
   schoolId: string
+  schoolName: string
   cassierId: string
   feeStructures: Array<{ id: string; name: string; amount: number; is_mandatory: boolean }>
   currentYear: { id: string; name: string } | null
@@ -33,7 +37,7 @@ const PAYMENT_METHODS = [
   { value: 'check', label: 'Chèque' },
 ]
 
-export function NewPaymentForm({ schoolId, cassierId, feeStructures, currentYear }: NewPaymentFormProps) {
+export function NewPaymentForm({ schoolId, schoolName, cassierId, feeStructures, currentYear }: NewPaymentFormProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -48,7 +52,6 @@ export function NewPaymentForm({ schoolId, cassierId, feeStructures, currentYear
   const [notes, setNotes] = useState('')
 
   const [isSaving, setIsSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<{ reference: string; amount: number; studentName: string } | null>(null)
 
   async function searchStudents() {
@@ -80,39 +83,39 @@ export function NewPaymentForm({ schoolId, cassierId, feeStructures, currentYear
   async function handleSubmit() {
     if (!selectedStudent || amount <= 0) return
     setIsSaving(true)
-    setSaveError(null)
 
     const reference = generateReference()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: paymentRaw, error } = await (supabase as any)
-      .from('payments')
-      .insert({
-        school_id: schoolId,
-        student_id: selectedStudent.id,
-        fee_structure_id: selectedFee || null,
-        school_year_id: currentYear?.id ?? null,
-        amount,
-        payment_method: paymentMethod,
-        status: 'paid',
-        reference,
-        notes: notes || null,
-        received_by: cassierId,
-      })
-      .select('id, reference, amount')
-      .limit(1)
+    const method =
+      paymentMethod === 'check'
+        ? 'other'
+        : (paymentMethod as 'cash' | 'mobile_money' | 'bank_transfer' | 'other')
 
-    if (error) {
-      setSaveError(error.message)
+    const result = await recordPaymentWithEmail({
+      schoolId,
+      schoolName,
+      studentId: selectedStudent.id,
+      studentName: `${selectedStudent.first_name} ${selectedStudent.last_name}`,
+      amount,
+      paymentMethod: method,
+      reference,
+      recordedBy: cassierId,
+    })
+
+    if (result.error) {
+      notify.error(result.error, 'payment_save')
       setIsSaving(false)
       return
     }
 
-    const payments = paymentRaw as Array<{ id: string; reference: string; amount: number }> | null
-    if (payments?.[0]) {
+    if (result.payment) {
+      const ref = result.payment.reference ?? reference
+      notify.success(TOAST_SUCCESS.paymentSaved(ref).title, {
+        description: TOAST_SUCCESS.paymentSaved(ref).description,
+      })
       setReceipt({
-        reference: payments[0].reference,
-        amount: payments[0].amount,
+        reference: ref,
+        amount: Number(result.payment.amount),
         studentName: `${selectedStudent.first_name} ${selectedStudent.last_name}`,
       })
     }
@@ -302,13 +305,6 @@ export function NewPaymentForm({ schoolId, cassierId, feeStructures, currentYear
               placeholder="Optionnel…"
             />
           </div>
-
-          {saveError && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-              <AlertCircle className="h-4 w-4 text-red-600" />
-              <span className="text-sm text-red-700">{saveError}</span>
-            </div>
-          )}
 
           <Button
             className="w-full"

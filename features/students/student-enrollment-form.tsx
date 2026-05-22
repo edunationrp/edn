@@ -14,6 +14,8 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { User, Phone, MapPin, GraduationCap, CheckCircle, Loader2, AlertCircle } from 'lucide-react'
+import { notify } from '@/lib/feedback/toast'
+import { TOAST_SUCCESS } from '@/lib/feedback/messages'
 
 const enrollmentSchema = z.object({
   first_name: z.string().min(2, 'Prénom requis (min 2 caractères)'),
@@ -49,7 +51,6 @@ export function StudentEnrollmentForm({
   const supabase = createClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successData, setSuccessData] = useState<{ iun: string; name: string } | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [parentHasPhone, setParentHasPhone] = useState(true)
 
   const { register, handleSubmit, formState: { errors }, watch } = useForm<EnrollmentFormValues>({
@@ -62,7 +63,6 @@ export function StudentEnrollmentForm({
 
   async function onSubmit(values: EnrollmentFormValues) {
     setIsSubmitting(true)
-    setError(null)
 
     try {
       // Insérer l'élève
@@ -112,12 +112,15 @@ export function StudentEnrollmentForm({
         })
       }
 
+      const enrolled = TOAST_SUCCESS.studentEnrolled(`${student.first_name} ${student.last_name}`)
+      notify.success(enrolled.title, { description: enrolled.description })
+
       setSuccessData({
         iun: student.iun ?? 'En cours de génération',
         name: `${student.first_name} ${student.last_name}`,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Une erreur est survenue')
+      notify.error(err, 'student_enroll')
     } finally {
       setIsSubmitting(false)
     }
@@ -304,13 +307,6 @@ export function StudentEnrollmentForm({
           </div>
         </CardContent>
       </Card>
-
-      {error && (
-        <div className="flex items-start gap-2 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700">
-          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
 
       <div className="flex gap-3 justify-end">
         <Button type="button" variant="outline" onClick={() => router.back()}>

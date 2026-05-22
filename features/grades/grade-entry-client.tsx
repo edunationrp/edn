@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { BookOpen, Save, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { getMention } from '@/lib/grades'
+import { notify } from '@/lib/feedback/toast'
+import { TOAST_SUCCESS } from '@/lib/feedback/messages'
 
 interface GradeEntryClientProps {
   schoolId: string
@@ -66,7 +68,6 @@ export function GradeEntryClient({
   const [isLoadingStudents, setIsLoadingStudents] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [savedCount, setSavedCount] = useState(0)
-  const [saveError, setSaveError] = useState<string | null>(null)
   const [evalId, setEvalId] = useState<string | null>(null)
   const [step, setStep] = useState<'config' | 'entry'>('config')
 
@@ -111,7 +112,6 @@ export function GradeEntryClient({
   async function createEvaluation() {
     if (!selectedClass || !selectedSubject || !evalTitle) return
     setIsSaving(true)
-    setSaveError(null)
 
     const { data: evals, error } = await insertRecord<{ id: string }>(
       'evaluations',
@@ -131,7 +131,7 @@ export function GradeEntryClient({
     )
 
     if (error) {
-      setSaveError(error.message)
+      notify.error(error, 'grades_eval')
       setIsSaving(false)
       return
     }
@@ -139,6 +139,9 @@ export function GradeEntryClient({
     if (evals?.[0]) {
       setEvalId(evals[0].id)
       setStep('entry')
+      notify.success(TOAST_SUCCESS.gradesEvalCreated.title, {
+        description: TOAST_SUCCESS.gradesEvalCreated.description,
+      })
     }
     setIsSaving(false)
   }
@@ -159,7 +162,6 @@ export function GradeEntryClient({
   async function saveAllGrades() {
     if (!evalId) return
     setIsSaving(true)
-    setSaveError(null)
     let count = 0
 
     const entries = Object.values(grades).filter(g => g.value !== '' && !g.error)
@@ -186,6 +188,15 @@ export function GradeEntryClient({
 
     setSavedCount(count)
     setIsSaving(false)
+
+    if (count > 0) {
+      const msg = TOAST_SUCCESS.gradesSaved(count)
+      notify.success(msg.title, { description: msg.description })
+    } else {
+      notify.warning('Aucune note à enregistrer', {
+        description: 'Saisissez au moins une note valide avant d\'enregistrer.',
+      })
+    }
   }
 
   const currentSubject = subjects.find(s => s.id === selectedSubject)
@@ -417,13 +428,6 @@ export function GradeEntryClient({
             />
           </div>
         </div>
-
-        {saveError && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <span className="text-sm text-red-700">{saveError}</span>
-          </div>
-        )}
 
         {isLoadingStudents && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">

@@ -4,24 +4,22 @@ import {
   Users,
   BookOpen,
   CreditCard,
-  FileText,
-  Wifi,
   WifiOff,
   Globe,
   CheckCircle,
   ArrowRight,
   Shield,
-  Smartphone,
   BarChart3,
   Bell,
-  ChevronRight,
+  Building2,
+  Lock,
 } from 'lucide-react'
 import { LogoSVG } from '@/components/brand/logo'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'EduNation — Plateforme Scolaire Numérique du Burkina Faso',
-  description: 'EduNation numérise la gestion scolaire des collèges et lycées du Burkina Faso. Notes, bulletins, absences, paiements et plus encore.',
+  title: 'EduNation — SaaS Scolaire Multi-Établissements · Burkina Faso',
+  description: 'Plateforme SaaS multi-tenant pour collèges et lycées du Burkina Faso. Chaque établissement dispose de son espace isolé : élèves, notes, finances et bulletins.',
 }
 
 const features = [
@@ -115,38 +113,41 @@ export default function LandingPage() {
               Connexion
             </Link>
             <Link
-              href="/register/student"
+              href="/register/school"
               className="bg-[#1a4d2e] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#2d6a4f] transition-colors"
             >
-              S&apos;inscrire
+              Inscrire mon école
             </Link>
           </div>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="relative bg-gradient-to-br from-[#1a4d2e] via-[#2d6a4f] to-[#1a4d2e] text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
-            backgroundSize: '40px 40px',
-          }} />
-        </div>
+      <section className="relative text-white overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: 'url(/images/eleves.jpeg)' }}
+          aria-hidden="true"
+        />
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-[#1a4d2e]/75 via-[#1a4d2e]/55 to-[#1a4d2e]/70"
+          aria-hidden="true"
+        />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
           <div className="text-center max-w-4xl mx-auto">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 text-sm mb-8">
               <div className="w-2 h-2 rounded-full bg-[#f5c842] animate-pulse" />
-              Plateforme conçue pour le Burkina Faso
+              SaaS multi-établissements · Burkina Faso
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-6 leading-tight">
-              La gestion scolaire{' '}
-              <span className="text-[#f5c842]">numérique</span>{' '}
-              pour vos établissements
+              Former aujourd&apos;hui les{' '}
+              <span className="text-[#f5c842]">leaders de demain</span>
             </h1>
-            <p className="text-lg sm:text-xl text-green-100 mb-10 max-w-2xl mx-auto">
-              EduNation connecte les proviseurs, enseignants, parents et élèves
-              des collèges et lycées du Burkina Faso sur une seule plateforme
-              sécurisée, moderne et accessible.
+            <p className="text-lg sm:text-xl text-white/90 mb-10 max-w-3xl mx-auto">
+              L&apos;éducation est le socle sur lequel se construisent les générations
+              capables d&apos;innover, de diriger et de transformer le monde. Notre mission
+              est d&apos;offrir aux établissements scolaires des outils modernes pour
+              accompagner chaque apprenant vers l&apos;excellence.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
@@ -157,10 +158,10 @@ export default function LandingPage() {
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
-                href="/register/student"
+                href="/register/school"
                 className="inline-flex items-center justify-center gap-2 bg-white/10 text-white border border-white/30 font-semibold px-8 py-4 rounded-xl hover:bg-white/20 transition-colors text-lg"
               >
-                Inscrire un élève
+                Inscrire mon école
               </Link>
             </div>
           </div>
@@ -179,10 +180,10 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
             {[
-              { value: '12', label: 'Rôles utilisateurs' },
-              { value: '43', label: 'Tables de données' },
-              { value: '17', label: 'Modules fonctionnels' },
-              { value: '100%', label: 'Web responsive' },
+              { value: '+30%', label: 'd\'amélioration du suivi des élèves' },
+              { value: '0', label: 'perte de notes ou informations scolaires' },
+              { value: 'Temps réel', label: 'pour les résultats et évaluations' },
+              { value: '1', label: 'seul espace pour toute la gestion de l\'école' },
             ].map(stat => (
               <div key={stat.label}>
                 <p className="text-3xl font-black text-[#1a4d2e]">{stat.value}</p>
@@ -193,8 +194,54 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Multi-tenant */}
+      <section className="bg-gray-50 py-16 border-y">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-[#1B3A6B]/10 text-[#1B3A6B] rounded-full px-4 py-2 text-sm font-medium mb-4">
+              <Building2 className="h-4 w-4" />
+              Architecture multi-tenant
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900">
+              Chaque école a son propre univers numérique
+            </h2>
+            <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">
+              Collège Saint-Jean, Lycée Horizon, Institut Privé Savoir… tous peuvent
+              utiliser EduNation simultanément sans jamais voir les données des autres.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                icon: Building2,
+                title: 'Espace dédié par établissement',
+                description: 'Classes, élèves, personnel, finances et bulletins sont rattachés à un seul établissement.',
+              },
+              {
+                icon: Lock,
+                title: 'Isolation totale des données',
+                description: 'Row Level Security Supabase : aucune fuite possible entre écoles, même sur la même infrastructure.',
+              },
+              {
+                icon: Shield,
+                title: 'Accès contrôlé par rôle',
+                description: 'Proviseur, professeur, parent… chaque utilisateur n\'accède qu\'à ce qui concerne son école et son périmètre.',
+              },
+            ].map(item => (
+              <div key={item.title} className="bg-white rounded-xl border p-6">
+                <div className="w-10 h-10 rounded-xl bg-[#1B3A6B]/10 text-[#1B3A6B] flex items-center justify-center mb-4">
+                  <item.icon className="h-5 w-5" />
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-2">{item.title}</h3>
+                <p className="text-sm text-muted-foreground">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Problème & Solution */}
-      <section className="bg-gray-50 py-16">
+      <section className="bg-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
@@ -354,23 +401,24 @@ export default function LandingPage() {
       {/* CTA Final */}
       <section className="bg-[#1a4d2e] text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-4">Prêt à numériser votre établissement ?</h2>
+          <h2 className="text-3xl font-bold mb-4">Prêt à inscrire votre établissement ?</h2>
           <p className="text-green-200 mb-8 max-w-xl mx-auto">
-            Rejoignez EduNation et transformez la gestion scolaire de votre collège ou lycée.
+            Créez l&apos;espace numérique de votre collège ou lycée sur EduNation.
+            L&apos;inscription des élèves se fait ensuite depuis votre tableau de bord.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/login"
+              href="/register/school"
               className="inline-flex items-center justify-center gap-2 bg-[#f5c842] text-[#1a4d2e] font-bold px-8 py-4 rounded-xl hover:bg-yellow-400 transition-colors"
             >
-              Commencer maintenant
+              Inscrire mon école
               <ArrowRight className="h-5 w-5" />
             </Link>
             <Link
-              href="/register/student"
+              href="/login"
               className="inline-flex items-center justify-center gap-2 bg-white/10 text-white border border-white/30 font-semibold px-8 py-4 rounded-xl hover:bg-white/20 transition-colors"
             >
-              Inscrire un élève
+              J&apos;ai déjà un compte
             </Link>
           </div>
         </div>

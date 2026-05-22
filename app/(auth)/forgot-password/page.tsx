@@ -8,6 +8,8 @@ import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
+import { notify } from '@/lib/feedback/toast'
+import { TOAST_SUCCESS } from '@/lib/feedback/messages'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
@@ -20,7 +22,6 @@ type FormData = z.infer<typeof schema>
 export default function ForgotPasswordPage() {
   const supabase = createClient()
   const [sent, setSent] = useState(false)
-  const [serverError, setServerError] = useState<string | null>(null)
 
   const {
     register,
@@ -29,15 +30,18 @@ export default function ForgotPasswordPage() {
   } = useForm<FormData>({ resolver: zodResolver(schema) })
 
   async function onSubmit(data: FormData) {
-    setServerError(null)
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
       redirectTo: `${window.location.origin}/reset-password`,
     })
 
     if (error) {
-      setServerError(error.message)
+      notify.error(error, 'auth_reset_password')
       return
     }
+
+    notify.success(TOAST_SUCCESS.resetPasswordSent.title, {
+      description: TOAST_SUCCESS.resetPasswordSent.description,
+    })
 
     setSent(true)
   }
@@ -73,12 +77,6 @@ export default function ForgotPasswordPage() {
       </p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {serverError && (
-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-            {serverError}
-          </div>
-        )}
-
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
           <div className="relative">

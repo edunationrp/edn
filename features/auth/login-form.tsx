@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
+import { notify } from '@/lib/feedback/toast'
+import { TOAST_SUCCESS } from '@/lib/feedback/messages'
 
 const loginSchema = z.object({
   email: z.string().email('Email invalide'),
@@ -22,7 +24,6 @@ export function LoginForm() {
   const router = useRouter()
   const supabase = createClient()
   const [showPassword, setShowPassword] = useState(false)
-  const [serverError, setServerError] = useState<string | null>(null)
 
   const {
     register,
@@ -33,21 +34,17 @@ export function LoginForm() {
   })
 
   async function onSubmit(data: LoginData) {
-    setServerError(null)
-
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     })
 
     if (error) {
-      setServerError(
-        error.message === 'Invalid login credentials'
-          ? 'Email ou mot de passe incorrect'
-          : error.message
-      )
+      notify.error(error, 'auth_login')
       return
     }
+
+    notify.success(TOAST_SUCCESS.login.title, { description: TOAST_SUCCESS.login.description })
 
     router.push('/dashboard')
     router.refresh()
@@ -55,12 +52,6 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {serverError && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-          {serverError}
-        </div>
-      )}
-
       <div className="space-y-1.5">
         <Label htmlFor="email">Email</Label>
         <div className="relative">
@@ -128,9 +119,9 @@ export function LoginForm() {
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        Pas encore de compte ?{' '}
-        <a href="/register/student" className="text-primary hover:underline font-medium">
-          S&apos;inscrire
+        Votre établissement n&apos;est pas encore inscrit ?{' '}
+        <a href="/register/school" className="text-primary hover:underline font-medium">
+          Inscrire mon école
         </a>
       </p>
     </form>

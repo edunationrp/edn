@@ -3,6 +3,8 @@
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { insertRecord } from '@/lib/supabase/mutations'
+import { notify } from '@/lib/feedback/toast'
+import { TOAST_SUCCESS } from '@/lib/feedback/messages'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,7 +83,7 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
     if (!recipientId || !subject || !body) return
     setIsSending(true)
 
-    await insertRecord('messages', {
+    const { error } = await insertRecord('messages', {
       sender_id: currentUserId,
       recipient_id: recipientId,
       school_id: schoolId,
@@ -91,12 +93,22 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
       has_audio: false,
     })
 
+    setIsSending(false)
+
+    if (error) {
+      notify.error(error, 'message_send')
+      return
+    }
+
+    notify.success(TOAST_SUCCESS.messageSent.title, {
+      description: TOAST_SUCCESS.messageSent.description,
+    })
+
     setShowCompose(false)
     setRecipientId('')
     setSubject('')
     setBody('')
     setSearchUsers([])
-    setIsSending(false)
   }
 
   function speakMessage(text: string) {
@@ -132,7 +144,7 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
         mediaRecorder.start()
         setIsRecording(true)
       } catch {
-        alert('Accès au microphone refusé')
+        notify.error('Microphone inaccessible', 'microphone')
       }
     }
   }

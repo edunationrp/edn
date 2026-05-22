@@ -11,6 +11,14 @@ export default async function NewPaymentPage() {
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx) redirect('/dashboard')
 
+  const { data: schoolRaw } = await supabase
+    .from('schools')
+    .select('name')
+    .eq('id', ctx.school_id)
+    .single()
+
+  const schoolName = (schoolRaw as { name: string } | null)?.name ?? 'Mon établissement'
+
   const [feesResult, yearsResult] = await Promise.all([
     supabase.from('fee_structures').select('id, name, amount, is_mandatory').eq('school_id', ctx.school_id).order('name'),
     supabase.from('school_years').select('id, name').eq('school_id', ctx.school_id).eq('is_active', true).limit(1),
@@ -30,6 +38,7 @@ export default async function NewPaymentPage() {
       </div>
       <NewPaymentForm
         schoolId={ctx.school_id}
+        schoolName={schoolName}
         cassierId={user.id}
         feeStructures={fees}
         currentYear={currentYear}

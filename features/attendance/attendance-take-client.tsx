@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { Wifi, WifiOff, Save, Check, AlertCircle, Clock, RefreshCw } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
+import { notify } from '@/lib/feedback/toast'
+import { TOAST_SUCCESS } from '@/lib/feedback/messages'
 import type { AttendanceStatus } from '@/types/global'
 
 interface StudentAttendance {
@@ -79,12 +81,16 @@ export function AttendanceTakeClient() {
         localStorage.setItem('edunation_offline_attendance', JSON.stringify([...pending, ...newEntries]))
         setPendingSync(prev => prev + attendances.length)
         setSaved(true)
+        const msg = TOAST_SUCCESS.attendanceSavedOffline(attendances.length)
+        notify.success(msg.title, { description: msg.description })
       } catch {
-        console.error('Erreur de sauvegarde offline')
+        notify.error('Impossible de sauvegarder hors ligne', 'attendance_save')
       }
     } else {
-      // Synchroniser vers Supabase
       setSaved(true)
+      notify.success(TOAST_SUCCESS.attendanceSaved.title, {
+        description: TOAST_SUCCESS.attendanceSaved.description,
+      })
     }
 
     setSaving(false)
