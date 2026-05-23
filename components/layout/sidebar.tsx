@@ -13,8 +13,9 @@ import {
   FileText, Building2, Shield, TrendingUp,
   ChevronDown, Folder, Award,
   UserCheck, BookMarked, Send, Book, Compass, Heart,
-  Home, Clock, Grid,
+  Home, Clock, Grid, PanelLeftClose,
 } from 'lucide-react'
+import { LogoSVG } from '@/components/brand/logo'
 const ICON_MAP: Record<string, React.ReactNode> = {
   home: <Home className="h-4 w-4" />,
   chart: <BarChart2 className="h-4 w-4" />,
@@ -284,8 +285,10 @@ interface SidebarProps {
   userName?: string
   userInitials?: string
   userTitle?: string
+  collapsed?: boolean
   mobileOpen?: boolean
   onNavigate?: () => void
+  onToggleCollapse?: () => void
 }
 
 export function Sidebar({
@@ -295,8 +298,10 @@ export function Sidebar({
   userName = 'Utilisateur',
   userInitials = 'U',
   userTitle = '',
+  collapsed = false,
   mobileOpen = false,
   onNavigate,
+  onToggleCollapse,
 }: SidebarProps) {
   const pathname = usePathname()
   const roleCfg = ROLE_NAV[resolveNavRole(userRole)] ?? ROLE_NAV.PROVISEUR
@@ -305,16 +310,53 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-30 flex w-[min(88vw,240px)] flex-col overflow-y-auto bg-[#1B3A6B] text-white shadow-xl transition-transform duration-200 lg:translate-x-0',
+        'fixed inset-y-0 left-0 z-30 flex flex-col overflow-y-auto bg-[#1B3A6B] text-white shadow-xl transition-all duration-200 lg:translate-x-0',
+        collapsed ? 'w-[72px]' : 'w-[min(88vw,240px)]',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}
     >
-      {/* Brand */}
-      <div className="flex-shrink-0 px-5 pt-5 pb-4 border-b border-white/10">
-        <BrandLockupDark />
+      {/* Brand + réduire + accueil site */}
+      <div
+        className={cn(
+          'flex-shrink-0 border-b border-white/10',
+          collapsed ? 'px-2 py-4' : 'px-5 pt-5 pb-4'
+        )}
+      >
+        <div className={cn('flex items-center', collapsed ? 'flex-col gap-3' : 'justify-between gap-2')}>
+          <Link
+            href="/"
+            title="Retour à l'accueil EduNation"
+            className={cn(
+              'rounded-xl transition-opacity hover:opacity-90',
+              collapsed && 'flex justify-center p-1'
+            )}
+            onClick={onNavigate}
+          >
+            {collapsed ? (
+              <div className="rounded-xl bg-white/15 p-2">
+                <LogoSVG width={26} height={26} />
+              </div>
+            ) : (
+              <BrandLockupDark />
+            )}
+          </Link>
+
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              title="Réduire le menu"
+              className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/50 transition hover:bg-white/10 hover:text-white lg:flex"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
       </div>
 
       {/* School pill */}
+      {!collapsed && (
       <div className="mx-3 mt-3 mb-1 flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/10 cursor-pointer hover:bg-white/15 transition-colors">
         <div className="w-8 h-8 rounded-lg bg-[#7AB832]/20 border border-[#7AB832]/40 flex items-center justify-center text-[#7AB832] font-black text-xs flex-shrink-0">
           {schoolName.slice(0, 2).toUpperCase()}
@@ -325,14 +367,17 @@ export function Sidebar({
         </div>
         <ChevronDown className="h-3.5 w-3.5 text-white/40 flex-shrink-0" />
       </div>
+      )}
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
+      <nav className={cn('flex-1 py-2 space-y-0.5 overflow-y-auto', collapsed ? 'px-2' : 'px-3')}>
         {roleCfg.nav.map((section, i) => (
           <div key={i} className="mb-1">
+            {!collapsed && (
             <div className="px-2 py-1.5 text-[10px] font-bold tracking-[0.1em] uppercase text-white/35 select-none">
               {section.group}
             </div>
+            )}
             {section.items.map(item => {
               const isActive =
                 pathname === item.href ||
@@ -341,16 +386,27 @@ export function Sidebar({
                 <Link
                   key={item.id}
                   href={item.href}
+                  title={collapsed ? item.label : undefined}
                   onClick={onNavigate}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all relative ${
+                  className={cn(
+                    'flex items-center rounded-lg text-sm font-medium transition-all relative',
+                    collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-3 py-2',
                     isActive
                       ? 'bg-[#7AB832] text-white shadow-sm'
                       : 'text-white/70 hover:bg-white/10 hover:text-white'
-                  }`}
+                  )}
                 >
-                  <span className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-white/60'}`}>
+                  <span
+                    className={cn(
+                      'flex-shrink-0',
+                      collapsed ? '[&_svg]:h-5 [&_svg]:w-5' : '[&_svg]:h-4 [&_svg]:w-4',
+                      isActive ? 'text-white' : 'text-white/60'
+                    )}
+                  >
                     {ICON_MAP[item.icon] ?? <Home className="h-4 w-4" />}
                   </span>
+                  {!collapsed && (
+                  <>
                   <span className="flex-1 truncate">{item.label}</span>
                   {item.badge && (
                     <span className={`flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
@@ -363,27 +419,56 @@ export function Sidebar({
                       {item.badge}
                     </span>
                   )}
+                  </>
+                  )}
                 </Link>
               )
             })}
           </div>
         ))}
+
       </nav>
 
       {/* Footer utilisateur */}
-      <div className="flex-shrink-0 border-t border-white/10 p-3 space-y-1">
-        <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/10 cursor-pointer transition-colors">
+      <div className={cn('flex-shrink-0 border-t border-white/10 space-y-1', collapsed ? 'p-2' : 'p-3')}>
+        <div
+          className={cn(
+            'flex items-center rounded-lg hover:bg-white/10 cursor-pointer transition-colors',
+            collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-2 py-2'
+          )}
+          title={collapsed ? userName : undefined}
+        >
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#7AB832] to-[#5F941F] flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
             {initials}
           </div>
+          {!collapsed && (
+          <>
           <div className="flex-1 min-w-0">
             <div className="text-white text-xs font-semibold truncate leading-tight">{userName}</div>
             <div className="text-white/40 text-[10px] leading-tight">{userTitle || roleCfg.label}</div>
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-white/30 flex-shrink-0" />
+          </>
+          )}
         </div>
-        <LogoutButton />
+        <LogoutButton collapsed={collapsed} />
       </div>
     </aside>
+  )
+}
+
+export type RoleNavItem = {
+  id: string
+  label: string
+  icon: string
+  href: string
+  badge?: string
+  badgeColor?: string
+}
+
+export function flattenRoleNav(role: string): Array<RoleNavItem & { group: string }> {
+  const roleCfg = ROLE_NAV[resolveNavRole(role)] ?? ROLE_NAV.PROVISEUR
+  return roleCfg.nav.flatMap(section =>
+    section.items.map(item => ({ ...item, group: section.group }))
   )
 }

@@ -64,3 +64,46 @@ export async function markMessageRead(messageId: string) {
   revalidatePath('/dashboard/messages')
   return { success: true }
 }
+
+export async function searchSchoolMessageRecipients(schoolId: string, query: string) {
+  const trimmed = query.trim()
+  if (trimmed.length < 2) return []
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const pattern = `%${trimmed.replace(/[%_\\]/g, '\\$&')}%`
+
+  const { data: rolesRaw } = await supabase
+    .from('user_school_roles')
+    .select('user_id')
+    .eq('school_id', schoolId)
+    .eq('is_active', true)
+
+  const schoolUserIds = ((rolesRaw ?? []) as Array<{ user_id: string }>)
+    .map(row => row.user_id)
+    .filter(id => id !== user.id)
+
+  if (schoolUserIds.length === 0) return []
+
+  const { data: profilesRaw } = await supabase
+    .from('profiles')
+    .select('id, full_name, first_name, last_name')
+    .in('id', schoolUserIds)
+    .or(`full_name.ilike.${pattern},first_name.ilike.${pattern},last_name.ilike.${pattern}`)
+    .limit(10)
+
+  return ((profilesRaw ?? []) as Array<{
+    id: string
+    full_name: string | null
+    first_name: string | null
+    last_name: string | null
+  }>).map(profile => ({
+    id: profile.id,
+    first_name: profile.first_name ?? profile.full_name?.split(' ')[0] ?? 'Utilisateur',
+    last_name: profile.last_name ?? profile.full_name?.split(' ').slice(1).join(' ') ?? '',
+  }))
+}
