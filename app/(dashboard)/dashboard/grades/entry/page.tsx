@@ -3,13 +3,19 @@ import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { redirect } from 'next/navigation'
 import { GradeEntryClient } from '@/features/grades/grade-entry-client'
 
-export default async function GradeEntryPage() {
+export default async function GradeEntryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ evaluationId?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx) redirect('/dashboard')
+
+  const params = await searchParams
 
   const [classesResult, subjectsResult, yearsResult] = await Promise.all([
     supabase.from('classes').select('id, name').eq('school_id', ctx.school_id).order('name'),
@@ -36,6 +42,7 @@ export default async function GradeEntryPage() {
         classes={classes}
         subjects={subjects}
         currentYear={currentYear}
+        initialEvaluationId={params.evaluationId}
       />
     </div>
   )

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { Users, UserPlus, Mail } from 'lucide-react'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { ROLE_LABELS, ROLE_COLORS, STAFF_ROLES } from '@/types/roles'
 import { getInitials, formatDate } from '@/lib/utils'
 import type { UserRole } from '@/types/roles'
@@ -19,7 +20,7 @@ export default async function StaffPage() {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) redirect('/login')
 
   const schoolRole = await getUserSchoolContext(user.id)
 

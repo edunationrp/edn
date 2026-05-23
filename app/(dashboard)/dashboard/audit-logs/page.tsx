@@ -1,4 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
+import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { canAccessAuditLogs } from '@/lib/dashboard/role-scope'
+import { redirect } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/dashboard/page-header'
@@ -13,22 +16,39 @@ export const metadata: Metadata = {
 export default async function AuditLogsPage() {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const ctx = await getUserSchoolContext(user.id)
+  if (!ctx?.school_id) redirect('/dashboard')
+
+  if (!canAccessAuditLogs(ctx.role_code)) {
+    redirect('/dashboard')
+  }
 
   const { data: logsRaw, count } = await supabase
     .from('audit_logs')
-    .select(`
+    .select(
+      `
       *,
       profiles!audit_logs_actor_id_fkey (full_name, email)
-    `, { count: 'exact' })
+    `,
+      { count: 'exact' }
+    )
+    .eq('school_id', ctx.school_id)
     .order('created_at', { ascending: false })
     .limit(50)
 
   const logs = logsRaw as Array<{
-    id: string; action: string; entity_type: string; entity_id: string | null;
-    ip_address: unknown; created_at: string;
-    profiles: { full_name: string | null; email: string | null } | null;
+    id: string
+    action: string
+    entity_type: string
+    entity_id: string | null
+    ip_address: unknown
+    created_at: string
+    profiles: { full_name: string | null; email: string | null } | null
   }> | null
 
   const actionColors: Record<string, string> = {
@@ -47,7 +67,7 @@ export default async function AuditLogsPage() {
     <div className="space-y-4 animate-fade-in sm:space-y-6">
       <PageHeader
         title="Journaux d'Audit"
-        description={`${total} action${total > 1 ? 's' : ''} enregistrée${total > 1 ? 's' : ''}`}
+        description={`${total} action${total > 1 ? 's' : ''} enregistrée${total > 1 ? 's' : ''} pour votre établissement`}
       />
 
       <Card>
@@ -123,7 +143,7 @@ export default async function AuditLogsPage() {
           ) : (
             <div className="py-12 text-center text-muted-foreground">
               <Shield className="mx-auto mb-2 h-8 w-8 opacity-30" />
-              Aucun log d&apos;audit
+              Aucun log d&apos;audit pour cet établissement
             </div>
           )}
         </CardContent>

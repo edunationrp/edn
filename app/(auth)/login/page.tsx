@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <div className="flex flex-col">
-      <h2 className="mb-1 text-xl font-bold text-gray-900 sm:text-2xl">Connexion</h2>
-      <p className="mb-4 text-sm text-muted-foreground">Connectez-vous à votre espace EduNation</p>
+      <h2 className="mb-0.5 text-lg font-bold text-gray-900">Connexion</h2>
+      <p className="mb-3 text-xs text-muted-foreground">Connectez-vous à votre espace EduNation</p>
       <Suspense fallback={<div className="py-8 text-sm text-muted-foreground">Chargement…</div>}>
         <LoginForm />
       </Suspense>

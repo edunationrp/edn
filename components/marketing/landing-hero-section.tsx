@@ -3,23 +3,21 @@
 import Link from 'next/link'
 import { ArrowRight, GraduationCap } from 'lucide-react'
 import { HeroMotionItem, LandingHeroMotion } from '@/components/motion/scroll-effects'
+import { RotatingBannerBackground } from '@/components/marketing/rotating-banner-background'
 
 export function LandingHeroSection() {
   return (
-    <section className="relative overflow-hidden text-white">
+    <section className="relative isolate overflow-hidden text-white">
+      {/* Arrière-plan photo — derrière tout le contenu */}
+      <RotatingBannerBackground />
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: 'url(/images/eleves.jpeg)' }}
+        className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-br from-[#0f2447]/65 via-[#1a4d2e]/50 to-[#1B3A6B]/60"
         aria-hidden="true"
       />
-      <div
-        className="absolute inset-0 bg-gradient-to-br from-[#0f2447]/85 via-[#1a4d2e]/70 to-[#1B3A6B]/80"
-        aria-hidden="true"
-      />
-      <div className="pointer-events-none absolute -right-20 top-10 h-72 w-72 rounded-full bg-[#7AB832]/15 blur-3xl" />
-      <div className="pointer-events-none absolute -left-16 bottom-20 h-56 w-56 rounded-full bg-[#f5c842]/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 top-10 z-[1] h-72 w-72 rounded-full bg-[#7AB832]/15 blur-3xl" />
+      <div className="pointer-events-none absolute -left-16 bottom-20 z-[1] h-56 w-56 rounded-full bg-[#f5c842]/10 blur-3xl" />
 
-      <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
         <LandingHeroMotion className="mx-auto max-w-4xl text-center">
           <HeroMotionItem>
             <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold backdrop-blur-sm">
@@ -77,7 +75,7 @@ export function LandingHeroSection() {
         </LandingHeroMotion>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0">
+      <div className="absolute bottom-0 left-0 right-0 z-10">
         <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
           <path d="M0 80L1440 80L1440 20C1440 20 1200 60 720 60C240 60 0 20 0 20L0 80Z" fill="white" />
         </svg>

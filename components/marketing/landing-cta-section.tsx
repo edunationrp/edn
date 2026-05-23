@@ -6,18 +6,13 @@ import { ScrollReveal, ScrollSection } from '@/components/motion/scroll-effects'
 
 export function LandingCtaSection() {
   return (
-    <ScrollSection className="relative overflow-hidden py-20 sm:py-28">
+    <ScrollSection className="relative overflow-hidden bg-gradient-to-br from-[#1a4d2e] via-[#1B3A6B] to-[#0f2447] py-20 sm:py-28">
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: 'url(/images/eocle.jpg)' }}
-        aria-hidden="true"
-      />
-      <div
-        className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/10"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/10"
         aria-hidden="true"
       />
 
-      <ScrollReveal direction="scale" className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+      <ScrollReveal direction="scale" className="relative z-10 mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
         <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md ring-1 ring-white/30">
           <School className="h-7 w-7 text-[#f5c842] drop-shadow-md" />
         </div>

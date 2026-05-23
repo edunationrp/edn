@@ -361,7 +361,7 @@ export async function getInvitationPreview(token: string) {
   const { data: inviteRaw } = await (admin as any)
     .from('staff_invitations')
     .select(`
-      id, role_code, status, expires_at, invited_name,
+      id, role_code, status, expires_at, invited_name, invited_email,
       schools ( name )
     `)
     .eq('token', token)
@@ -373,6 +373,7 @@ export async function getInvitationPreview(token: string) {
     status: string
     expires_at: string
     invited_name: string | null
+    invited_email: string | null
     schools: { name: string } | null
   }> | null)?.[0]
 
@@ -387,7 +388,88 @@ export async function getInvitationPreview(token: string) {
       status: row.status,
       expiresAt: row.expires_at,
       invitedName: row.invited_name,
+      invitedEmail: row.invited_email,
       isExpired: new Date(row.expires_at) < new Date(),
     },
   }
+}
+
+export async function registerStaffFromInvitation(input: {
+  token: string
+  email: string
+  password: string
+  fullName: string
+  phone?: string
+}) {
+  const admin = getAdminOrClient()
+  if (!admin) return { error: 'Service d\'inscription indisponible.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: inviteRaw } = await (admin as any)
+    .from('staff_invitations')
+    .select('id, school_id, role_code, status, expires_at, invited_email')
+    .eq('token', input.token)
+    .limit(1)
+
+  const invitation = (inviteRaw as Array<{
+    id: string
+    school_id: string
+    role_code: string
+    status: string
+    expires_at: string
+    invited_email: string | null
+  }> | null)?.[0]
+
+  if (!invitation) return { error: 'Invitation invalide.' }
+  if (invitation.status !== 'pending') return { error: 'Invitation déjà utilisée ou annulée.' }
+  if (new Date(invitation.expires_at) < new Date()) {
+    return { error: 'Invitation expirée.' }
+  }
+
+  const email = input.email.trim()
+  if (invitation.invited_email && invitation.invited_email.toLowerCase() !== email.toLowerCase()) {
+    return { error: 'Cette invitation est réservée à une autre adresse email.' }
+  }
+
+  const { data: authData, error: signUpError } = await admin.auth.admin.createUser({
+    email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: input.fullName.trim(),
+      phone: input.phone?.trim(),
+    },
+  })
+
+  if (signUpError || !authData.user) {
+    return { error: signUpError?.message ?? 'Création du compte impossible.' }
+  }
+
+  const userId = authData.user.id
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (admin as any).from('profiles').upsert({
+    id: userId,
+    email,
+    full_name: input.fullName.trim(),
+    phone: input.phone?.trim() || null,
+    preferred_language: 'fr',
+    default_role: invitation.role_code,
+  })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (admin as any).from('user_school_roles').insert({
+    user_id: userId,
+    school_id: invitation.school_id,
+    role_code: invitation.role_code,
+    is_active: true,
+  })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (admin as any)
+    .from('staff_invitations')
+    .update({ status: 'used', used_at: new Date().toISOString() })
+    .eq('id', invitation.id)
+
+  return { success: true as const, email }
 }

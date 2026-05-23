@@ -70,10 +70,10 @@ export default async function DashboardLayout({
   const schoolYear = (schoolYearRaw as Array<{ id: string; name: string }> | null)?.[0]
 
   const { count: unreadMessages } = await supabase
-    .from('messages')
+    .from('message_recipients')
     .select('id', { count: 'exact', head: true })
     .eq('recipient_id', user.id)
-    .eq('is_read', false)
+    .is('read_at', null)
 
   const { count: unreadNotifications } = await supabase
     .from('notifications')
@@ -102,6 +102,7 @@ export default async function DashboardLayout({
       topbar={{
         userName: fullName,
         userTitle: currentRole.replace(/_/g, ' '),
+        userRole: currentRole,
         userInitials: initials,
         schoolName: activeSchool?.name ?? 'EduNation',
         schoolYear: schoolYear?.name ?? '2025-2026',

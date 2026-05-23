@@ -33,7 +33,7 @@ export default async function ReportCardsPage() {
 
   const [reportCardsResult, yearsResult, classesResult] = await Promise.all([
     schoolId
-      ? supabase.from('report_cards').select('id, student_id, term, average, rank, is_published, is_locked, hash, created_at, students(first_name, last_name)').eq('school_id', schoolId).order('created_at', { ascending: false }).limit(50)
+      ? supabase.from('report_cards').select('id, student_id, term, term_id, average, rank, is_published, is_locked, hash, qr_hash, status, serial_number, created_at, students(first_name, last_name)').eq('school_id', schoolId).order('created_at', { ascending: false }).limit(50)
       : Promise.resolve({ data: null }),
     schoolId
       ? supabase.from('school_years').select('id, name').eq('school_id', schoolId).eq('is_active', true).limit(1)

@@ -1,5 +1,6 @@
 import { LandingNav } from '@/components/layout/landing-nav'
 import { LandingFooter } from '@/components/layout/landing-footer'
+import { EstablishmentLeaderSection } from '@/components/marketing/establishment-leader-section'
 import { FeaturesSection } from '@/components/marketing/features-section'
 import { HowItWorksSection } from '@/components/marketing/how-it-works-section'
 import { LandingAccessibilitySection } from '@/components/marketing/landing-accessibility-section'
@@ -25,6 +26,7 @@ export default function LandingPage() {
         <LandingStatsSection />
         <LandingProblemSolutionSection />
         <FeaturesSection />
+        <EstablishmentLeaderSection />
         <HowItWorksSection />
         <LandingAccessibilitySection />
         <LandingCtaSection />

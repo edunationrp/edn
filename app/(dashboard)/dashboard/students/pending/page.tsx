@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { redirect } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { PendingStudentActions } from '@/features/students/pending-student-actions'
@@ -15,7 +16,7 @@ export default async function PendingStudentsPage() {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) redirect('/login')
 
   const schoolRole = await getUserSchoolContext(user.id)
 

@@ -86,14 +86,6 @@ export function LandingAccessibilitySection() {
                     </button>
                   ))}
                 </div>
-
-                <button
-                  type="button"
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 py-3.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
-                >
-                  <Volume2 className="h-4 w-4 text-orange-500" />
-                  Lire cette page
-                </button>
               </div>
             </div>
           </ScrollReveal>
