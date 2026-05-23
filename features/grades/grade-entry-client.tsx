@@ -19,6 +19,7 @@ interface GradeEntryClientProps {
   classes: Array<{ id: string; name: string }>
   subjects: Array<{ id: string; name: string; coefficient: number }>
   currentYear: { id: string; name: string } | null
+  initialEvaluationId?: string
 }
 
 type StudentRow = {
@@ -54,6 +55,7 @@ export function GradeEntryClient({
   classes,
   subjects,
   currentYear,
+  initialEvaluationId,
 }: GradeEntryClientProps) {
   const supabase = createClient()
   const [selectedClass, setSelectedClass] = useState('')
@@ -75,6 +77,87 @@ export function GradeEntryClient({
     if (!selectedClass) return
     loadStudents()
   }, [selectedClass])
+
+  useEffect(() => {
+    if (!initialEvaluationId) return
+    loadExistingEvaluation(initialEvaluationId)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEvaluationId])
+
+  async function loadExistingEvaluation(evaluationId: string) {
+    const { data: evalRaw } = await supabase
+      .from('evaluations')
+      .select('id, title, eval_type, max_score, eval_date, term, class_id, subject_id, is_locked')
+      .eq('id', evaluationId)
+      .eq('school_id', schoolId)
+      .limit(1)
+
+    const evaluation = (
+      evalRaw as Array<{
+        id: string
+        title: string
+        eval_type: string
+        max_score: number
+        eval_date: string
+        term: string
+        class_id: string
+        subject_id: string
+        is_locked: boolean
+      }> | null
+    )?.[0]
+
+    if (!evaluation || evaluation.is_locked) return
+
+    setSelectedClass(evaluation.class_id)
+    setSelectedSubject(evaluation.subject_id)
+    setSelectedTerm(evaluation.term)
+    setEvalType(evaluation.eval_type)
+    setEvalTitle(evaluation.title)
+    setMaxScore(String(evaluation.max_score))
+    setEvalDate(evaluation.eval_date.split('T')[0])
+    setEvalId(evaluation.id)
+    setStep('entry')
+
+    const { data: gradesRaw } = await supabase
+      .from('grades')
+      .select('student_id, value')
+      .eq('evaluation_id', evaluation.id)
+
+    const gradeMap = Object.fromEntries(
+      ((gradesRaw ?? []) as Array<{ student_id: string; value: number }>).map(g => [g.student_id, g.value])
+    )
+
+    const { data: enrollmentsRaw } = await supabase
+      .from('student_enrollments')
+      .select('student_id')
+      .eq('school_id', schoolId)
+      .eq('class_id', evaluation.class_id)
+      .eq('school_year_id', currentYear?.id ?? '')
+
+    const ids = ((enrollmentsRaw ?? []) as Array<{ student_id: string }>).map(r => r.student_id)
+    if (ids.length === 0) return
+
+    const { data: studentsRaw } = await supabase
+      .from('students')
+      .select('id, first_name, last_name, iun')
+      .in('id', ids)
+      .order('last_name')
+
+    const studentList = (studentsRaw as StudentRow[] | null) ?? []
+    setStudents(studentList)
+
+    const initialGrades: Record<string, GradeEntry> = {}
+    for (const s of studentList) {
+      const existing = gradeMap[s.id]
+      initialGrades[s.id] = {
+        studentId: s.id,
+        value: existing !== undefined ? String(existing) : '',
+        saved: existing !== undefined,
+        error: null,
+      }
+    }
+    setGrades(initialGrades)
+  }
 
   async function loadStudents() {
     setIsLoadingStudents(true)

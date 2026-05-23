@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { getScopedStudentIds, canAccessFinance } from '@/lib/dashboard/role-scope'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -35,11 +36,19 @@ export default async function FinancePage() {
 
   const ctx = await getUserSchoolContext(user.id)
   const schoolId = ctx?.school_id
+  const isStaff = canAccessFinance(ctx?.role_code ?? '')
+  const scopedStudentIds = user && ctx ? await getScopedStudentIds(user.id, ctx.role_code) : null
+
+  let paymentsQuery = schoolId
+    ? supabase.from('payments').select('id, reference, amount, payment_method, status, created_at, student_id').eq('school_id', schoolId).order('created_at', { ascending: false }).limit(30)
+    : null
+
+  if (paymentsQuery && scopedStudentIds) {
+    paymentsQuery = paymentsQuery.in('student_id', scopedStudentIds)
+  }
 
   const [paymentsResult, feesResult, yearsResult] = await Promise.all([
-    schoolId
-      ? supabase.from('payments').select('id, reference, amount, payment_method, status, created_at, student_id').eq('school_id', schoolId).order('created_at', { ascending: false }).limit(30)
-      : Promise.resolve({ data: null }),
+    paymentsQuery ?? Promise.resolve({ data: null }),
     schoolId
       ? supabase.from('fee_structures').select('id, name, amount, is_mandatory, due_date').eq('school_id', schoolId).order('name')
       : Promise.resolve({ data: null }),
@@ -71,17 +80,19 @@ export default async function FinancePage() {
         actions={
           <>
             <Button variant="outline" size="sm" className="flex-1 sm:flex-none" asChild>
-              <Link href="/dashboard/finance">
+              <Link href="/dashboard/finance/payments">
                 <Download className="h-4 w-4 mr-1" />
-                Caisse
+                Historique
               </Link>
             </Button>
+            {isStaff && (
             <Button size="sm" className="flex-1 sm:flex-none" asChild>
               <Link href="/dashboard/finance/payments/new">
                 <Plus className="h-4 w-4 mr-1" />
                 Nouveau paiement
               </Link>
             </Button>
+            )}
           </>
         }
       />

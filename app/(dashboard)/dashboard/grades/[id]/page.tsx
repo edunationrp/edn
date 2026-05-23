@@ -58,7 +58,7 @@ export default async function EvaluationDetailPage({
         actions={
           !evaluation.is_locked ? (
             <Button size="sm" asChild className="w-full sm:w-auto">
-              <Link href="/dashboard/grades/entry">Saisir les notes</Link>
+              <Link href={`/dashboard/grades/entry?evaluationId=${id}`}>Saisir les notes</Link>
             </Button>
           ) : undefined
         }

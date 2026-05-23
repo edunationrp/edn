@@ -18,9 +18,17 @@ type StudentWithEnrollment = Tables<'students'> & {
 
 interface StudentsTableProps {
   students: StudentWithEnrollment[]
+  page?: number
+  totalPages?: number
+  totalCount?: number
 }
 
-export function StudentsTable({ students }: StudentsTableProps) {
+export function StudentsTable({
+  students,
+  page = 1,
+  totalPages = 1,
+  totalCount,
+}: StudentsTableProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
@@ -70,7 +78,11 @@ export function StudentsTable({ students }: StudentsTableProps) {
             const enrollment = student.student_enrollments?.[0]
             const className = enrollment?.classes?.name ?? '—'
             return (
-              <div key={student.id} className="flex items-start gap-3 p-4">
+              <Link
+                key={student.id}
+                href={`/dashboard/students/${student.id}`}
+                className="flex items-start gap-3 p-4 transition hover:bg-muted/20"
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                   {getInitials(`${student.first_name} ${student.last_name}`)}
                 </div>
@@ -89,7 +101,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
                     Inscrit le {formatDate(student.created_at)}
                   </p>
                 </div>
-              </div>
+              </Link>
             )
           })
         ) : (
@@ -119,9 +131,9 @@ export function StudentsTable({ students }: StudentsTableProps) {
                 const className = enrollment?.classes?.name ?? '—'
 
                 return (
-                  <tr key={student.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                  <tr key={student.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors cursor-pointer">
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
+                      <Link href={`/dashboard/students/${student.id}`} className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
                           {getInitials(`${student.first_name} ${student.last_name}`)}
                         </div>
@@ -131,7 +143,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
                             <p className="text-xs text-muted-foreground">{student.phone}</p>
                           )}
                         </div>
-                      </div>
+                      </Link>
                     </td>
                     <td className="py-3 px-4">
                       <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{student.iun}</code>
@@ -176,17 +188,30 @@ export function StudentsTable({ students }: StudentsTableProps) {
       {filtered.length > 0 && (
         <div className="p-4 border-t flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
+            Page {page} / {totalPages}
+            {totalCount !== undefined ? ` · ${totalCount} élève${totalCount > 1 ? 's' : ''}` : ''}
           </p>
           <div className="flex gap-1">
-            <Button variant="outline" size="icon-sm" disabled>
-              <ChevronLeft className="h-4 w-4" />
+            <Button variant="outline" size="icon-sm" disabled={page <= 1} asChild={page > 1}>
+              {page > 1 ? (
+                <Link href={`/dashboard/students?page=${page - 1}`}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Link>
+              ) : (
+                <span><ChevronLeft className="h-4 w-4" /></span>
+              )}
             </Button>
             <Button variant="outline" size="icon-sm" className="bg-primary text-white">
-              1
+              {page}
             </Button>
-            <Button variant="outline" size="icon-sm" disabled>
-              <ChevronRight className="h-4 w-4" />
+            <Button variant="outline" size="icon-sm" disabled={page >= totalPages} asChild={page < totalPages}>
+              {page < totalPages ? (
+                <Link href={`/dashboard/students?page=${page + 1}`}>
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                <span><ChevronRight className="h-4 w-4" /></span>
+              )}
             </Button>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { sendSchoolMessage, markMessageRead } from '@/lib/actions/messages'
+import { sendSchoolMessage, markMessageRead, searchSchoolMessageRecipients } from '@/lib/actions/messages'
 import { resolveProfileName } from '@/lib/profile/display-name'
 import { notify } from '@/lib/feedback/toast'
 import { TOAST_SUCCESS } from '@/lib/feedback/messages'
@@ -47,6 +47,7 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
 
   // Compose form
   const [recipientId, setRecipientId] = useState('')
+  const [recipientLabel, setRecipientLabel] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [searchUsers, setSearchUsers] = useState<Array<{ id: string; first_name: string; last_name: string }>>([])
@@ -68,21 +69,13 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
   }
 
   async function searchRecipients(query: string) {
-    if (query.length < 2) return
+    if (query.length < 2) {
+      setSearchUsers([])
+      return
+    }
     setIsSearchingUsers(true)
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, first_name, last_name')
-      .or(`full_name.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-      .neq('id', currentUserId)
-      .limit(10)
-    setSearchUsers(
-      ((data ?? []) as Array<{ id: string; full_name: string | null; first_name: string | null; last_name: string | null }>)
-        .map(p => {
-          const name = resolveProfileName(p)
-          return { id: p.id, first_name: name.first_name, last_name: name.last_name }
-        })
-    )
+    const results = await searchSchoolMessageRecipients(schoolId, query)
+    setSearchUsers(results)
     setIsSearchingUsers(false)
   }
 
@@ -271,7 +264,11 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
                         <button
                           key={u.id}
                           className="w-full text-left px-3 py-2 hover:bg-muted/50 text-sm border-b last:border-0"
-                          onClick={() => { setRecipientId(u.id); setSearchUsers([]) }}
+                          onClick={() => {
+                            setRecipientId(u.id)
+                            setRecipientLabel(`${u.first_name} ${u.last_name}`.trim())
+                            setSearchUsers([])
+                          }}
                         >
                           {u.first_name} {u.last_name}
                         </button>
@@ -280,8 +277,16 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
                   )}
                   {recipientId && (
                     <Badge className="bg-primary/10 text-primary">
-                      {searchUsers.find(u => u.id === recipientId)?.first_name ?? 'Sélectionné'}
-                      <button className="ml-2 text-xs" onClick={() => setRecipientId('')}>✕</button>
+                      {recipientLabel || 'Destinataire sélectionné'}
+                      <button
+                        className="ml-2 text-xs"
+                        onClick={() => {
+                          setRecipientId('')
+                          setRecipientLabel('')
+                        }}
+                      >
+                        ✕
+                      </button>
                     </Badge>
                   )}
                 </div>

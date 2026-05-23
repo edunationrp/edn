@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { insertRecord } from '@/lib/supabase/mutations'
+import { insertRecord, updateRecord } from '@/lib/supabase/mutations'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Save, Check, Clock, Loader2 } from 'lucide-react'
@@ -17,6 +17,7 @@ interface StudentAttendance {
   lastName: string
   iun: string
   status: AttendanceStatus
+  recordId?: string
 }
 
 interface AttendanceTakeClientProps {
@@ -83,17 +84,40 @@ export function AttendanceTakeClient({
 
     const students = (studentsRaw as Array<{ id: string; first_name: string; last_name: string; iun: string }> | null) ?? []
 
+    const today = new Date().toISOString().split('T')[0]
+    const { data: existingRaw } = selectedSubject
+      ? await supabase
+          .from('attendance_records')
+          .select('id, student_id, status')
+          .eq('school_id', schoolId)
+          .eq('class_id', classId)
+          .eq('subject_id', selectedSubject)
+          .gte('recorded_at', `${today}T00:00:00`)
+          .lte('recorded_at', `${today}T23:59:59`)
+      : { data: [] }
+
+    const existingByStudent = new Map(
+      ((existingRaw ?? []) as Array<{ id: string; student_id: string; status: AttendanceStatus }>).map(row => [
+        row.student_id,
+        row,
+      ])
+    )
+
     setAttendances(
-      students.map(s => ({
-        studentId: s.id,
-        firstName: s.first_name,
-        lastName: s.last_name,
-        iun: s.iun,
-        status: 'present' as AttendanceStatus,
-      }))
+      students.map(s => {
+        const existing = existingByStudent.get(s.id)
+        return {
+          studentId: s.id,
+          firstName: s.first_name,
+          lastName: s.last_name,
+          iun: s.iun,
+          status: existing?.status ?? ('present' as AttendanceStatus),
+          recordId: existing?.id,
+        }
+      })
     )
     setLoadingStudents(false)
-  }, [schoolId, schoolYearId, supabase])
+  }, [schoolId, schoolYearId, selectedSubject, supabase])
 
   useEffect(() => {
     if (selectedClass) {
@@ -101,7 +125,7 @@ export function AttendanceTakeClient({
     } else {
       setAttendances([])
     }
-  }, [selectedClass, loadStudents])
+  }, [selectedClass, selectedSubject, loadStudents])
 
   const cycleStatus = (studentId: string) => {
     const cycle: AttendanceStatus[] = ['present', 'absent', 'late', 'sick', 'excused']
@@ -139,18 +163,34 @@ export function AttendanceTakeClient({
     try {
       const recordedAt = new Date().toISOString()
       for (const a of attendances) {
-        const { error } = await insertRecord('attendance_records', {
-          school_id: schoolId,
-          school_year_id: schoolYearId,
-          class_id: selectedClass,
-          subject_id: selectedSubject,
-          student_id: a.studentId,
-          teacher_id: teacherId,
-          status: a.status,
-          recorded_at: recordedAt,
-          source: 'web',
-        })
-        if (error) throw new Error(error.message)
+        if (a.recordId) {
+          const { error } = await updateRecord(
+            'attendance_records',
+            { status: a.status, recorded_at: recordedAt },
+            { id: a.recordId }
+          )
+          if (error) throw new Error(error.message)
+        } else {
+          const { data, error } = await insertRecord<{ id: string }>(
+            'attendance_records',
+            {
+              school_id: schoolId,
+              school_year_id: schoolYearId,
+              class_id: selectedClass,
+              subject_id: selectedSubject,
+              student_id: a.studentId,
+              teacher_id: teacherId,
+              status: a.status,
+              recorded_at: recordedAt,
+              source: 'web',
+            },
+            'id'
+          )
+          if (error) throw new Error(error.message)
+          if (data?.[0]?.id) {
+            a.recordId = data[0].id
+          }
+        }
       }
 
       setSaved(true)
