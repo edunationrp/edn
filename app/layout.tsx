@@ -15,10 +15,16 @@ export const metadata: Metadata = {
   keywords: ['école', 'gestion scolaire', 'Burkina Faso', 'bulletins', 'notes', 'EduNation'],
   authors: [{ name: 'EduNation' }],
   manifest: '/manifest.json',
+  applicationName: 'EduNation',
+  appleWebApp: {
+    capable: true,
+    title: 'EduNation',
+    statusBarStyle: 'default',
+  },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#1a4d2e',
+  themeColor: '#1B3A6B',
   width: 'device-width',
   initialScale: 1,
 }
