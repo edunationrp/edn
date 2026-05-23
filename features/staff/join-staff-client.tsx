@@ -121,11 +121,13 @@ export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaff
               Connectez-vous ou créez un compte pour accepter l&apos;invitation.
             </p>
             <Button asChild className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]">
-              <Link href={`/login?redirect=/join/staff/${token}`}>Se connecter</Link>
+              <Link href={`/login?redirect=${encodeURIComponent(`/join/staff/${token}`)}`}>
+                Se connecter pour accepter
+              </Link>
             </Button>
-            <Button variant="outline" asChild className="w-full">
-              <Link href={`/register/school?redirect=/join/staff/${token}`}>Créer un compte</Link>
-            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Pas encore de compte ? Demandez au directeur de vous renvoyer une invitation après création de compte.
+            </p>
           </div>
         ) : (
           <Button

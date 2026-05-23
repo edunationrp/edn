@@ -106,3 +106,41 @@ export function getStatusLabel(status: string): string {
   }
   return labels[status] ?? status
 }
+
+/** Copie texte avec repli textarea (contextes non-HTTPS). */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      // fallback below
+    }
+  }
+
+  if (typeof document === 'undefined') return false
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+  try {
+    document.execCommand('copy')
+    return true
+  } catch {
+    return false
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
+
+export function buildInviteMailto(email: string, schoolName: string, roleLabel: string, inviteUrl: string) {
+  const subject = encodeURIComponent(`Invitation à rejoindre ${schoolName} sur EduNation`)
+  const body = encodeURIComponent(
+    `Bonjour,\n\nVous êtes invité(e) à rejoindre ${schoolName} en tant que ${roleLabel} sur EduNation.\n\nAcceptez votre invitation via ce lien sécurisé :\n${inviteUrl}\n\nCe lien est personnel et expire sous 7 jours.\n\nCordialement`
+  )
+  return `mailto:${email}?subject=${subject}&body=${body}`
+}

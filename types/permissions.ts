@@ -86,7 +86,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   FONDATEUR: [
     'schools:read', 'schools:create', 'schools:update',
-    'staff:read', 'staff:activate', 'staff:deactivate',
+    'staff:read', 'staff:invite', 'staff:activate', 'staff:deactivate',
     'students:read', 'parents:read', 'classes:read', 'subjects:read',
     'grades:read_all', 'attendance:read',
     'finance:read', 'report_cards:read',

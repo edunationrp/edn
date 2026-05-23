@@ -16,7 +16,41 @@ export const metadata: Metadata = {
   title: 'Rôles & Permissions — EduNation',
 }
 
-async function loadInvitations(schoolId: string) {
+async function loadInvitations(
+  schoolId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>
+) {
+  const mapRows = (rows: Array<{
+    id: string
+    role_code: string
+    status: string
+    token: string
+    expires_at: string
+    invited_email: string | null
+    invited_name: string | null
+  }> | null) =>
+    rows?.map(row => ({
+      id: row.id,
+      roleCode: row.role_code,
+      status: row.status,
+      token: row.token,
+      expiresAt: row.expires_at,
+      invitedEmail: row.invited_email,
+      invitedName: row.invited_name,
+    })) ?? []
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: userData, error: userError } = await (supabase as any)
+    .from('staff_invitations')
+    .select('id, role_code, status, token, expires_at, invited_email, invited_name')
+    .eq('school_id', schoolId)
+    .order('expires_at', { ascending: false })
+    .limit(50)
+
+  if (!userError && userData) {
+    return mapRows(userData)
+  }
+
   try {
     const admin = createAdminClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,23 +61,7 @@ async function loadInvitations(schoolId: string) {
       .order('expires_at', { ascending: false })
       .limit(50)
 
-    return (data as Array<{
-      id: string
-      role_code: string
-      status: string
-      token: string
-      expires_at: string
-      invited_email: string | null
-      invited_name: string | null
-    }> | null)?.map(row => ({
-      id: row.id,
-      roleCode: row.role_code,
-      status: row.status,
-      token: row.token,
-      expiresAt: row.expires_at,
-      invitedEmail: row.invited_email,
-      invitedName: row.invited_name,
-    })) ?? []
+    return mapRows(data)
   } catch {
     return []
   }
@@ -75,7 +93,7 @@ export default async function RolesPermissionsPage() {
       `)
       .eq('school_id', schoolId)
       .order('created_at', { ascending: false }),
-    canManage ? loadInvitations(schoolId) : Promise.resolve([]),
+    canManage ? loadInvitations(schoolId, supabase) : Promise.resolve([]),
   ])
 
   const schoolName = (schoolResult.data as Array<{ name: string }> | null)?.[0]?.name ?? 'Mon établissement'

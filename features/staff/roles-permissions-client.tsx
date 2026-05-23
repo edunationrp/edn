@@ -6,7 +6,8 @@ import Link from 'next/link'
 import {
   Shield, Users, Grid3X3, UserPlus, GitCompare, Check, X, Minus,
   Copy, Mail, ChevronDown, ChevronUp, Search, Crown, Sparkles,
-  Link2, Ban, RefreshCw, AlertTriangle,
+  Link2, Ban, RefreshCw, AlertTriangle, ExternalLink, ArrowLeftRight,
+  UnfoldVertical, FoldVertical, Eye,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,8 +22,9 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { notify } from '@/lib/feedback/toast'
-import { getInitials, formatDate, cn } from '@/lib/utils'
+import { getInitials, formatDate, cn, copyToClipboard, buildInviteMailto } from '@/lib/utils'
 import {
   PERMISSION_GROUPS,
   MATRIX_ROLES,
@@ -39,11 +41,19 @@ import type { RolesPermissionsPayload } from '@/features/staff/roles-permissions
 import {
   cancelStaffInvitation,
   createStaffInvitation,
+  resendStaffInvitationEmail,
   setStaffMemberActive,
   updateStaffMemberRole,
 } from '@/lib/actions/staff'
+import { ROLE_PERMISSIONS } from '@/types/permissions'
 
 type TabId = 'overview' | 'matrix' | 'team' | 'invitations' | 'compare'
+
+type ConfirmState =
+  | { type: 'deactivate'; memberId: string; memberName: string }
+  | { type: 'cancel-invite'; inviteId: string; label: string }
+  | { type: 'change-role'; memberId: string; memberName: string; newRole: UserRole; oldRole: UserRole }
+  | null
 
 const TAB_ITEMS: Array<{ id: TabId; label: string; icon: React.ReactNode }> = [
   { id: 'overview', label: 'Vue d\'ensemble', icon: <Sparkles className="h-4 w-4" /> },
@@ -130,6 +140,27 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
     sendEmail: true,
   })
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null)
+  const [confirmState, setConfirmState] = useState<ConfirmState>(null)
+  const [pendingKey, setPendingKey] = useState<string | null>(null)
+  const [roleDetailOpen, setRoleDetailOpen] = useState(false)
+
+  const handleTabChange = useCallback((tab: TabId) => {
+    setActiveTab(tab)
+    const params = new URLSearchParams(searchParams.toString())
+    if (tab === 'overview') params.delete('tab')
+    else params.set('tab', tab)
+    const qs = params.toString()
+    router.replace(qs ? `/dashboard/staff/roles-permissions?${qs}` : '/dashboard/staff/roles-permissions', {
+      scroll: false,
+    })
+  }, [router, searchParams])
+
+  const focusRoleInMatrix = useCallback((role: UserRole) => {
+    setSelectedRoleDetail(role)
+    setMatrixRoles(prev => (prev.includes(role) ? prev : [...prev, role]))
+    setSearchQuery('')
+    handleTabChange('matrix')
+  }, [handleTabChange])
 
   const filteredGroups = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -168,29 +199,86 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
   }, [compareA, compareB])
 
   const runAction = useCallback((
+    actionKey: string,
     action: () => Promise<{ error?: string; success?: boolean; inviteUrl?: string }>,
     successMsg: string,
     onSuccess?: (result: { inviteUrl?: string }) => void
   ) => {
+    setPendingKey(actionKey)
     startTransition(async () => {
-      const result = await action()
-      if (result.error) {
-        notify.error(result.error, 'staff')
-        return
+      try {
+        const result = await action()
+        if (result.error) {
+          notify.error(result.error, 'staff')
+          return
+        }
+        notify.success(successMsg)
+        if (result.inviteUrl) setLastInviteUrl(result.inviteUrl)
+        onSuccess?.(result)
+        router.refresh()
+      } finally {
+        setPendingKey(null)
       }
-      notify.success(successMsg)
-      if (result.inviteUrl) setLastInviteUrl(result.inviteUrl)
-      onSuccess?.(result)
-      router.refresh()
     })
   }, [router])
 
-  async function copyInviteUrl(url: string) {
-    try {
-      await navigator.clipboard.writeText(url)
-      notify.success('Lien copié dans le presse-papiers')
-    } catch {
-      notify.error('Impossible de copier le lien')
+  async function handleCopyInviteUrl(url: string) {
+    const ok = await copyToClipboard(url)
+    if (ok) notify.success('Lien copié dans le presse-papiers')
+    else notify.error('Impossible de copier le lien — copiez-le manuellement.')
+  }
+
+  function toggleMatrixRole(role: UserRole) {
+    setMatrixRoles(prev => {
+      if (prev.includes(role)) {
+        if (prev.length <= 1) {
+          notify.warning('Au moins une colonne doit rester visible.')
+          return prev
+        }
+        return prev.filter(r => r !== role)
+      }
+      return [...prev, role]
+    })
+  }
+
+  function expandAllGroups(expand: boolean) {
+    const next = PERMISSION_GROUPS.reduce((acc, g) => {
+      acc[g.id] = expand
+      return acc
+    }, {} as Record<string, boolean>)
+    setExpandedGroups(next)
+  }
+
+  function handleConfirmAction() {
+    if (!confirmState) return
+
+    if (confirmState.type === 'deactivate') {
+      runAction(
+        `deactivate-${confirmState.memberId}`,
+        () => setStaffMemberActive(confirmState.memberId, false),
+        'Membre désactivé',
+        () => setConfirmState(null)
+      )
+      return
+    }
+
+    if (confirmState.type === 'cancel-invite') {
+      runAction(
+        `cancel-${confirmState.inviteId}`,
+        () => cancelStaffInvitation(confirmState.inviteId),
+        'Invitation annulée',
+        () => setConfirmState(null)
+      )
+      return
+    }
+
+    if (confirmState.type === 'change-role') {
+      runAction(
+        `role-${confirmState.memberId}`,
+        () => updateStaffMemberRole(confirmState.memberId, confirmState.newRole),
+        'Rôle mis à jour',
+        () => setConfirmState(null)
+      )
     }
   }
 
@@ -225,21 +313,26 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
           </div>
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {[
-              { label: 'Membres', value: data.members.filter(m => m.isActive).length },
-              { label: 'Rôles actifs', value: Object.keys(data.roleCounts).length },
-              { label: 'Invitations', value: pendingInvites.length },
+              { label: 'Membres', value: data.members.filter(m => m.isActive).length, tab: 'team' as TabId },
+              { label: 'Rôles actifs', value: Object.keys(data.roleCounts).length, tab: 'overview' as TabId },
+              { label: 'Invitations', value: pendingInvites.length, tab: 'invitations' as TabId },
             ].map(stat => (
-              <div key={stat.label} className="rounded-xl border bg-white/80 px-3 py-2 text-center backdrop-blur-sm">
+              <button
+                key={stat.label}
+                type="button"
+                onClick={() => handleTabChange(stat.tab)}
+                className="rounded-xl border bg-white/80 px-3 py-2 text-center backdrop-blur-sm transition-all hover:border-[#1a4d2e]/30 hover:shadow-sm"
+              >
                 <p className="text-xl font-bold text-[#1a4d2e]">{stat.value}</p>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{stat.label}</p>
-              </div>
+              </button>
             ))}
           </div>
         </div>
         <Shield className="pointer-events-none absolute -right-4 -top-4 h-32 w-32 text-[#1a4d2e]/5" />
       </div>
 
-      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as TabId)}>
+      <Tabs value={activeTab} onValueChange={v => handleTabChange(v as TabId)}>
         <TabsList className="h-auto w-full flex-wrap justify-start gap-1 p-1">
           {TAB_ITEMS.map(tab => (
             <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
@@ -260,18 +353,12 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {MATRIX_ROLES.map(role => {
               const count = data.roleCounts[role] ?? 0
-              const coverage = getPermissionCoverage(role)
               const isDirector = role === 'PROVISEUR'
               return (
-                <button
+                <div
                   key={role}
-                  type="button"
-                  onClick={() => {
-                    setSelectedRoleDetail(role)
-                    setActiveTab('matrix')
-                  }}
                   className={cn(
-                    'rounded-xl border p-4 text-left transition-all hover:shadow-md',
+                    'rounded-xl border p-4 text-left transition-all',
                     isDirector && 'border-[#1a4d2e]/30 bg-[#1a4d2e]/5 ring-1 ring-[#1a4d2e]/10',
                     selectedRoleDetail === role && 'ring-2 ring-primary'
                   )}
@@ -291,7 +378,32 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                   <p className="mt-2 text-xs font-medium text-muted-foreground">
                     {count} membre{count !== 1 ? 's' : ''} actif{count !== 1 ? 's' : ''}
                   </p>
-                </button>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      onClick={() => focusRoleInMatrix(role)}
+                    >
+                      <Grid3X3 className="h-3 w-3" />
+                      Matrice
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        setSelectedRoleDetail(role)
+                        setRoleDetailOpen(true)
+                      }}
+                    >
+                      <Eye className="h-3 w-3" />
+                      Détails
+                    </Button>
+                  </div>
+                </div>
               )
             })}
           </div>
@@ -307,7 +419,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                 </div>
                 <Button
                   className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto"
-                  onClick={() => setActiveTab('invitations')}
+                  onClick={() => handleTabChange('invitations')}
                 >
                   <UserPlus className="h-4 w-4" />
                   Nouvelle invitation
@@ -340,29 +452,41 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <Label className="w-full text-xs text-muted-foreground">Colonnes affichées :</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Label className="w-full text-xs text-muted-foreground sm:w-auto">Colonnes :</Label>
                 {MATRIX_ROLES.map(role => (
                   <button
                     key={role}
                     type="button"
-                    onClick={() =>
-                      setMatrixRoles(prev =>
-                        prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
-                      )
-                    }
+                    onClick={() => toggleMatrixRole(role)}
+                    aria-pressed={matrixRoles.includes(role)}
                     className={cn(
                       'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
                       matrixRoles.includes(role)
                         ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-muted bg-muted/30 text-muted-foreground'
+                        : 'border-muted bg-muted/30 text-muted-foreground hover:bg-muted/50'
                     )}
                   >
                     {ROLE_LABELS[role]}
                   </button>
                 ))}
+                <div className="ml-auto flex gap-1">
+                  <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => expandAllGroups(true)}>
+                    <UnfoldVertical className="h-3 w-3" />
+                    Tout ouvrir
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => expandAllGroups(false)}>
+                    <FoldVertical className="h-3 w-3" />
+                    Tout fermer
+                  </Button>
+                </div>
               </div>
 
+              {filteredGroups.length === 0 ? (
+                <div className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">
+                  Aucune permission ne correspond à « {searchQuery} »
+                </div>
+              ) : (
               <div className="overflow-x-auto rounded-xl border">
                 <table className="w-full min-w-[640px] text-sm">
                   <thead>
@@ -421,6 +545,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                   </tbody>
                 </table>
               </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -495,13 +620,18 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                           {canEdit && (
                             <div className="flex flex-wrap items-center gap-2">
                               <Select
+                                key={`${member.id}-${member.roleCode}`}
                                 value={member.roleCode}
-                                onValueChange={newRole =>
-                                  runAction(
-                                    () => updateStaffMemberRole(member.id, newRole),
-                                    'Rôle mis à jour'
-                                  )
-                                }
+                                onValueChange={newRole => {
+                                  if (newRole === member.roleCode) return
+                                  setConfirmState({
+                                    type: 'change-role',
+                                    memberId: member.id,
+                                    memberName: member.fullName,
+                                    oldRole: member.roleCode,
+                                    newRole: newRole as UserRole,
+                                  })
+                                }}
                                 disabled={isPending}
                               >
                                 <SelectTrigger className="h-8 w-[140px] text-xs">
@@ -520,13 +650,22 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                                 <Switch
                                   id={`active-${member.id}`}
                                   checked={member.isActive}
-                                  disabled={isPending}
-                                  onCheckedChange={v =>
-                                    runAction(
-                                      () => setStaffMemberActive(member.id, v),
-                                      v ? 'Membre activé' : 'Membre désactivé'
-                                    )
-                                  }
+                                  disabled={isPending || pendingKey === `active-${member.id}`}
+                                  onCheckedChange={v => {
+                                    if (v) {
+                                      runAction(
+                                        `active-${member.id}`,
+                                        () => setStaffMemberActive(member.id, true),
+                                        'Membre activé'
+                                      )
+                                      return
+                                    }
+                                    setConfirmState({
+                                      type: 'deactivate',
+                                      memberId: member.id,
+                                      memberName: member.fullName,
+                                    })
+                                  }}
                                 />
                               </div>
                             </div>
@@ -564,13 +703,16 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                     onSubmit={e => {
                       e.preventDefault()
                       runAction(
+                        'create-invite',
                         () => createStaffInvitation({
                           roleCode: inviteForm.roleCode,
                           invitedEmail: inviteForm.email || undefined,
                           invitedName: inviteForm.name || undefined,
                           sendEmail: inviteForm.sendEmail && !!inviteForm.email,
                         }),
-                        'Invitation créée',
+                        inviteForm.sendEmail && inviteForm.email
+                          ? 'Invitation créée et email envoyé'
+                          : 'Invitation créée',
                         r => { if (r.inviteUrl) setLastInviteUrl(r.inviteUrl) }
                       )
                     }}
@@ -622,7 +764,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                       onCheckedChange={v => setInviteForm(f => ({ ...f, sendEmail: v }))}
                       disabled={!inviteForm.email}
                     />
-                    <Button type="submit" disabled={isPending} className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto">
+                    <Button type="submit" disabled={isPending} loading={pendingKey === 'create-invite'} className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto">
                       <Link2 className="h-4 w-4" />
                       {isPending ? 'Création…' : 'Générer le lien d\'invitation'}
                     </Button>
@@ -637,10 +779,22 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                         size="sm"
                         variant="outline"
                         className="mt-2"
-                        onClick={() => copyInviteUrl(lastInviteUrl)}
+                        onClick={() => handleCopyInviteUrl(lastInviteUrl)}
                       >
                         <Copy className="h-3 w-3" />
                         Copier le lien
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 ml-2"
+                        asChild
+                      >
+                        <a href={lastInviteUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3 w-3" />
+                          Ouvrir
+                        </a>
                       </Button>
                     </div>
                   )}
@@ -690,17 +844,51 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => copyInviteUrl(url)}
+                                onClick={() => handleCopyInviteUrl(url)}
+                                aria-label="Copier le lien d'invitation"
                               >
                                 <Copy className="h-3 w-3" />
                                 Copier
                               </Button>
+                              <Button size="sm" variant="outline" asChild>
+                                <a href={url} target="_blank" rel="noopener noreferrer" aria-label="Ouvrir le lien">
+                                  <ExternalLink className="h-3 w-3" />
+                                  Ouvrir
+                                </a>
+                              </Button>
                               {invite.invitedEmail && (
-                                <Button size="sm" variant="outline" asChild>
-                                  <a href={`mailto:${invite.invitedEmail}`}>
-                                    <Mail className="h-3 w-3" />
-                                  </a>
-                                </Button>
+                                <>
+                                  <Button size="sm" variant="outline" asChild>
+                                    <a
+                                      href={buildInviteMailto(
+                                        invite.invitedEmail,
+                                        data.schoolName,
+                                        ROLE_LABELS[invite.roleCode as UserRole] ?? invite.roleCode,
+                                        url
+                                      )}
+                                      aria-label="Envoyer par email"
+                                    >
+                                      <Mail className="h-3 w-3" />
+                                      Email
+                                    </a>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    loading={pendingKey === `resend-${invite.id}`}
+                                    disabled={isPending}
+                                    onClick={() =>
+                                      runAction(
+                                        `resend-${invite.id}`,
+                                        () => resendStaffInvitationEmail(invite.id),
+                                        'Email renvoyé'
+                                      )
+                                    }
+                                  >
+                                    <RefreshCw className="h-3 w-3" />
+                                    Renvoyer
+                                  </Button>
+                                </>
                               )}
                               <Button
                                 size="sm"
@@ -708,10 +896,11 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                                 className="text-red-600 hover:text-red-700"
                                 disabled={isPending}
                                 onClick={() =>
-                                  runAction(
-                                    () => cancelStaffInvitation(invite.id),
-                                    'Invitation annulée'
-                                  )
+                                  setConfirmState({
+                                    type: 'cancel-invite',
+                                    inviteId: invite.id,
+                                    label: invite.invitedName || invite.invitedEmail || 'cette invitation',
+                                  })
                                 }
                               >
                                 <Ban className="h-3 w-3" />
@@ -753,7 +942,23 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                   <CoverageBar role={compareA} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Rôle B</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Rôle B</Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 gap-1 text-xs"
+                      onClick={() => {
+                        setCompareA(compareB)
+                        setCompareB(compareA)
+                      }}
+                      aria-label="Inverser les rôles"
+                    >
+                      <ArrowLeftRight className="h-3 w-3" />
+                      Inverser
+                    </Button>
+                  </div>
                   <Select value={compareB} onValueChange={v => setCompareB(v as UserRole)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -829,6 +1034,70 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog
+        open={!!confirmState}
+        onOpenChange={open => { if (!open) setConfirmState(null) }}
+        title={
+          confirmState?.type === 'deactivate'
+            ? 'Désactiver ce membre ?'
+            : confirmState?.type === 'cancel-invite'
+              ? 'Annuler l\'invitation ?'
+              : 'Changer le rôle ?'
+        }
+        description={
+          confirmState?.type === 'deactivate'
+            ? `${confirmState.memberName} ne pourra plus accéder à l'établissement tant que son compte est inactif.`
+            : confirmState?.type === 'cancel-invite'
+              ? `Le lien d'invitation pour ${confirmState.label} ne sera plus utilisable.`
+              : confirmState
+                ? `Attribuer le rôle « ${ROLE_LABELS[confirmState.newRole]} » à ${confirmState.memberName} (actuellement ${ROLE_LABELS[confirmState.oldRole]}) ?`
+                : ''
+        }
+        confirmLabel={
+          confirmState?.type === 'deactivate'
+            ? 'Désactiver'
+            : confirmState?.type === 'cancel-invite'
+              ? 'Annuler l\'invitation'
+              : 'Confirmer le changement'
+        }
+        variant={confirmState?.type === 'deactivate' || confirmState?.type === 'cancel-invite' ? 'destructive' : 'default'}
+        loading={!!pendingKey && !!confirmState}
+        onConfirm={handleConfirmAction}
+      />
+
+      <Dialog open={roleDetailOpen} onOpenChange={setRoleDetailOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Badge className={ROLE_COLORS[selectedRoleDetail]}>{ROLE_LABELS[selectedRoleDetail]}</Badge>
+            </DialogTitle>
+            <DialogDescription>{ROLE_DESCRIPTIONS[selectedRoleDetail]}</DialogDescription>
+          </DialogHeader>
+          <CoverageBar role={selectedRoleDetail} />
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Permissions accordées</p>
+            <ul className="max-h-64 space-y-1 overflow-y-auto rounded-lg border p-2">
+              {(ROLE_PERMISSIONS[selectedRoleDetail] ?? []).map(perm => (
+                <li key={perm} className="flex items-center gap-2 rounded px-2 py-1 text-xs even:bg-muted/20">
+                  <Check className="h-3 w-3 shrink-0 text-green-600" />
+                  {perm}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Button
+            type="button"
+            className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"
+            onClick={() => {
+              setRoleDetailOpen(false)
+              focusRoleInMatrix(selectedRoleDetail)
+            }}
+          >
+            Voir dans la matrice
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -37,6 +37,10 @@ function getAdminOrClient() {
   }
 }
 
+function getWritableDb(base: { supabase: Awaited<ReturnType<typeof createClient>> }) {
+  return getAdminOrClient() ?? base.supabase
+}
+
 export async function createStaffInvitation(data: {
   roleCode: string
   invitedEmail?: string
@@ -51,13 +55,13 @@ export async function createStaffInvitation(data: {
   }
 
   const admin = getAdminOrClient()
-  if (!admin) return { error: 'Service d\'invitation indisponible.' }
+  const db = admin ?? base.supabase
 
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + 7)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: invitation, error } = await (admin as any)
+  const { data: invitation, error } = await (db as any)
     .from('staff_invitations')
     .insert({
       school_id: base.schoolId,
@@ -108,11 +112,10 @@ export async function cancelStaffInvitation(invitationId: string) {
   const base = await requireStaffAccess('staff:invite')
   if ('error' in base) return base
 
-  const admin = getAdminOrClient()
-  if (!admin) return { error: 'Service indisponible.' }
+  const db = getWritableDb(base)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await (db as any)
     .from('staff_invitations')
     .update({ status: 'cancelled' })
     .eq('id', invitationId)
@@ -125,12 +128,72 @@ export async function cancelStaffInvitation(invitationId: string) {
   return { success: true }
 }
 
+export async function resendStaffInvitationEmail(invitationId: string) {
+  const base = await requireStaffAccess('staff:invite')
+  if ('error' in base) return base
+
+  const db = getAdminOrClient() ?? base.supabase
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: inviteRaw } = await (db as any)
+    .from('staff_invitations')
+    .select('id, token, role_code, invited_email, invited_name, status, expires_at')
+    .eq('id', invitationId)
+    .eq('school_id', base.schoolId)
+    .limit(1)
+
+  const invitation = (inviteRaw as Array<{
+    id: string
+    token: string
+    role_code: string
+    invited_email: string | null
+    status: string
+    expires_at: string
+  }> | null)?.[0]
+
+  if (!invitation) return { error: 'Invitation introuvable.' }
+  if (invitation.status !== 'pending') return { error: 'Cette invitation n\'est plus active.' }
+  if (new Date(invitation.expires_at) < new Date()) return { error: 'Invitation expirée.' }
+  if (!invitation.invited_email?.trim()) {
+    return { error: 'Aucun email associé à cette invitation.' }
+  }
+
+  const inviteUrl = `${resolveAppUrl()}/join/staff/${invitation.token}`
+
+  const { data: schoolRaw } = await base.supabase
+    .from('schools')
+    .select('name')
+    .eq('id', base.schoolId)
+    .limit(1)
+
+  const schoolName = (schoolRaw as Array<{ name: string }> | null)?.[0]?.name ?? 'Votre établissement'
+  const { data: inviterRaw } = await base.supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', base.user.id)
+    .limit(1)
+
+  const inviterName = (inviterRaw as Array<{ full_name: string | null }> | null)?.[0]?.full_name ?? 'Le directeur'
+
+  const emailResult = await sendStaffInviteEmail(invitation.invited_email.trim(), {
+    inviterName,
+    schoolName,
+    roleLabel: ROLE_LABELS[invitation.role_code as UserRole] ?? invitation.role_code,
+    inviteUrl,
+  })
+
+  if (!emailResult.ok) {
+    return { error: 'error' in emailResult ? emailResult.error : 'Envoi email impossible.' }
+  }
+
+  return { success: true, inviteUrl }
+}
+
 export async function setStaffMemberActive(memberRoleId: string, isActive: boolean) {
   const base = await requireStaffAccess(isActive ? 'staff:activate' : 'staff:deactivate')
   if ('error' in base) return base
 
-  const admin = getAdminOrClient()
-  const db = admin ?? base.supabase
+  const db = getWritableDb(base)
 
   const { data: memberRaw } = await db
     .from('user_school_roles')
@@ -176,8 +239,7 @@ export async function updateStaffMemberRole(memberRoleId: string, newRoleCode: s
     return { error: 'Rôle cible invalide.' }
   }
 
-  const admin = getAdminOrClient()
-  const db = admin ?? base.supabase
+  const db = getWritableDb(base)
 
   const { data: memberRaw } = await db
     .from('user_school_roles')
