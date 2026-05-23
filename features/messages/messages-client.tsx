@@ -2,7 +2,8 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { insertRecord } from '@/lib/supabase/mutations'
+import { sendSchoolMessage, markMessageRead } from '@/lib/actions/messages'
+import { resolveProfileName } from '@/lib/profile/display-name'
 import { notify } from '@/lib/feedback/toast'
 import { TOAST_SUCCESS } from '@/lib/feedback/messages'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -55,8 +56,8 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
   const audioChunksRef = useRef<Blob[]>([])
 
   async function markAsRead(messageId: string) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('messages').update({ is_read: true }).eq('id', messageId)
+    const result = await markMessageRead(messageId)
+    if ('error' in result && result.error) return
     setMessages(prev => prev.map(m => m.id === messageId ? { ...m, is_read: true } : m))
   }
 
@@ -71,11 +72,17 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
     setIsSearchingUsers(true)
     const { data } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name')
-      .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+      .select('id, full_name, first_name, last_name')
+      .or(`full_name.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
       .neq('id', currentUserId)
       .limit(10)
-    setSearchUsers((data as Array<{ id: string; first_name: string; last_name: string }> | null) ?? [])
+    setSearchUsers(
+      ((data ?? []) as Array<{ id: string; full_name: string | null; first_name: string | null; last_name: string | null }>)
+        .map(p => {
+          const name = resolveProfileName(p)
+          return { id: p.id, first_name: name.first_name, last_name: name.last_name }
+        })
+    )
     setIsSearchingUsers(false)
   }
 
@@ -83,20 +90,17 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
     if (!recipientId || !subject || !body) return
     setIsSending(true)
 
-    const { error } = await insertRecord('messages', {
-      sender_id: currentUserId,
-      recipient_id: recipientId,
-      school_id: schoolId,
+    const result = await sendSchoolMessage({
+      schoolId,
+      recipientId,
       subject,
       body,
-      is_read: false,
-      has_audio: false,
     })
 
     setIsSending(false)
 
-    if (error) {
-      notify.error(error, 'message_send')
+    if ('error' in result && result.error) {
+      notify.error(result.error, 'message_send')
       return
     }
 

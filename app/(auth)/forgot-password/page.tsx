@@ -48,12 +48,12 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="text-center space-y-4">
+      <div className="space-y-3 text-center">
         <div className="flex justify-center">
-          <CheckCircle className="h-16 w-16 text-green-500" />
+          <CheckCircle className="h-12 w-12 text-green-500" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900">Email envoyé !</h2>
-        <p className="text-muted-foreground text-sm">
+        <h2 className="text-lg font-bold text-gray-900">Email envoyé !</h2>
+        <p className="text-xs text-muted-foreground">
           Vérifiez votre boîte mail et cliquez sur le lien de réinitialisation.
         </p>
         <Link href="/login" className="inline-flex items-center gap-2 text-primary hover:underline text-sm">
@@ -66,17 +66,17 @@ export default function ForgotPasswordPage() {
 
   return (
     <>
-      <Link href="/login" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm mb-6">
-        <ArrowLeft className="h-4 w-4" />
+      <Link href="/login" className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-3.5 w-3.5" />
         Retour
       </Link>
 
-      <h2 className="text-2xl font-bold text-gray-900 mb-1">Mot de passe oublié</h2>
-      <p className="text-muted-foreground text-sm mb-6">
+      <h2 className="mb-0.5 text-lg font-bold text-gray-900">Mot de passe oublié</h2>
+      <p className="mb-4 text-xs text-muted-foreground">
         Entrez votre email pour recevoir un lien de réinitialisation.
       </p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
           <div className="relative">
@@ -85,7 +85,7 @@ export default function ForgotPasswordPage() {
               id="email"
               type="email"
               placeholder="votre@email.com"
-              className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="flex h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               {...register('email')}
             />
           </div>

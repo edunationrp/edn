@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/client'
-import { insertRecord } from '@/lib/supabase/mutations'
+import { enrollStudentStaff } from '@/lib/actions/enrollment'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,7 +47,6 @@ export function StudentEnrollmentForm({
   levels,
 }: StudentEnrollmentFormProps) {
   const router = useRouter()
-  const supabase = createClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successData, setSuccessData] = useState<{ iun: string; name: string } | null>(null)
   const [parentHasPhone, setParentHasPhone] = useState(true)
@@ -65,59 +63,36 @@ export function StudentEnrollmentForm({
     setIsSubmitting(true)
 
     try {
-      // Insérer l'élève
-      const { data: students, error: studentError } = await insertRecord<{
-        id: string; iun: string | null; first_name: string; last_name: string
-      }>(
-        'students',
-        {
-          school_id: schoolId,
-          first_name: values.first_name,
-          last_name: values.last_name,
-          birth_date: values.birth_date,
-          birth_place: values.birth_place,
-          gender: values.gender,
-          nationality: values.nationality ?? 'Burkinabè',
-          address: values.address ?? null,
-          status: 'pending',
-        },
-        'id, iun, first_name, last_name'
-      )
+      const result = await enrollStudentStaff({
+        schoolId,
+        firstName: values.first_name,
+        lastName: values.last_name,
+        birthDate: values.birth_date,
+        birthPlace: values.birth_place,
+        gender: values.gender,
+        nationality: values.nationality,
+        address: values.address,
+        classId: values.class_id,
+        parentFirstName: values.parent_first_name,
+        parentLastName: values.parent_last_name,
+        parentPhone: parentHasPhone ? values.parent_phone : undefined,
+        hasStudentPhone: false,
+      })
 
-      if (studentError) throw new Error(studentError.message)
-
-      const student = students?.[0]
-      if (!student) throw new Error("Erreur lors de la création de l'élève")
-
-      // Créer l'inscription à la classe si classe + année scolaire disponibles
-      if (currentYear && values.class_id) {
-        await insertRecord('student_enrollments', {
-          student_id: student.id,
-          school_id: schoolId,
-          class_id: values.class_id,
-          school_year_id: currentYear.id,
-          status: 'active',
-        })
+      if ('error' in result && result.error) {
+        throw new Error(result.error)
       }
 
-      // Créer le parent si infos fournies
-      if (values.parent_first_name && values.parent_last_name) {
-        await insertRecord('parent_pre_registrations', {
-          school_id: schoolId,
-          first_name: values.parent_first_name,
-          last_name: values.parent_last_name,
-          phone: values.parent_phone ?? null,
-          has_phone: parentHasPhone,
-          linked_student_id: student.id,
-        })
+      if (!('success' in result) || !result.success) {
+        throw new Error('Erreur lors de l\'inscription')
       }
 
-      const enrolled = TOAST_SUCCESS.studentEnrolled(`${student.first_name} ${student.last_name}`)
+      const enrolled = TOAST_SUCCESS.studentEnrolled(result.fullName)
       notify.success(enrolled.title, { description: enrolled.description })
 
       setSuccessData({
-        iun: student.iun ?? 'En cours de génération',
-        name: `${student.first_name} ${student.last_name}`,
+        iun: result.iun,
+        name: result.fullName,
       })
     } catch (err) {
       notify.error(err, 'student_enroll')

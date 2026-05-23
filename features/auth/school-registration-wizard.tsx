@@ -17,7 +17,7 @@ function GlobalProgress({ current }: { current: number }) {
 
   return (
     <div className="text-sm">
-      <div className="mb-3">
+      <div className="mb-2">
         <div className="mb-1 flex items-center justify-between text-[10px] text-muted-foreground">
           <span>
             Étape {current} sur {TOTAL_STEPS}
@@ -37,11 +37,11 @@ function GlobalProgress({ current }: { current: number }) {
 
 function RegistrationCompleteScreen({ email }: { email: string }) {
   return (
-    <div className="flex flex-col items-center space-y-3 py-1 text-center text-sm">
-      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-700">
-        <Mail className="h-5 w-5" />
+    <div className="flex flex-col items-center space-y-2.5 py-1 text-center text-sm">
+      <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-green-100 text-green-700">
+        <Mail className="h-4 w-4" />
       </div>
-      <h3 className="text-base font-bold text-gray-900">Inscription terminée !</h3>
+      <h3 className="text-sm font-bold text-gray-900">Inscription terminée !</h3>
       <p className="max-w-sm text-[11px] leading-relaxed text-muted-foreground">
         Votre compte directeur et votre établissement ont été créés. Un email de confirmation a été
         envoyé à <strong className="text-gray-800">{email}</strong>. Cliquez sur le lien pour
@@ -138,7 +138,7 @@ export function SchoolRegistrationWizard() {
         />
       )}
 
-      <p className="mt-3 text-center text-[11px] text-muted-foreground">
+      <p className="mt-2 text-center text-[11px] text-muted-foreground">
         Déjà inscrit ?{' '}
         <a href="/login" className="font-medium text-primary hover:underline">
           Se connecter
