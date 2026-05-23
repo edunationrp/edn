@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -63,8 +63,44 @@ export function StudentsTable({ students }: StudentsTableProps) {
         </select>
       </div>
 
-      {/* Tableau */}
-      <div className="overflow-x-auto">
+      {/* Tableau desktop + cartes mobile */}
+      <div className="sm:hidden divide-y">
+        {filtered.length > 0 ? (
+          filtered.map(student => {
+            const enrollment = student.student_enrollments?.[0]
+            const className = enrollment?.classes?.name ?? '—'
+            return (
+              <div key={student.id} className="flex items-start gap-3 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                  {getInitials(`${student.first_name} ${student.last_name}`)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{student.last_name} {student.first_name}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{className} · {student.iun}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge className={getStatusColor(student.status)}>
+                      {getStatusLabel(student.status)}
+                    </Badge>
+                    <Badge variant={student.gender === 'M' ? 'info' : 'secondary'}>
+                      {student.gender === 'M' ? 'Garçon' : 'Fille'}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Inscrit le {formatDate(student.created_at)}
+                  </p>
+                </div>
+              </div>
+            )
+          })
+        ) : (
+          <div className="py-12 text-center text-muted-foreground">
+            <Search className="mx-auto mb-2 h-8 w-8 opacity-40" />
+            <p>Aucun élève trouvé</p>
+          </div>
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/30">
@@ -73,8 +109,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Classe</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Genre</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Statut</th>
-              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date d'inscription</th>
-              <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
+              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date d&apos;inscription</th>
             </tr>
           </thead>
           <tbody>
@@ -114,11 +149,6 @@ export function StudentsTable({ students }: StudentsTableProps) {
                     </td>
                     <td className="py-3 px-4 text-muted-foreground">
                       {formatDate(student.created_at)}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/dashboard/students/${student.id}`}>Voir</Link>
-                      </Button>
                     </td>
                   </tr>
                 )

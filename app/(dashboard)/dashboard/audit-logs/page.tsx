@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/dashboard/page-header'
 import { Shield } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import type { Metadata } from 'next'
@@ -40,78 +41,91 @@ export default async function AuditLogsPage() {
     generate: 'bg-purple-100 text-purple-800',
   }
 
+  const total = count ?? 0
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3">
-        <div className="p-2 bg-purple-100 rounded-xl">
-          <Shield className="h-5 w-5 text-purple-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Journaux d&apos;Audit</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {count ?? 0} action{(count ?? 0) > 1 ? 's' : ''} enregistrée{(count ?? 0) > 1 ? 's' : ''}
-          </p>
-        </div>
-      </div>
+    <div className="space-y-4 animate-fade-in sm:space-y-6">
+      <PageHeader
+        title="Journaux d'Audit"
+        description={`${total} action${total > 1 ? 's' : ''} enregistrée${total > 1 ? 's' : ''}`}
+      />
 
       <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date/Heure</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Acteur</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Action</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Entité</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">IP</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs && logs.length > 0 ? (
-                  logs.map(log => {
-                    const actionType = log.action.split('_')[0].toLowerCase()
-                    const badgeColor = actionColors[actionType] ?? 'bg-gray-100 text-gray-800'
-
-                    return (
-                      <tr key={log.id} className="border-b last:border-0 hover:bg-muted/20">
-                        <td className="py-2.5 px-4 text-muted-foreground text-xs whitespace-nowrap">
+        <CardContent className="p-0 sm:p-6">
+          {logs && logs.length > 0 ? (
+            <>
+              <div className="divide-y sm:hidden">
+                {logs.map(log => {
+                  const actionType = log.action.split('_')[0].toLowerCase()
+                  const badgeColor = actionColors[actionType] ?? 'bg-gray-100 text-gray-800'
+                  return (
+                    <div key={log.id} className="px-4 py-3.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <Badge className={badgeColor}>{log.action}</Badge>
+                        <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                           {formatDateTime(log.created_at)}
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <p className="font-medium text-xs">
-                            {(log.profiles as any)?.full_name ?? 'Système'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {(log.profiles as any)?.email ?? ''}
-                          </p>
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <Badge className={badgeColor}>{log.action}</Badge>
-                        </td>
-                        <td className="py-2.5 px-4 text-muted-foreground text-xs">
-                          {log.entity_type}
-                          {log.entity_id && (
-                            <span className="ml-1 font-mono opacity-60">#{log.entity_id.slice(0, 8)}</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-4 text-muted-foreground text-xs font-mono">
-                          {String(log.ip_address) ?? '—'}
-                        </td>
-                      </tr>
-                    )
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center text-muted-foreground">
-                      <Shield className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                      Aucun log d&apos;audit
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm font-medium">
+                        {log.profiles?.full_name ?? 'Système'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {log.entity_type}
+                        {log.entity_id ? ` · #${log.entity_id.slice(0, 8)}` : ''}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="py-3 px-4 text-left font-medium text-muted-foreground">Date/Heure</th>
+                      <th className="py-3 px-4 text-left font-medium text-muted-foreground">Acteur</th>
+                      <th className="py-3 px-4 text-left font-medium text-muted-foreground">Action</th>
+                      <th className="py-3 px-4 text-left font-medium text-muted-foreground">Entité</th>
+                      <th className="py-3 px-4 text-left font-medium text-muted-foreground">IP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map(log => {
+                      const actionType = log.action.split('_')[0].toLowerCase()
+                      const badgeColor = actionColors[actionType] ?? 'bg-gray-100 text-gray-800'
+                      return (
+                        <tr key={log.id} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="py-2.5 px-4 text-xs text-muted-foreground whitespace-nowrap">
+                            {formatDateTime(log.created_at)}
+                          </td>
+                          <td className="py-2.5 px-4">
+                            <p className="text-xs font-medium">{log.profiles?.full_name ?? 'Système'}</p>
+                            <p className="text-xs text-muted-foreground">{log.profiles?.email ?? ''}</p>
+                          </td>
+                          <td className="py-2.5 px-4">
+                            <Badge className={badgeColor}>{log.action}</Badge>
+                          </td>
+                          <td className="py-2.5 px-4 text-xs text-muted-foreground">
+                            {log.entity_type}
+                            {log.entity_id && (
+                              <span className="ml-1 font-mono opacity-60">#{log.entity_id.slice(0, 8)}</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-4 text-xs text-muted-foreground font-mono">
+                            {String(log.ip_address) ?? '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <div className="py-12 text-center text-muted-foreground">
+              <Shield className="mx-auto mb-2 h-8 w-8 opacity-30" />
+              Aucun log d&apos;audit
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

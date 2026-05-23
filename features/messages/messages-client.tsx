@@ -157,10 +157,10 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
   return (
     <div className="space-y-4 animate-fade-in">
       {/* En-tête */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Mail className="h-6 w-6 text-primary" />
+          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2 sm:text-2xl">
+            <Mail className="h-5 w-5 text-primary sm:h-6 sm:w-6" />
             Messages
             {unreadCount > 0 && (
               <Badge className="bg-primary text-white ml-1">{unreadCount} non lu{unreadCount > 1 ? 's' : ''}</Badge>
@@ -168,15 +168,18 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">Messagerie interne sécurisée</p>
         </div>
-        <Button onClick={() => { setShowCompose(true); setSelectedMessage(null) }}>
+        <Button
+          className="w-full sm:w-auto"
+          onClick={() => { setShowCompose(true); setSelectedMessage(null) }}
+        >
           <Plus className="h-4 w-4 mr-1" />
           Nouveau message
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 h-[calc(100vh-200px)] min-h-[500px]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 xl:min-h-[500px]">
         {/* Liste des messages */}
-        <div className="xl:col-span-1 flex flex-col">
+        <div className={`flex flex-col xl:col-span-1 ${(selectedMessage || showCompose) ? 'hidden xl:flex' : 'flex'}`}>
           <div className="mb-3">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -233,7 +236,7 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
         </div>
 
         {/* Panneau de droite : message sélectionné ou composition */}
-        <div className="xl:col-span-2">
+        <div className={`xl:col-span-2 ${(!selectedMessage && !showCompose) ? 'hidden xl:block' : 'block'}`}>
           {showCompose ? (
             <Card className="h-full flex flex-col">
               <CardHeader className="pb-3 flex-shrink-0">
@@ -328,16 +331,28 @@ export function MessagesClient({ currentUserId, schoolId, messages: initialMessa
           ) : selectedMessage ? (
             <Card className="h-full flex flex-col">
               <CardHeader className="pb-3 flex-shrink-0">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{selectedMessage.subject}</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="xl:hidden"
+                    onClick={() => setSelectedMessage(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Retour
+                  </Button>
+                </div>
+                <div className="flex items-start justify-between gap-3 mt-2">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                       {getInitials(`${selectedMessage.sender.first_name} ${selectedMessage.sender.last_name}`)}
                     </div>
                     <div>
-                      <CardTitle className="text-base">{selectedMessage.subject}</CardTitle>
+                      <p className="text-sm font-medium">
+                        {selectedMessage.sender.first_name} {selectedMessage.sender.last_name}
+                      </p>
                       <p className="text-sm text-muted-foreground">
-                        De : {selectedMessage.sender.first_name} {selectedMessage.sender.last_name}
-                        {' · '}
                         {formatDate(selectedMessage.created_at)}
                       </p>
                     </div>

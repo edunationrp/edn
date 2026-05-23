@@ -225,7 +225,7 @@ export function GradeEntryClient({
         {/* Saisie des notes */}
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="text-base">
                 Saisie des notes ({students.length} élèves)
               </CardTitle>
@@ -252,7 +252,39 @@ export function GradeEntryClient({
                 <p className="text-sm text-muted-foreground">Aucun élève dans cette classe</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="space-y-3 sm:hidden">
+                {students.map((student, idx) => {
+                  const g = grades[student.id]
+                  const numVal = parseFloat(g?.value ?? '')
+                  const maxVal = parseFloat(maxScore) || 20
+                  const normalized = !isNaN(numVal) ? (numVal / maxVal) * 20 : null
+                  const mention = normalized !== null ? getMention(normalized) : null
+                  return (
+                    <div key={student.id} className="rounded-xl border p-3">
+                      <p className="text-sm font-medium">{student.last_name} {student.first_name}</p>
+                      <p className="text-xs text-muted-foreground">{student.iun ?? '—'}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max={maxScore}
+                          step="0.25"
+                          value={g?.value ?? ''}
+                          onChange={e => updateGrade(student.id, e.target.value)}
+                          placeholder="—"
+                          className={`h-9 w-24 text-center text-sm ${g?.error ? 'border-red-400' : ''}`}
+                        />
+                        <span className="text-xs text-muted-foreground">/{maxScore}</span>
+                        {mention && <span className="text-xs font-medium">{mention}</span>}
+                        {g?.saved && <CheckCircle className="h-4 w-4 text-green-500" />}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {students.length > 0 && (
+              <div className="hidden overflow-x-auto sm:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">

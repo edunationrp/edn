@@ -1,18 +1,20 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import { BrandLockupDark } from '@/components/brand/logo'
-import {
-  LayoutDashboard, Users, UserPlus, FileCheck, BookOpen,
-  Wallet, Mail, Settings, BarChart2, Link2, Calendar,
-  UserX, AlertTriangle, GraduationCap, ClipboardList,
-  CreditCard, FileText, Building2, Shield, TrendingUp,
-  ChevronDown, LogOut, Bell, Folder, Award, Layers,
-  UserCheck, BookMarked, MessageSquare, Search, Home,
-  Clock, Grid, Send, Book, Compass, Heart
-} from 'lucide-react'
+'use client'
 
-// Mapping icônes identiques au HTML
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { BrandLockupDark } from '@/components/brand/logo'
+import { LogoutButton } from '@/components/layout/logout-button'
+import { resolveNavRole } from '@/lib/dashboard/resolve-role-nav'
+import { cn } from '@/lib/utils'
+import {
+  Users, UserPlus, FileCheck,
+  Wallet, Mail, Settings, BarChart2, Link2, Calendar,
+  UserX, AlertTriangle, GraduationCap,
+  FileText, Building2, Shield, TrendingUp,
+  ChevronDown, Folder, Award,
+  UserCheck, BookMarked, Send, Book, Compass, Heart,
+  Home, Clock, Grid,
+} from 'lucide-react'
 const ICON_MAP: Record<string, React.ReactNode> = {
   home: <Home className="h-4 w-4" />,
   chart: <BarChart2 className="h-4 w-4" />,
@@ -52,15 +54,15 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
     nav: [
       { group: 'Pilotage', items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'rapports', label: 'Rapports globaux', icon: 'chart', href: '/dashboard/reports' },
+        { id: 'rapports', label: 'Rapports globaux', icon: 'chart', href: '/dashboard/finance' },
       ]},
       { group: 'Établissements', items: [
-        { id: 'schools', label: 'Établissements', icon: 'school', href: '/dashboard/schools' },
+        { id: 'schools', label: 'Établissements', icon: 'school', href: '/dashboard/staff' },
         { id: 'personnel', label: 'Utilisateurs', icon: 'users', href: '/dashboard/staff' },
       ]},
       { group: 'Système', items: [
         { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/audit-logs' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
       ]},
     ],
   },
@@ -69,15 +71,15 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
     nav: [
       { group: 'Pilotage', items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'rapports', label: 'Rapports & analyses', icon: 'chart', href: '/dashboard/reports' },
+        { id: 'rapports', label: 'Rapports & analyses', icon: 'chart', href: '/dashboard/finance' },
       ]},
       { group: 'École', items: [
         { id: 'personnel', label: 'Personnel', icon: 'users', href: '/dashboard/staff' },
-        { id: 'invitations', label: 'Liens d\'inscription', icon: 'link', href: '/dashboard/invitations', badge: '3' },
-        { id: 'inscriptions', label: 'Inscriptions élèves', icon: 'userPlus', href: '/dashboard/students', badge: '12' },
+        { id: 'invitations', label: 'Liens d\'inscription', icon: 'link', href: '/dashboard/staff' },
+        { id: 'inscriptions', label: 'Inscriptions élèves', icon: 'userPlus', href: '/dashboard/students' },
       ]},
       { group: 'Pédagogie', items: [
-        { id: 'notes', label: 'Validation des notes', icon: 'fileCheck', href: '/dashboard/grades', badge: '8' },
+        { id: 'notes', label: 'Validation des notes', icon: 'fileCheck', href: '/dashboard/grades' },
         { id: 'bulletins', label: 'Bulletins & attestations', icon: 'award', href: '/dashboard/report-cards' },
         { id: 'classes', label: 'Classes & matières', icon: 'grid', href: '/dashboard/classes' },
       ]},
@@ -86,7 +88,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages', badge: '5', badgeColor: 'red' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
       ]},
     ],
   },
@@ -107,7 +109,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
       ]},
     ],
   },
@@ -118,20 +120,20 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
       ]},
       { group: 'Organisation', items: [
-        { id: 'edt', label: 'Emplois du temps', icon: 'grid', href: '/dashboard/timetable', badge: '3' },
+        { id: 'edt', label: 'Emplois du temps', icon: 'grid', href: '/dashboard/classes' },
         { id: 'classes', label: 'Classes & affectations', icon: 'users', href: '/dashboard/classes' },
-        { id: 'examens', label: 'Examens', icon: 'calendar', href: '/dashboard/exams' },
+        { id: 'examens', label: 'Examens', icon: 'calendar', href: '/dashboard/grades' },
       ]},
       { group: 'Discipline & assiduité', items: [
-        { id: 'absences', label: 'Absences du jour', icon: 'userX', href: '/dashboard/attendance', badge: '18' },
-        { id: 'sanctions', label: 'Sanctions', icon: 'alert', href: '/dashboard/discipline' },
+        { id: 'absences', label: 'Absences du jour', icon: 'userX', href: '/dashboard/attendance' },
+        { id: 'sanctions', label: 'Sanctions', icon: 'alert', href: '/dashboard/attendance' },
       ]},
       { group: 'Notes', items: [
         { id: 'consultation-notes', label: 'Consultation des notes', icon: 'fileCheck', href: '/dashboard/grades' },
       ]},
       { group: 'Espace personnel', items: [
-        { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages', badge: '2', badgeColor: 'red' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
+        { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
       ]},
     ],
   },
@@ -142,19 +144,19 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
       ]},
       { group: 'Caisse', items: [
-        { id: 'paiements', label: 'Paiements élèves', icon: 'wallet', href: '/dashboard/finance', badge: '48' },
+        { id: 'paiements', label: 'Paiements élèves', icon: 'wallet', href: '/dashboard/finance' },
         { id: 'nouveau-paiement', label: 'Nouveau paiement', icon: 'userPlus', href: '/dashboard/finance/payments/new' },
       ]},
       { group: 'Gestion', items: [
-        { id: 'budget-int', label: 'Budget', icon: 'chart', href: '/dashboard/finance/budget' },
-        { id: 'structures', label: 'Structures tarifaires', icon: 'fileText', href: '/dashboard/finance/fees' },
+        { id: 'budget-int', label: 'Budget', icon: 'chart', href: '/dashboard/finance' },
+        { id: 'structures', label: 'Structures tarifaires', icon: 'fileText', href: '/dashboard/finance' },
       ]},
       { group: 'Reporting', items: [
-        { id: 'rapports-int', label: 'Rapports financiers', icon: 'fileText', href: '/dashboard/finance/reports' },
+        { id: 'rapports-int', label: 'Rapports financiers', icon: 'fileText', href: '/dashboard/finance' },
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
       ]},
     ],
   },
@@ -166,7 +168,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Suivi élèves', items: [
         { id: 'dossiers', label: 'Dossiers élèves', icon: 'users', href: '/dashboard/students' },
-        { id: 'alertes', label: 'Élèves en alerte', icon: 'alert', href: '/dashboard/students/alerts', badge: '5', badgeColor: 'red' },
+        { id: 'alertes', label: 'Élèves en alerte', icon: 'alert', href: '/dashboard/students/pending' },
         { id: 'absences-c', label: 'Absences', icon: 'userX', href: '/dashboard/attendance' },
       ]},
       { group: 'Pédagogie', items: [
@@ -174,8 +176,8 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'bulletins-c', label: 'Bulletins', icon: 'award', href: '/dashboard/report-cards' },
       ]},
       { group: 'Espace personnel', items: [
-        { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages', badge: '4' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
+        { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
       ]},
     ],
   },
@@ -186,16 +188,16 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
       ]},
       { group: 'Élèves & dossiers', items: [
-        { id: 'inscriptions-s', label: 'Inscriptions', icon: 'userPlus', href: '/dashboard/students', badge: '7' },
+        { id: 'inscriptions-s', label: 'Inscriptions', icon: 'userPlus', href: '/dashboard/students' },
         { id: 'pending', label: 'En attente validation', icon: 'clock', href: '/dashboard/students/pending' },
       ]},
       { group: 'Documents', items: [
-        { id: 'attestations', label: 'Attestations', icon: 'fileCheck', href: '/dashboard/documents' },
+        { id: 'attestations', label: 'Attestations', icon: 'fileCheck', href: '/dashboard/report-cards' },
         { id: 'bulletins-s', label: 'Bulletins', icon: 'award', href: '/dashboard/report-cards' },
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'send', href: '/dashboard/messages' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
       ]},
     ],
   },
@@ -206,7 +208,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
       ]},
       { group: 'Assiduité', items: [
-        { id: 'absences-v', label: 'Absences à traiter', icon: 'userX', href: '/dashboard/attendance', badge: '12', badgeColor: 'red' },
+        { id: 'absences-v', label: 'Absences à traiter', icon: 'userX', href: '/dashboard/attendance' },
         { id: 'appel', label: 'Faire l\'appel', icon: 'userCheck', href: '/dashboard/attendance/take' },
       ]},
       { group: 'Communication', items: [
@@ -214,7 +216,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'send', href: '/dashboard/messages' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
       ]},
     ],
   },
@@ -223,18 +225,18 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
     nav: [
       { group: "Aujourd'hui", items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'edt-p', label: 'Mon emploi du temps', icon: 'calendar', href: '/dashboard/timetable' },
+        { id: 'edt-p', label: 'Mon emploi du temps', icon: 'calendar', href: '/dashboard/classes' },
       ]},
       { group: 'Enseignement', items: [
         { id: 'classes', label: 'Mes classes', icon: 'users', href: '/dashboard/classes' },
-        { id: 'saisie-notes', label: 'Saisie des notes', icon: 'fileCheck', href: '/dashboard/grades/entry', badge: '2' },
+        { id: 'saisie-notes', label: 'Saisie des notes', icon: 'fileCheck', href: '/dashboard/grades/entry' },
         { id: 'appel', label: 'Appel des élèves', icon: 'userCheck', href: '/dashboard/attendance/take' },
       ]},
       { group: 'Communication', items: [
-        { id: 'parents', label: 'Messages', icon: 'mail', href: '/dashboard/messages', badge: '3' },
+        { id: 'parents', label: 'Messages', icon: 'mail', href: '/dashboard/messages' },
       ]},
       { group: 'Espace personnel', items: [
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
       ]},
     ],
   },
@@ -243,7 +245,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
     nav: [
       { group: 'Mon espace', items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'enfants', label: 'Mes enfants', icon: 'user', href: '/dashboard/children' },
+        { id: 'enfants', label: 'Mes enfants', icon: 'user', href: '/dashboard' },
       ]},
       { group: 'Scolarité', items: [
         { id: 'notes-p', label: 'Notes & résultats', icon: 'fileCheck', href: '/dashboard/grades' },
@@ -263,7 +265,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
     nav: [
       { group: 'Mon espace', items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'edt-e', label: 'Emploi du temps', icon: 'calendar', href: '/dashboard/timetable' },
+        { id: 'edt-e', label: 'Emploi du temps', icon: 'calendar', href: '/dashboard/classes' },
       ]},
       { group: 'Scolarité', items: [
         { id: 'notes-e', label: 'Mes notes', icon: 'fileCheck', href: '/dashboard/grades' },
@@ -275,29 +277,37 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
 }
 
 interface SidebarProps {
-  currentPath: string
   userRole: string
   schoolName?: string
   schoolYear?: string
   userName?: string
   userInitials?: string
   userTitle?: string
+  mobileOpen?: boolean
+  onNavigate?: () => void
 }
 
 export function Sidebar({
-  currentPath,
   userRole,
   schoolName = 'Mon établissement',
   schoolYear = '2025 — 2026',
   userName = 'Utilisateur',
   userInitials = 'U',
   userTitle = '',
+  mobileOpen = false,
+  onNavigate,
 }: SidebarProps) {
-  const roleCfg = ROLE_NAV[userRole] ?? ROLE_NAV.PROVISEUR
+  const pathname = usePathname()
+  const roleCfg = ROLE_NAV[resolveNavRole(userRole)] ?? ROLE_NAV.PROVISEUR
   const initials = userInitials || userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 w-[240px] flex flex-col bg-[#1B3A6B] text-white shadow-xl overflow-y-auto">
+    <aside
+      className={cn(
+        'fixed inset-y-0 left-0 z-30 flex w-[min(88vw,240px)] flex-col overflow-y-auto bg-[#1B3A6B] text-white shadow-xl transition-transform duration-200 lg:translate-x-0',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full'
+      )}
+    >
       {/* Brand */}
       <div className="flex-shrink-0 px-5 pt-5 pb-4 border-b border-white/10">
         <BrandLockupDark />
@@ -323,11 +333,14 @@ export function Sidebar({
               {section.group}
             </div>
             {section.items.map(item => {
-              const isActive = currentPath === item.href || (item.href !== '/dashboard' && currentPath.startsWith(item.href))
+              const isActive =
+                pathname === item.href ||
+                (item.href !== '/dashboard' && pathname.startsWith(item.href))
               return (
                 <Link
                   key={item.id}
                   href={item.href}
+                  onClick={onNavigate}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all relative ${
                     isActive
                       ? 'bg-[#7AB832] text-white shadow-sm'
@@ -368,13 +381,7 @@ export function Sidebar({
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-white/30 flex-shrink-0" />
         </div>
-        <Link
-          href="/login"
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white/50 hover:text-red-400 hover:bg-red-500/10 text-xs font-medium transition-all"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          <span>Déconnexion</span>
-        </Link>
+        <LogoutButton />
       </div>
     </aside>
   )

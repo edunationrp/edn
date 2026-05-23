@@ -3,7 +3,7 @@ import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { KPICard } from '@/components/cards/kpi-card'
+import { PageHeader } from '@/components/dashboard/page-header'
 import { Users, UserPlus, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { ROLE_LABELS, ROLE_COLORS, STAFF_ROLES } from '@/types/roles'
@@ -44,21 +44,19 @@ export default async function StaffPage() {
   }, {} as Record<string, number>)
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Personnel</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {count ?? 0} membre{(count ?? 0) > 1 ? 's' : ''} du personnel
-          </p>
-        </div>
-        <Button className="bg-[#1a4d2e] hover:bg-[#2d6a4f]" asChild>
-          <Link href="/dashboard/staff/invitations">
-            <UserPlus className="h-4 w-4" />
-            Inviter du personnel
-          </Link>
-        </Button>
-      </div>
+    <div className="space-y-4 animate-fade-in sm:space-y-6">
+      <PageHeader
+        title="Personnel"
+        description={`${count ?? 0} membre${(count ?? 0) > 1 ? 's' : ''} du personnel`}
+        actions={
+          <Button className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto" asChild>
+            <Link href="/dashboard/staff/invitations">
+              <UserPlus className="h-4 w-4" />
+              Inviter du personnel
+            </Link>
+          </Button>
+        }
+      />
 
       {/* Répartition par rôle */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -76,8 +74,38 @@ export default async function StaffPage() {
         </CardHeader>
         <CardContent>
           {staffMembers && staffMembers.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <>
+              <div className="divide-y sm:hidden">
+                {staffMembers.map(member => {
+                  const profile = member.profiles
+                  return (
+                    <div key={member.id} className="py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          {getInitials(profile?.full_name ?? 'U')}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{profile?.full_name ?? '—'}</p>
+                          <p className="truncate text-xs text-muted-foreground">{profile?.email ?? '—'}</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge className={ROLE_COLORS[member.role_code as UserRole]}>
+                          {ROLE_LABELS[member.role_code as UserRole]}
+                        </Badge>
+                        <Badge variant={member.is_active ? 'success' : 'secondary'}>
+                          {member.is_active ? 'Actif' : 'Inactif'}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Depuis {formatDate(member.created_at)}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-2 px-3 font-medium text-muted-foreground">Nom</th>
@@ -130,7 +158,8 @@ export default async function StaffPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           ) : (
             <div className="text-center py-12">
               <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />

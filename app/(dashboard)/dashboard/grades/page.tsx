@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/cards/kpi-card'
+import { PageHeader } from '@/components/dashboard/page-header'
 import { BookOpen, Plus, TrendingUp, ClipboardList, Lock, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
@@ -56,24 +57,21 @@ export default async function GradesPage() {
   const isAdmin = ['PROVISEUR', 'DIRECTEUR_ADJOINT', 'CENSEUR', 'SUPER_ADMIN_EDUNATION'].includes(role ?? '')
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* En-tête */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Notes & Évaluations</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Gestion des évaluations, saisie et validation des notes
-          </p>
-        </div>
-        {(isTeacher || isAdmin) && (
-          <Button size="sm" asChild>
-            <Link href="/dashboard/grades/new">
-              <Plus className="h-4 w-4 mr-1" />
-              Nouvelle évaluation
-            </Link>
-          </Button>
-        )}
-      </div>
+    <div className="space-y-4 animate-fade-in sm:space-y-6">
+      <PageHeader
+        title="Notes & Évaluations"
+        description="Gestion des évaluations, saisie et validation des notes"
+        actions={
+          (isTeacher || isAdmin) ? (
+            <Button size="sm" className="w-full sm:w-auto" asChild>
+              <Link href="/dashboard/grades/entry">
+                <Plus className="h-4 w-4 mr-1" />
+                Saisir des notes
+              </Link>
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -145,8 +143,31 @@ export default async function GradesPage() {
         </CardHeader>
         <CardContent>
           {evaluations.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <>
+              <div className="divide-y sm:hidden">
+                {evaluations.map(ev => (
+                  <div key={ev.id} className="px-1 py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-sm">{ev.title}</p>
+                      {ev.is_locked ? (
+                        <Badge className="bg-green-100 text-green-800 text-xs">Verrouillée</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">En cours</Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground capitalize">
+                      {ev.eval_type} · Max {ev.max_score} · {formatDate(ev.eval_date)}
+                    </p>
+                    <Button variant="link" size="sm" className="mt-1 h-auto p-0" asChild>
+                      <Link href={ev.is_locked ? `/dashboard/grades/${ev.id}` : `/dashboard/grades/entry`}>
+                        {ev.is_locked ? 'Voir' : 'Saisir'}
+                      </Link>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/30">
                     <th className="text-left px-3 py-2 font-medium text-muted-foreground">Titre</th>
@@ -198,14 +219,15 @@ export default async function GradesPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           ) : (
             <div className="text-center py-10">
               <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground">Aucune évaluation créée</p>
               {(isTeacher || isAdmin) && (
                 <Button variant="link" size="sm" asChild className="mt-2">
-                  <Link href="/dashboard/grades/new">Créer la première évaluation</Link>
+                  <Link href="/dashboard/grades/entry">Commencer une saisie</Link>
                 </Button>
               )}
             </div>

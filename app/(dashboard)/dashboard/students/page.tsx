@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { StudentsTable } from '@/features/students/students-table'
+import { PageHeader } from '@/components/dashboard/page-header'
+import { EmptyPanel } from '@/components/dashboard/empty-panel'
 import { Button } from '@/components/ui/button'
 import { UserPlus } from 'lucide-react'
 import Link from 'next/link'
@@ -33,26 +35,36 @@ export default async function StudentsPage() {
     student_enrollments: Array<{ class_id: string; classes: { name: string } | null }>;
   }> | null
 
+  const total = count ?? 0
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Élèves</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {count ?? 0} élève{(count ?? 0) > 1 ? 's' : ''} au total
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild className="bg-[#1a4d2e] hover:bg-[#2d6a4f]">
-            <Link href="/register/student">
+    <div className="space-y-4 animate-fade-in sm:space-y-6">
+      <PageHeader
+        title="Élèves"
+        description={`${total} élève${total > 1 ? 's' : ''} au total`}
+        actions={
+          <Button asChild className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto">
+            <Link href="/dashboard/students/new">
               <UserPlus className="h-4 w-4" />
               Inscrire un élève
             </Link>
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      <StudentsTable students={(students ?? []) as any} />
+      {total === 0 ? (
+        <EmptyPanel
+          title="Aucun élève inscrit"
+          description="Commencez par inscrire votre premier élève pour gérer les dossiers scolaires."
+          action={
+            <Button asChild size="sm" className="bg-[#1a4d2e] hover:bg-[#2d6a4f]">
+              <Link href="/dashboard/students/new">Inscrire un élève</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <StudentsTable students={(students ?? []) as any} />
+      )}
     </div>
   )
 }

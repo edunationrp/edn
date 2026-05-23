@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { PageHeader } from '@/components/dashboard/page-header'
+import { PendingStudentActions } from '@/features/students/pending-student-actions'
 import { UserCheck, Clock, AlertCircle } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { Metadata } from 'next'
@@ -31,23 +31,21 @@ export default async function PendingStudentsPage() {
     birth_date: string; birth_place: string | null; created_at: string;
   }> | null
 
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Élèves en attente de validation</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {count ?? 0} inscription{(count ?? 0) > 1 ? 's' : ''} à traiter
-          </p>
-        </div>
-      </div>
+  const total = count ?? 0
 
-      {(count ?? 0) === 0 ? (
+  return (
+    <div className="space-y-4 animate-fade-in sm:space-y-6">
+      <PageHeader
+        title="Élèves en attente de validation"
+        description={`${total} inscription${total > 1 ? 's' : ''} à traiter`}
+      />
+
+      {total === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <UserCheck className="h-12 w-12 text-green-500 mb-4" />
-            <h3 className="font-semibold text-lg">Tout est à jour !</h3>
-            <p className="text-muted-foreground text-sm mt-1">
+          <CardContent className="flex flex-col items-center justify-center py-12 sm:py-16">
+            <UserCheck className="mb-4 h-12 w-12 text-green-500" />
+            <h3 className="text-lg font-semibold">Tout est à jour !</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
               Aucune inscription en attente de validation.
             </p>
           </CardContent>
@@ -63,42 +61,33 @@ export default async function PendingStudentsPage() {
             return (
               <Card key={student.id} className={isUrgent ? 'border-orange-300' : ''}>
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">
                         {student.first_name[0]}{student.last_name[0]}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold">{student.last_name} {student.first_name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{student.iun}</code>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{student.iun}</code>
                           <span className="text-xs text-muted-foreground">
-                            Né(e) le {formatDate(student.birth_date)} à {student.birth_place ?? '—'}
+                            Né(e) le {formatDate(student.birth_date)}
+                            {student.birth_place ? ` à ${student.birth_place}` : ''}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-1 text-xs">
+                          {isUrgent ? (
+                            <AlertCircle className="h-3.5 w-3.5 text-orange-500" />
+                          ) : (
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                          <span className={isUrgent ? 'font-medium text-orange-600' : 'text-muted-foreground'}>
+                            {daysPending === 0 ? "Aujourd'hui" : `Il y a ${daysPending} jour${daysPending > 1 ? 's' : ''}`}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 text-xs">
-                        {isUrgent ? (
-                          <AlertCircle className="h-3.5 w-3.5 text-orange-500" />
-                        ) : (
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                        <span className={isUrgent ? 'text-orange-600 font-medium' : 'text-muted-foreground'}>
-                          {daysPending === 0 ? "Aujourd'hui" : `Il y a ${daysPending} jour${daysPending > 1 ? 's' : ''}`}
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="text-red-600 border-red-300 hover:bg-red-50">
-                          Rejeter
-                        </Button>
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                          <UserCheck className="h-4 w-4" />
-                          Valider
-                        </Button>
-                      </div>
-                    </div>
+                    <PendingStudentActions studentId={student.id} />
                   </div>
                 </CardContent>
               </Card>

@@ -5,6 +5,7 @@ import { DirecteurDashboard } from '@/features/dashboard/directeur-dashboard'
 import { ProfesseurDashboard } from '@/features/dashboard/professeur-dashboard'
 import { ParentDashboard } from '@/features/dashboard/parent-dashboard'
 import { IntendantDashboard } from '@/features/dashboard/intendant-dashboard'
+import { EleveDashboard } from '@/features/dashboard/eleve-dashboard'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -83,9 +84,17 @@ export default async function DashboardPage() {
       )
 
     case 'ELEVE':
+      return (
+        <EleveDashboard
+          schoolId={schoolId}
+          userId={user.id}
+          userName={greetingName}
+        />
+      )
+
     default:
       return (
-        <DirecteurDashboard
+        <EleveDashboard
           schoolId={schoolId}
           userId={user.id}
           userName={greetingName}

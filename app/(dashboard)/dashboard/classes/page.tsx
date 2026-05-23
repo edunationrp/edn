@@ -57,17 +57,17 @@ export default async function ClassesPage() {
   const currentYear = schoolYears[0]
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in sm:space-y-6">
       {/* En-tête */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Classes, Niveaux & Matières</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Classes, Niveaux & Matières</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
             Gérez la structure pédagogique de votre établissement
             {currentYear ? ` · ${currentYear.name}` : ''}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard/classes/levels/new">
               <Plus className="h-4 w-4 mr-1" />
@@ -153,7 +153,7 @@ export default async function ClassesPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                       <Button variant="ghost" size="sm" asChild>
                         <Link href={`/dashboard/classes/${cls.id}`}>
                           <Users className="h-3.5 w-3.5" />
@@ -209,7 +209,7 @@ export default async function ClassesPage() {
                       <Badge variant={sub.is_active ? 'default' : 'secondary'} className="text-xs">
                         {sub.is_active ? 'Active' : 'Inactive'}
                       </Badge>
-                      <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity" asChild>
+                      <Button variant="ghost" size="sm" className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" asChild>
                         <Link href={`/dashboard/classes/subjects/${sub.id}/edit`}>
                           <Settings className="h-3.5 w-3.5" />
                         </Link>

@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { insertRecord } from '@/lib/supabase/mutations'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Save, Check, Clock } from 'lucide-react'
+import { Save, Check, Clock, Loader2 } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import { notify } from '@/lib/feedback/toast'
 import { TOAST_SUCCESS } from '@/lib/feedback/messages'
@@ -14,8 +16,16 @@ interface StudentAttendance {
   firstName: string
   lastName: string
   iun: string
-  photoUrl?: string | null
   status: AttendanceStatus
+}
+
+interface AttendanceTakeClientProps {
+  schoolId: string
+  teacherId: string
+  schoolYearId: string
+  classes: Array<{ id: string; name: string }>
+  subjects: Array<{ id: string; name: string }>
+  initialClassId?: string
 }
 
 const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg: string }> = {
@@ -26,10 +36,72 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg
   excused: { label: 'Excusé', color: 'text-teal-700', bg: 'bg-teal-50 border-teal-300' },
 }
 
-export function AttendanceTakeClient() {
+export function AttendanceTakeClient({
+  schoolId,
+  teacherId,
+  schoolYearId,
+  classes,
+  subjects,
+  initialClassId = '',
+}: AttendanceTakeClientProps) {
+  const supabase = createClient()
+  const [selectedClass, setSelectedClass] = useState(initialClassId)
+  const [selectedSubject, setSelectedSubject] = useState(subjects[0]?.id ?? '')
   const [attendances, setAttendances] = useState<StudentAttendance[]>([])
+  const [loadingStudents, setLoadingStudents] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  const loadStudents = useCallback(async (classId: string) => {
+    if (!classId || !schoolYearId) {
+      setAttendances([])
+      return
+    }
+
+    setLoadingStudents(true)
+    const { data: enrollmentsRaw } = await supabase
+      .from('student_enrollments')
+      .select('student_id')
+      .eq('school_id', schoolId)
+      .eq('class_id', classId)
+      .eq('school_year_id', schoolYearId)
+
+    const ids = ((enrollmentsRaw as Array<{ student_id: string }> | null) ?? []).map(e => e.student_id)
+
+    if (ids.length === 0) {
+      setAttendances([])
+      setLoadingStudents(false)
+      return
+    }
+
+    const { data: studentsRaw } = await supabase
+      .from('students')
+      .select('id, first_name, last_name, iun')
+      .in('id', ids)
+      .eq('status', 'active')
+      .order('last_name')
+
+    const students = (studentsRaw as Array<{ id: string; first_name: string; last_name: string; iun: string }> | null) ?? []
+
+    setAttendances(
+      students.map(s => ({
+        studentId: s.id,
+        firstName: s.first_name,
+        lastName: s.last_name,
+        iun: s.iun,
+        status: 'present' as AttendanceStatus,
+      }))
+    )
+    setLoadingStudents(false)
+  }, [schoolId, schoolYearId, supabase])
+
+  useEffect(() => {
+    if (selectedClass) {
+      loadStudents(selectedClass)
+    } else {
+      setAttendances([])
+    }
+  }, [selectedClass, loadStudents])
 
   const cycleStatus = (studentId: string) => {
     const cycle: AttendanceStatus[] = ['present', 'absent', 'late', 'sick', 'excused']
@@ -37,8 +109,7 @@ export function AttendanceTakeClient() {
       prev.map(a => {
         if (a.studentId !== studentId) return a
         const currentIdx = cycle.indexOf(a.status)
-        const nextStatus = cycle[(currentIdx + 1) % cycle.length]
-        return { ...a, status: nextStatus }
+        return { ...a, status: cycle[(currentIdx + 1) % cycle.length] }
       })
     )
   }
@@ -50,6 +121,14 @@ export function AttendanceTakeClient() {
   }
 
   const saveAttendances = async () => {
+    if (!selectedClass || !selectedSubject) {
+      notify.error('Sélectionnez une classe et une matière.', 'attendance_save')
+      return
+    }
+    if (attendances.length === 0) {
+      notify.error('Aucun élève à enregistrer.', 'attendance_save')
+      return
+    }
     if (!navigator.onLine) {
       notify.error('Connexion Internet requise pour enregistrer les présences.', 'attendance_save')
       return
@@ -58,10 +137,31 @@ export function AttendanceTakeClient() {
     setSaving(true)
 
     try {
+      const recordedAt = new Date().toISOString()
+      for (const a of attendances) {
+        const { error } = await insertRecord('attendance_records', {
+          school_id: schoolId,
+          school_year_id: schoolYearId,
+          class_id: selectedClass,
+          subject_id: selectedSubject,
+          student_id: a.studentId,
+          teacher_id: teacherId,
+          status: a.status,
+          recorded_at: recordedAt,
+          source: 'web',
+        })
+        if (error) throw new Error(error.message)
+      }
+
       setSaved(true)
       notify.success(TOAST_SUCCESS.attendanceSaved.title, {
         description: TOAST_SUCCESS.attendanceSaved.description,
       })
+    } catch (err) {
+      notify.error(
+        err instanceof Error ? err.message : 'Erreur lors de l\'enregistrement.',
+        'attendance_save'
+      )
     } finally {
       setSaving(false)
       setTimeout(() => setSaved(false), 3000)
@@ -72,44 +172,65 @@ export function AttendanceTakeClient() {
   const absentCount = attendances.filter(a => a.status === 'absent').length
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto animate-fade-in">
+    <div className="mx-auto max-w-3xl space-y-4 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Prise de présence</h1>
-        <p className="text-muted-foreground text-sm">Sélectionnez la classe et saisissez les présences</p>
+        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Prise de présence</h1>
+        <p className="text-sm text-muted-foreground">Sélectionnez la classe et saisissez les présences</p>
       </div>
 
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Configuration du cours</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3">
+        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-xs text-muted-foreground font-medium mb-1 block">Classe</label>
-            <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Classe</label>
+            <select
+              value={selectedClass}
+              onChange={e => setSelectedClass(e.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
               <option value="">Sélectionner une classe</option>
+              {classes.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground font-medium mb-1 block">Matière</label>
-            <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Matière</label>
+            <select
+              value={selectedSubject}
+              onChange={e => setSelectedSubject(e.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
               <option value="">Sélectionner une matière</option>
+              {subjects.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
             </select>
           </div>
         </CardContent>
       </Card>
 
-      {attendances.length > 0 && (
-        <div className="flex gap-3">
-          <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-green-700">{presentCount}</p>
+      {loadingStudents && (
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Chargement des élèves…
+        </div>
+      )}
+
+      {!loadingStudents && attendances.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-center">
+            <p className="text-xl font-bold text-green-700 sm:text-2xl">{presentCount}</p>
             <p className="text-xs text-green-600">Présents</p>
           </div>
-          <div className="flex-1 bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-red-700">{absentCount}</p>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+            <p className="text-xl font-bold text-red-700 sm:text-2xl">{absentCount}</p>
             <p className="text-xs text-red-600">Absents</p>
           </div>
-          <div className="flex-1 bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-orange-700">
+          <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-center">
+            <p className="text-xl font-bold text-orange-700 sm:text-2xl">
               {attendances.filter(a => a.status === 'late').length}
             </p>
             <p className="text-xs text-orange-600">Retards</p>
@@ -117,45 +238,50 @@ export function AttendanceTakeClient() {
         </div>
       )}
 
-      {attendances.length === 0 ? (
+      {!loadingStudents && attendances.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center">
+          <CardContent className="py-12 text-center sm:py-16">
             <div className="text-muted-foreground">
-              <div className="text-4xl mb-3">👥</div>
-              <p>Sélectionnez une classe pour afficher les élèves</p>
+              <div className="mb-3 text-4xl">👥</div>
+              <p className="text-sm">
+                {selectedClass
+                  ? 'Aucun élève actif dans cette classe.'
+                  : 'Sélectionnez une classe pour afficher les élèves'}
+              </p>
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : !loadingStudents ? (
         <div className="space-y-2">
           {attendances.map(a => {
             const config = STATUS_CONFIG[a.status]
             return (
               <div
                 key={a.studentId}
-                className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${config.bg}`}
+                className={`flex flex-col gap-3 rounded-xl border-2 p-3 transition-all sm:flex-row sm:items-center sm:justify-between ${config.bg}`}
                 onClick={() => cycleStatus(a.studentId)}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-white border flex items-center justify-center text-sm font-bold text-gray-700">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border bg-white text-sm font-bold text-gray-700">
                     {getInitials(`${a.firstName} ${a.lastName}`)}
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">{a.lastName} {a.firstName}</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{a.lastName} {a.firstName}</p>
                     <code className="text-xs opacity-70">{a.iun}</code>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2 sm:justify-end">
                   <span className={`text-xs font-semibold ${config.color}`}>{config.label}</span>
                   <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                     {(['present', 'absent', 'late'] as AttendanceStatus[]).map(s => (
                       <button
                         key={s}
+                        type="button"
                         onClick={() => setStatus(a.studentId, s)}
-                        className={`w-7 h-7 rounded-full text-xs font-bold border transition-colors ${a.status === s ? STATUS_CONFIG[s].bg + ' ' + STATUS_CONFIG[s].color : 'bg-white border-gray-200 text-gray-400 hover:border-gray-400'}`}
+                        className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold transition-colors sm:h-7 sm:w-7 ${a.status === s ? STATUS_CONFIG[s].bg + ' ' + STATUS_CONFIG[s].color : 'border-gray-200 bg-white text-gray-400 hover:border-gray-400'}`}
                         title={STATUS_CONFIG[s].label}
                       >
-                        {s === 'present' ? '✓' : s === 'absent' ? '✗' : <Clock className="h-3 w-3 mx-auto" />}
+                        {s === 'present' ? '✓' : s === 'absent' ? '✗' : <Clock className="mx-auto h-3 w-3" />}
                       </button>
                     ))}
                   </div>
@@ -164,29 +290,27 @@ export function AttendanceTakeClient() {
             )
           })}
         </div>
-      )}
+      ) : null}
 
       {attendances.length > 0 && (
-        <div className="flex gap-3 pt-2">
-          <Button
-            className="flex-1 bg-[#1a4d2e] hover:bg-[#2d6a4f]"
-            onClick={saveAttendances}
-            loading={saving}
-            disabled={saving}
-          >
-            {saved ? (
-              <>
-                <Check className="h-4 w-4" />
-                Enregistré !
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Enregistrer
-              </>
-            )}
-          </Button>
-        </div>
+        <Button
+          className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto"
+          onClick={saveAttendances}
+          loading={saving}
+          disabled={saving || !selectedSubject}
+        >
+          {saved ? (
+            <>
+              <Check className="h-4 w-4" />
+              Enregistré !
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              Enregistrer
+            </>
+          )}
+        </Button>
       )}
     </div>
   )

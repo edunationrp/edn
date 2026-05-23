@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/cards/kpi-card'
+import { PageHeader } from '@/components/dashboard/page-header'
 import { CreditCard, TrendingUp, AlertTriangle, FileText, Plus, Download, Search } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '@/lib/utils'
@@ -63,29 +64,27 @@ export default async function FinancePage() {
   const collectionRate = totalPayments > 0 ? Math.round((paidCount / totalPayments) * 100) : 0
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* En-tête */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion Financière</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Paiements, structures tarifaires et reçus
-            {currentYear ? ` · ${currentYear.name}` : ''}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-1" />
-            Exporter
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/dashboard/finance/payments/new">
-              <Plus className="h-4 w-4 mr-1" />
-              Nouveau paiement
-            </Link>
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-4 animate-fade-in sm:space-y-6">
+      <PageHeader
+        title="Gestion Financière"
+        description={`Paiements, structures tarifaires et reçus${currentYear ? ` · ${currentYear.name}` : ''}`}
+        actions={
+          <>
+            <Button variant="outline" size="sm" className="flex-1 sm:flex-none" asChild>
+              <Link href="/dashboard/finance">
+                <Download className="h-4 w-4 mr-1" />
+                Caisse
+              </Link>
+            </Button>
+            <Button size="sm" className="flex-1 sm:flex-none" asChild>
+              <Link href="/dashboard/finance/payments/new">
+                <Plus className="h-4 w-4 mr-1" />
+                Nouveau paiement
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -122,7 +121,7 @@ export default async function FinancePage() {
       </div>
 
       {/* Onglets de statuts */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card className="border-green-200 bg-green-50">
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold text-green-700">{paidCount}</p>
@@ -160,8 +159,27 @@ export default async function FinancePage() {
             </CardHeader>
             <CardContent>
               {payments.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <>
+                  <div className="divide-y sm:hidden">
+                    {payments.map(p => (
+                      <div key={p.id} className="px-1 py-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-mono text-xs text-muted-foreground">{p.reference ?? '—'}</p>
+                            <p className="mt-1 font-semibold">{formatCurrency(p.amount)}</p>
+                          </div>
+                          <Badge className={`text-xs ${getStatusColor(p.status)}`}>
+                            {getStatusLabel(p.status)}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-xs capitalize text-muted-foreground">
+                          {p.payment_method?.replace('_', ' ')} · {formatDate(p.created_at)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto sm:block">
+                    <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/30">
                         <th className="text-left px-3 py-2 font-medium text-muted-foreground">Référence</th>
@@ -197,7 +215,8 @@ export default async function FinancePage() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-10">
                   <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
