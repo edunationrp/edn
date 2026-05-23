@@ -122,6 +122,48 @@ export function accountCreatedEmail(data: AccountCreatedEmailData) {
   return { subject, html }
 }
 
+export type RegistrationCompleteEmailData = {
+  fullName: string
+  schoolName: string
+  organizationName: string
+  confirmationUrl: string
+}
+
+export function registrationCompleteEmail(data: RegistrationCompleteEmailData) {
+  const appUrl = getAppUrl()
+  const fullName = escapeHtml(data.fullName)
+  const schoolName = escapeHtml(data.schoolName)
+  const organizationName = escapeHtml(data.organizationName)
+  const confirmationUrl = data.confirmationUrl
+  const subject = `Confirmez votre email — ${data.schoolName} est inscrit sur EduNation`
+
+  const html = baseEmailLayout({
+    previewText: `Votre établissement ${data.schoolName} est prêt. Confirmez votre email pour vous connecter.`,
+    content: [
+      badge('Inscription terminée'),
+      heading(`Félicitations, ${fullName} !`, 'Votre établissement est enregistré sur EduNation.'),
+      paragraph(
+        `Le groupe <strong>${organizationName}</strong> et l'établissement <strong>${schoolName}</strong> ont été créés avec succès. Il ne reste plus qu'une étape : confirmer votre adresse email pour activer votre compte directeur.`
+      ),
+      infoBox(
+        '<strong>Confirmez votre email pour vous connecter</strong><br />Cliquez sur le bouton ci-dessous pour activer votre compte. Vous pourrez ensuite accéder à votre tableau de bord.',
+        'info'
+      ),
+      ctaButton('Confirmer mon adresse email', confirmationUrl),
+      secondaryLink('Se connecter après confirmation', `${appUrl}/login`),
+      divider(),
+      paragraph(
+        '<strong>Email non reçu ?</strong> Vérifiez vos spams. Le lien expire après un certain délai — reconnectez-vous depuis la page de connexion pour demander un renvoi si besoin.'
+      ),
+      supportLine(),
+      signatureBlock(),
+    ].join(''),
+    showQuote: false,
+  })
+
+  return { subject, html }
+}
+
 export type TrialReminderEmailData = {
   fullName: string
   schoolName: string

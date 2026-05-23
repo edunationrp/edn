@@ -2,48 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Building2,
-  Settings2,
-  Layers,
-  Users,
-  MapPin,
-  Phone,
-  GraduationCap,
-} from 'lucide-react'
+import { Building2, MapPin, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { completeSchoolOnboarding } from '@/lib/actions/register-school'
+import { completeFullRegistration, completeSchoolOnboarding } from '@/lib/actions/register-school'
 import { notify } from '@/lib/feedback/toast'
 import { TOAST_SUCCESS } from '@/lib/feedback/messages'
-import {
-  ACADEMIC_FORMATS,
-  ACCESS_LEVELS,
-  COUNTRIES,
-  CURRENCIES,
-  EVALUATION_SYSTEMS,
-  getDefaultSchoolYearLabel,
-  LANGUAGES,
-  SCHOOL_TYPES,
-  SUBSCRIPTION_PLANS,
-} from '@/lib/onboarding/constants'
-import {
-  organizationSchema,
-  schoolIdentitySchema,
-  schoolSettingsSchema,
-  schoolStructureSchema,
-  type OnboardingSchoolPayload,
-} from '@/lib/onboarding/schemas'
+import { buildOnboardingSchoolPayload, COUNTRIES, SCHOOL_TYPES } from '@/lib/onboarding/constants'
+import type { DirectorAccountValues, SchoolWizardValues } from '@/lib/onboarding/schemas'
+import { schoolWizardSchema } from '@/lib/onboarding/schemas'
 
 const SUB_STEPS = [
-  { id: 1, label: 'Org.', icon: Users },
-  { id: 2, label: 'École', icon: Building2 },
-  { id: 3, label: 'Lieu', icon: MapPin },
-  { id: 4, label: 'Contact', icon: Phone },
-  { id: 5, label: 'Finance', icon: Settings2 },
-  { id: 6, label: 'Pédago.', icon: GraduationCap },
-  { id: 7, label: 'Structure', icon: Layers },
+  { id: 1, label: 'École', icon: Building2 },
+  { id: 2, label: 'Lieu', icon: MapPin },
+  { id: 3, label: 'Contact', icon: Phone },
 ] as const
 
 const TOTAL_SUB_STEPS = SUB_STEPS.length
@@ -51,10 +24,12 @@ const TOTAL_SUB_STEPS = SUB_STEPS.length
 type Props = {
   directorName: string
   defaultCountry?: string
+  directorAccount?: DirectorAccountValues
   onSubStepChange?: (step: number) => void
+  onRegistrationComplete?: (email: string) => void
 }
 
-type FormState = Partial<OnboardingSchoolPayload>
+type FormState = Partial<SchoolWizardValues>
 
 function SelectField({
   label,
@@ -70,12 +45,12 @@ function SelectField({
   error?: string
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
+    <div className="space-y-1">
+      <Label className="text-xs">{label}</Label>
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        className="flex h-9 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm"
       >
         {options.map(o => (
           <option key={o.value} value={o.value}>
@@ -83,16 +58,21 @@ function SelectField({
           </option>
         ))}
       </select>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-[11px] text-destructive">{error}</p>}
     </div>
   )
 }
 
-export function SchoolWizardStep({ directorName, defaultCountry = 'BF', onSubStepChange }: Props) {
+export function SchoolWizardStep({
+  directorName,
+  defaultCountry = 'BF',
+  directorAccount,
+  onSubStepChange,
+  onRegistrationComplete,
+}: Props) {
   const router = useRouter()
   const [subStep, setSubStep] = useState(1)
   const [form, setForm] = useState<FormState>({
-    organization_name: '',
     school_name: '',
     school_type: 'lycee',
     country: defaultCountry,
@@ -100,32 +80,16 @@ export function SchoolWizardStep({ directorName, defaultCountry = 'BF', onSubSte
     address: '',
     phone: '',
     email: '',
-    currency: 'XOF',
-    school_year: getDefaultSchoolYearLabel(),
-    evaluation_system: 'sur_20',
-    main_language: 'fr',
-    estimated_students: undefined,
-    access_level: 'prive',
-    structure_name: '',
-    academic_format: 'trimestre',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const plan = SUBSCRIPTION_PLANS.starter
 
   useEffect(() => {
     onSubStepChange?.(subStep)
   }, [subStep, onSubStepChange])
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm(prev => {
-      const next = { ...prev, [key]: value }
-      if (key === 'school_name' && !prev.structure_name) {
-        next.structure_name = String(value)
-      }
-      return next
-    })
+    setForm(prev => ({ ...prev, [key]: value }))
     setErrors(prev => ({ ...prev, [key]: '' }))
   }
 
@@ -134,37 +98,15 @@ export function SchoolWizardStep({ directorName, defaultCountry = 'BF', onSubSte
 
     switch (subStep) {
       case 1:
-        result = organizationSchema.safeParse(form)
+        result = schoolWizardSchema.pick({ school_name: true, school_type: true }).safeParse(form)
         break
       case 2:
-        result = schoolIdentitySchema
-          .pick({ school_name: true, school_type: true })
-          .safeParse(form)
-        break
-      case 3:
-        result = schoolIdentitySchema
-          .pick({ country: true, city: true, address: true })
-          .safeParse(form)
-        break
-      case 4:
-        result = schoolIdentitySchema
-          .pick({ phone: true, email: true })
-          .safeParse({ phone: form.phone ?? '', email: form.email ?? '' })
-        break
-      case 5:
-        result = schoolSettingsSchema
-          .pick({ currency: true, school_year: true, evaluation_system: true })
-          .safeParse(form)
-        break
-      case 6:
-        result = schoolSettingsSchema
-          .pick({ main_language: true, access_level: true, estimated_students: true })
-          .safeParse(form)
+        result = schoolWizardSchema.pick({ country: true, city: true, address: true }).safeParse(form)
         break
       default:
-        result = schoolStructureSchema.safeParse({
-          structure_name: form.structure_name || form.school_name,
-          academic_format: form.academic_format,
+        result = schoolWizardSchema.pick({ phone: true, email: true }).safeParse({
+          phone: form.phone ?? '',
+          email: form.email ?? '',
         })
     }
 
@@ -189,10 +131,6 @@ export function SchoolWizardStep({ directorName, defaultCountry = 'BF', onSubSte
       return
     }
 
-    if (subStep === 5 && !form.structure_name && form.school_name) {
-      setField('structure_name', form.school_name)
-    }
-
     if (subStep < TOTAL_SUB_STEPS) {
       setSubStep(s => s + 1)
     }
@@ -205,40 +143,37 @@ export function SchoolWizardStep({ directorName, defaultCountry = 'BF', onSubSte
   async function handleFinish() {
     if (!validateCurrentSubStep()) return
 
-    const payload: OnboardingSchoolPayload = {
-      organization_name: form.organization_name!,
-      school_name: form.school_name!,
-      school_type: form.school_type!,
-      country: form.country!,
-      city: form.city!,
-      address: form.address!,
-      phone: form.phone,
-      email: form.email,
-      currency: form.currency!,
-      school_year: form.school_year!,
-      evaluation_system: form.evaluation_system!,
-      main_language: form.main_language!,
-      estimated_students: form.estimated_students,
-      access_level: form.access_level!,
-      structure_name: form.structure_name || form.school_name!,
-      academic_format: form.academic_format!,
-    }
-
-    const checks = [
-      organizationSchema.safeParse(payload),
-      schoolIdentitySchema.safeParse(payload),
-      schoolSettingsSchema.safeParse(payload),
-      schoolStructureSchema.safeParse(payload),
-    ]
-
-    if (checks.some(c => !c.success)) {
+    const wizardCheck = schoolWizardSchema.safeParse(form)
+    if (!wizardCheck.success) {
       notify.warning('Informations incomplètes', {
         description: 'Certaines étapes nécessitent encore votre attention.',
       })
       return
     }
 
+    const payload = buildOnboardingSchoolPayload(wizardCheck.data, {
+      preferredLanguage: directorAccount?.preferred_language,
+    })
+
     setIsSubmitting(true)
+
+    if (directorAccount) {
+      const { confirm_password: _, ...director } = directorAccount
+      const result = await completeFullRegistration(director, payload)
+      setIsSubmitting(false)
+
+      if (result.error) {
+        notify.error(result.error, 'onboarding_school')
+        return
+      }
+
+      notify.success('Inscription terminée', {
+        description: 'Consultez votre email pour confirmer votre compte.',
+      })
+      onRegistrationComplete?.(result.email ?? directorAccount.email)
+      return
+    }
+
     const result = await completeSchoolOnboarding(payload)
     setIsSubmitting(false)
 
@@ -256,17 +191,17 @@ export function SchoolWizardStep({ directorName, defaultCountry = 'BF', onSubSte
   }
 
   return (
-    <div className="flex flex-col">
-      <p className="mb-3 rounded-lg border border-[#1a4d2e]/15 bg-[#1a4d2e]/5 px-3 py-2 text-xs text-gray-700">
-        Bienvenue{directorName ? `, ${directorName}` : ''} ! Étape {subStep}/{TOTAL_SUB_STEPS} — configuration
-        de votre établissement principal.
+    <div className="text-sm">
+      <p className="mb-2 rounded-md border border-[#1a4d2e]/15 bg-[#1a4d2e]/5 px-2.5 py-1.5 text-[11px] leading-snug text-gray-700">
+        Bienvenue{directorName ? `, ${directorName}` : ''} ! École — {subStep}/{TOTAL_SUB_STEPS}
       </p>
 
-      <div className="mb-3 grid grid-cols-7 gap-1">
+      <div className="mb-2.5 flex items-center gap-1 overflow-x-auto pb-0.5">
         {SUB_STEPS.map(s => (
           <div
             key={s.id}
-            className={`rounded-md border px-1 py-1.5 text-center ${
+            title={s.label}
+            className={`flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 ${
               subStep === s.id
                 ? 'border-[#1a4d2e] bg-[#1a4d2e]/5'
                 : subStep > s.id
@@ -275,51 +210,31 @@ export function SchoolWizardStep({ directorName, defaultCountry = 'BF', onSubSte
             }`}
           >
             <s.icon
-              className={`mx-auto mb-0.5 h-3.5 w-3.5 ${subStep >= s.id ? 'text-[#1a4d2e]' : 'text-gray-400'}`}
+              className={`h-3 w-3 ${subStep >= s.id ? 'text-[#1a4d2e]' : 'text-gray-400'}`}
             />
-            <p className="text-[9px] font-medium leading-none">{s.label}</p>
+            <span className="text-[9px] font-medium">{s.label}</span>
           </div>
         ))}
       </div>
 
       <div>
         {subStep === 1 && (
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">Organisation</h3>
-              <p className="text-xs text-muted-foreground">Nom du groupe scolaire</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nom du groupe / organisation *</Label>
-              <Input
-                placeholder="Groupe Scolaire Horizon"
-                value={form.organization_name ?? ''}
-                onChange={e => setField('organization_name', e.target.value)}
-              />
-              {errors.organization_name && (
-                <p className="text-xs text-destructive">{errors.organization_name}</p>
-              )}
-            </div>
-            <div className="rounded-lg border bg-gray-50 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Plan Starter</p>
-              <p className="text-sm font-bold text-[#1a4d2e]">{plan.label} · jusqu&apos;à {plan.maxSchools} écoles</p>
-            </div>
-          </div>
-        )}
-
-        {subStep === 2 && (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div>
               <h3 className="text-base font-semibold text-gray-900">Identité de l&apos;école</h3>
+              <p className="text-[11px] text-muted-foreground">
+                Les paramètres avancés pourront être configurés plus tard.
+              </p>
             </div>
-            <div className="space-y-1.5">
-              <Label>Nom de l&apos;école *</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Nom de l&apos;école *</Label>
               <Input
+                className="h-9 text-sm"
                 placeholder="Collège Saint-Jean"
                 value={form.school_name ?? ''}
                 onChange={e => setField('school_name', e.target.value)}
               />
-              {errors.school_name && <p className="text-xs text-destructive">{errors.school_name}</p>}
+              {errors.school_name && <p className="text-[11px] text-destructive">{errors.school_name}</p>}
             </div>
             <SelectField
               label="Type d'établissement *"
@@ -330,12 +245,12 @@ export function SchoolWizardStep({ directorName, defaultCountry = 'BF', onSubSte
           </div>
         )}
 
-        {subStep === 3 && (
-          <div className="space-y-3">
+        {subStep === 2 && (
+          <div className="space-y-2.5">
             <div>
               <h3 className="text-base font-semibold text-gray-900">Localisation</h3>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2.5 sm:grid-cols-2">
               <SelectField
                 label="Pays *"
                 value={form.country ?? 'BF'}
@@ -343,164 +258,79 @@ export function SchoolWizardStep({ directorName, defaultCountry = 'BF', onSubSte
                 options={COUNTRIES.map(c => ({ value: c.code, label: c.label }))}
                 error={errors.country}
               />
-              <div className="space-y-1.5">
-                <Label>Ville *</Label>
+              <div className="space-y-1">
+                <Label className="text-xs">Ville *</Label>
                 <Input
+                  className="h-9 text-sm"
                   placeholder="Ouagadougou"
                   value={form.city ?? ''}
                   onChange={e => setField('city', e.target.value)}
                 />
-                {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
+                {errors.city && <p className="text-[11px] text-destructive">{errors.city}</p>}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Adresse complète *</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Adresse complète *</Label>
               <Input
+                className="h-9 text-sm"
                 placeholder="Secteur 15, Avenue de la Nation"
                 value={form.address ?? ''}
                 onChange={e => setField('address', e.target.value)}
               />
-              {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
+              {errors.address && <p className="text-[11px] text-destructive">{errors.address}</p>}
             </div>
           </div>
         )}
 
-        {subStep === 4 && (
-          <div className="space-y-3">
+        {subStep === 3 && (
+          <div className="space-y-2.5">
             <div>
               <h3 className="text-base font-semibold text-gray-900">Contact école</h3>
-              <p className="text-xs text-muted-foreground">Optionnel — modifiable plus tard</p>
+              <p className="text-[11px] text-muted-foreground">Optionnel — modifiable plus tard</p>
             </div>
-            <div className="space-y-1.5">
-              <Label>Téléphone</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Téléphone</Label>
               <Input
+                className="h-9 text-sm"
                 placeholder="+226 25 00 00 00"
                 value={form.phone ?? ''}
                 onChange={e => setField('phone', e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Email</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Email</Label>
               <Input
+                className="h-9 text-sm"
                 type="email"
                 placeholder="contact@ecole.bf"
                 value={form.email ?? ''}
                 onChange={e => setField('email', e.target.value)}
               />
-              {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+              {errors.email && <p className="text-[11px] text-destructive">{errors.email}</p>}
             </div>
-          </div>
-        )}
-
-        {subStep === 5 && (
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">Paramètres financiers</h3>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <SelectField
-                label="Devise *"
-                value={form.currency ?? 'XOF'}
-                onChange={v => setField('currency', v)}
-                options={CURRENCIES.map(c => ({ value: c.code, label: c.label }))}
-              />
-              <div className="space-y-1.5">
-                <Label>Année scolaire *</Label>
-                <Input
-                  placeholder="2025 — 2026"
-                  value={form.school_year ?? ''}
-                  onChange={e => setField('school_year', e.target.value)}
-                />
-                {errors.school_year && <p className="text-xs text-destructive">{errors.school_year}</p>}
-              </div>
-            </div>
-            <SelectField
-              label="Système d'évaluation *"
-              value={form.evaluation_system ?? 'sur_20'}
-              onChange={v => setField('evaluation_system', v as FormState['evaluation_system'])}
-              options={EVALUATION_SYSTEMS}
-            />
-          </div>
-        )}
-
-        {subStep === 6 && (
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">Paramètres pédagogiques</h3>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <SelectField
-                label="Langue principale *"
-                value={form.main_language ?? 'fr'}
-                onChange={v => setField('main_language', v)}
-                options={LANGUAGES.map(l => ({ value: l.code, label: l.label }))}
-              />
-              <SelectField
-                label="Niveau d'accès *"
-                value={form.access_level ?? 'prive'}
-                onChange={v => setField('access_level', v as FormState['access_level'])}
-                options={ACCESS_LEVELS}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nombre approximatif d&apos;élèves</Label>
-              <Input
-                type="number"
-                min={0}
-                placeholder="450"
-                value={form.estimated_students ?? ''}
-                onChange={e =>
-                  setField('estimated_students', e.target.value ? Number(e.target.value) : undefined)
-                }
-              />
-            </div>
-          </div>
-        )}
-
-        {subStep === 7 && (
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">Structure académique</h3>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nom de la première structure *</Label>
-              <Input
-                placeholder={form.school_name || 'École principale'}
-                value={form.structure_name ?? ''}
-                onChange={e => setField('structure_name', e.target.value)}
-              />
-              {errors.structure_name && (
-                <p className="text-xs text-destructive">{errors.structure_name}</p>
-              )}
-            </div>
-            <SelectField
-              label="Format académique *"
-              value={form.academic_format ?? 'trimestre'}
-              onChange={v => setField('academic_format', v as FormState['academic_format'])}
-              options={ACADEMIC_FORMATS}
-            />
           </div>
         )}
       </div>
 
-      <div className="mt-4 flex gap-3 border-t border-gray-100 pt-4">
+      <div className="mt-3 flex gap-2 border-t border-gray-100 pt-3">
         {subStep > 1 && (
-          <Button type="button" variant="outline" className="flex-1" onClick={handleBack}>
+          <Button type="button" variant="outline" size="sm" className="h-9 flex-1" onClick={handleBack}>
             Retour
           </Button>
         )}
         {subStep < TOTAL_SUB_STEPS ? (
-          <Button type="button" className="flex-1 bg-[#1a4d2e] hover:bg-[#2d6a4f]" onClick={handleNext}>
+          <Button type="button" size="sm" className="h-9 flex-1 bg-[#1a4d2e] hover:bg-[#2d6a4f]" onClick={handleNext}>
             Continuer
           </Button>
         ) : (
           <Button
             type="button"
-            className="flex-1 bg-[#1a4d2e] hover:bg-[#2d6a4f]"
+            size="sm"
+            className="h-9 flex-1 bg-[#1a4d2e] hover:bg-[#2d6a4f]"
             loading={isSubmitting}
             onClick={handleFinish}
           >
-            Terminer
+            Terminer l&apos;inscription
           </Button>
         )}
       </div>

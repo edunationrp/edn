@@ -9,7 +9,9 @@ import {
   trialEndedEmail,
   trialReminderEmail,
   welcomeDirectorEmail,
+  registrationCompleteEmail,
   type AccountCreatedEmailData,
+  type RegistrationCompleteEmailData,
   type NotificationEmailData,
   type PaymentReceiptEmailData,
   type StaffInviteEmailData,
@@ -47,6 +49,14 @@ async function sendEmail(to: string, subject: string, html: string): Promise<Sen
   }
 
   return { ok: true, id: data?.id ?? 'unknown' }
+}
+
+export async function sendRegistrationCompleteEmail(
+  to: string,
+  payload: RegistrationCompleteEmailData
+): Promise<SendEmailResult> {
+  const { subject, html } = registrationCompleteEmail(payload)
+  return sendEmail(to, subject, html)
 }
 
 export async function sendWelcomeDirectorEmail(

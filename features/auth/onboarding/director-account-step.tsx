@@ -7,30 +7,25 @@ import { Eye, EyeOff, Mail, Lock, Phone, User, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createClient } from '@/lib/supabase/client'
 import { notify } from '@/lib/feedback/toast'
-import { TOAST_SUCCESS } from '@/lib/feedback/messages'
-import { sendDirectorWelcomeEmailAction } from '@/lib/actions/auth-emails'
 import { COUNTRIES } from '@/lib/onboarding/constants'
 import { directorAccountSchema, type DirectorAccountValues } from '@/lib/onboarding/schemas'
 
 type Props = {
-  onSuccess: (fullName: string) => void
+  onComplete: (values: DirectorAccountValues) => void
   onSubStepChange?: (step: number) => void
 }
 
-export function DirectorAccountStep({ onSuccess, onSubStepChange }: Props) {
-  const supabase = createClient()
+export function DirectorAccountStep({ onComplete, onSubStepChange }: Props) {
   const [subStep, setSubStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
-  const [emailSent, setEmailSent] = useState(false)
 
   const {
     register,
     handleSubmit,
     trigger,
     getValues,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<DirectorAccountValues>({
     resolver: zodResolver(directorAccountSchema),
     defaultValues: {
@@ -54,122 +49,72 @@ export function DirectorAccountStep({ onSuccess, onSubStepChange }: Props) {
     setSubStep(2)
   }
 
-  async function onSubmit(values: DirectorAccountValues) {
-    const { data, error } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-      options: {
-        data: {
-          full_name: values.full_name,
-          phone: values.phone,
-          country: values.country,
-          preferred_language: values.preferred_language ?? 'fr',
-          default_role: 'PROVISEUR',
-        },
-        emailRedirectTo: `${window.location.origin}/register/school`,
-      },
-    })
-
-    if (error) {
-      notify.error(error, 'auth_signup')
-      return
-    }
-
-    if (data.session) {
-      await sendDirectorWelcomeEmailAction({
-        email: values.email,
-        fullName: values.full_name,
-      })
-      notify.success('Compte directeur créé', {
-        description: "Passez à l'inscription de votre établissement.",
-      })
-      onSuccess(values.full_name)
-      return
-    }
-
-    notify.info(TOAST_SUCCESS.signupPendingEmail.title, {
-      description: TOAST_SUCCESS.signupPendingEmail.description,
-    })
-
-    setEmailSent(true)
-  }
-
-  if (emailSent) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center space-y-4 py-2 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700">
-          <Mail className="h-6 w-6" />
-        </div>
-        <h3 className="text-lg font-bold text-gray-900">Vérifiez votre email</h3>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Un lien de confirmation vous a été envoyé. Activez votre compte puis revenez pour
-          configurer votre établissement.
-        </p>
-        <Button
-          type="button"
-          className="bg-[#1a4d2e] hover:bg-[#2d6a4f]"
-          onClick={() => window.location.reload()}
-        >
-          J&apos;ai confirmé mon email
-        </Button>
-      </div>
-    )
+  function onSubmit(values: DirectorAccountValues) {
+    onComplete(values)
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col">
       <div>
         {subStep === 1 ? (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Votre identité</h2>
-              <p className="text-xs text-muted-foreground">Compte directeur — informations de contact</p>
+              <h2 className="text-base font-bold text-gray-900">Votre identité</h2>
+              <p className="text-[11px] text-muted-foreground">Compte directeur — contact</p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="full_name">Nom complet *</Label>
+            <div className="space-y-1">
+              <Label htmlFor="full_name" className="text-xs">
+                Nom complet *
+              </Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="full_name" placeholder="M. Jean KABORE" className="pl-9" {...register('full_name')} />
+                <User className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input id="full_name" placeholder="M. Jean KABORE" className="h-9 pl-8 text-sm" {...register('full_name')} />
               </div>
-              {errors.full_name && <p className="text-xs text-destructive">{errors.full_name.message}</p>}
+              {errors.full_name && <p className="text-[11px] text-destructive">{errors.full_name.message}</p>}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email *</Label>
+            <div className="space-y-1">
+              <Label htmlFor="email" className="text-xs">
+                Email *
+              </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="email" type="email" placeholder="directeur@ecole.bf" className="pl-9" {...register('email')} />
+                <Mail className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input id="email" type="email" placeholder="directeur@ecole.bf" className="h-9 pl-8 text-sm" {...register('email')} />
               </div>
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+              {errors.email && <p className="text-[11px] text-destructive">{errors.email.message}</p>}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="phone">Téléphone *</Label>
+            <div className="space-y-1">
+              <Label htmlFor="phone" className="text-xs">
+                Téléphone *
+              </Label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="phone" placeholder="+226 70 00 00 00" className="pl-9" {...register('phone')} />
+                <Phone className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input id="phone" placeholder="+226 70 00 00 00" className="h-9 pl-8 text-sm" {...register('phone')} />
               </div>
-              {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
+              {errors.phone && <p className="text-[11px] text-destructive">{errors.phone.message}</p>}
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Sécurité du compte</h2>
-              <p className="text-xs text-muted-foreground">
+              <h2 className="text-base font-bold text-gray-900">Sécurité du compte</h2>
+              <p className="text-[11px] text-muted-foreground">
                 {getValues('full_name') ? `Compte de ${getValues('full_name')}` : 'Mot de passe et pays'}
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="country">Pays *</Label>
+            <div className="space-y-1">
+              <Label htmlFor="country" className="text-xs">
+                Pays *
+              </Label>
               <div className="relative">
-                <Globe className="absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Globe className="absolute left-2.5 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <select
                   id="country"
                   {...register('country')}
-                  className="flex h-10 w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm"
+                  className="flex h-9 w-full rounded-md border border-input bg-background py-1.5 pl-8 pr-3 text-sm"
                 >
                   {COUNTRIES.map(c => (
                     <option key={c.code} value={c.code}>
@@ -178,17 +123,19 @@ export function DirectorAccountStep({ onSuccess, onSubStepChange }: Props) {
                   ))}
                 </select>
               </div>
-              {errors.country && <p className="text-xs text-destructive">{errors.country.message}</p>}
+              {errors.country && <p className="text-[11px] text-destructive">{errors.country.message}</p>}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Mot de passe *</Label>
+            <div className="space-y-1">
+              <Label htmlFor="password" className="text-xs">
+                Mot de passe *
+              </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Lock className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  className="pl-9 pr-10"
+                  className="h-9 pl-8 pr-9 text-sm"
                   {...register('password')}
                 />
                 <button
@@ -199,37 +146,40 @@ export function DirectorAccountStep({ onSuccess, onSubStepChange }: Props) {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+              {errors.password && <p className="text-[11px] text-destructive">{errors.password.message}</p>}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="confirm_password">Confirmer le mot de passe *</Label>
+            <div className="space-y-1">
+              <Label htmlFor="confirm_password" className="text-xs">
+                Confirmer le mot de passe *
+              </Label>
               <Input
                 id="confirm_password"
                 type={showPassword ? 'text' : 'password'}
+                className="h-9 text-sm"
                 {...register('confirm_password')}
               />
               {errors.confirm_password && (
-                <p className="text-xs text-destructive">{errors.confirm_password.message}</p>
+                <p className="text-[11px] text-destructive">{errors.confirm_password.message}</p>
               )}
             </div>
           </div>
         )}
       </div>
 
-      <div className="mt-4 flex gap-3 border-t border-gray-100 pt-4">
+      <div className="mt-3 flex gap-2 border-t border-gray-100 pt-3">
         {subStep === 2 && (
-          <Button type="button" variant="outline" className="flex-1" onClick={() => setSubStep(1)}>
+          <Button type="button" variant="outline" size="sm" className="h-9 flex-1" onClick={() => setSubStep(1)}>
             Retour
           </Button>
         )}
         {subStep === 1 ? (
-          <Button type="button" className="flex-1 bg-[#1a4d2e] hover:bg-[#2d6a4f]" onClick={goToSecurityStep}>
+          <Button type="button" size="sm" className="h-9 flex-1 bg-[#1a4d2e] hover:bg-[#2d6a4f]" onClick={goToSecurityStep}>
             Continuer
           </Button>
         ) : (
-          <Button type="submit" className="flex-1 bg-[#1a4d2e] hover:bg-[#2d6a4f]" loading={isSubmitting}>
-            Créer mon compte
+          <Button type="submit" size="sm" className="h-9 flex-1 bg-[#1a4d2e] hover:bg-[#2d6a4f]">
+            Continuer vers l&apos;école
           </Button>
         )}
       </div>

@@ -87,3 +87,37 @@ export function parseSchoolYearDates(label: string) {
 export function getCountryLabel(code: string) {
   return COUNTRIES.find(c => c.code === code)?.label ?? code
 }
+
+export function buildOnboardingSchoolPayload(
+  wizard: {
+    school_name: string
+    school_type: 'primaire' | 'secondaire' | 'lycee' | 'universite' | 'formation'
+    country: string
+    city: string
+    address: string
+    phone?: string
+    email?: string
+  },
+  options?: { preferredLanguage?: string }
+) {
+  const schoolName = wizard.school_name.trim()
+
+  return {
+    organization_name: schoolName,
+    school_name: schoolName,
+    school_type: wizard.school_type,
+    country: wizard.country,
+    city: wizard.city.trim(),
+    address: wizard.address.trim(),
+    phone: wizard.phone?.trim() || undefined,
+    email: wizard.email?.trim() || undefined,
+    currency: 'XOF',
+    school_year: getDefaultSchoolYearLabel(),
+    evaluation_system: 'sur_20' as const,
+    main_language: options?.preferredLanguage ?? 'fr',
+    estimated_students: undefined,
+    access_level: 'prive' as const,
+    structure_name: schoolName,
+    academic_format: 'trimestre' as const,
+  }
+}

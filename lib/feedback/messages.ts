@@ -153,8 +153,8 @@ export const TOAST_SUCCESS = {
     description: 'Bienvenue sur EduNation.',
   },
   signupPendingEmail: {
-    title: 'Vérifiez votre email',
-    description: 'Un lien de confirmation vient de vous être envoyé.',
+    title: 'Inscription terminée',
+    description: 'Consultez votre email et cliquez sur le lien de confirmation pour vous connecter.',
   },
   resetPasswordSent: {
     title: 'Email envoyé',
