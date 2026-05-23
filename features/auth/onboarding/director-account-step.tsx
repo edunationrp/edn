@@ -14,9 +14,16 @@ import { directorAccountSchema, type DirectorAccountValues } from '@/lib/onboard
 type Props = {
   onComplete: (values: DirectorAccountValues) => void
   onSubStepChange?: (step: number) => void
+  initialValues?: DirectorAccountValues | null
+  emailConflict?: boolean
 }
 
-export function DirectorAccountStep({ onComplete, onSubStepChange }: Props) {
+export function DirectorAccountStep({
+  onComplete,
+  onSubStepChange,
+  initialValues,
+  emailConflict = false,
+}: Props) {
   const [subStep, setSubStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -25,14 +32,24 @@ export function DirectorAccountStep({ onComplete, onSubStepChange }: Props) {
     handleSubmit,
     trigger,
     getValues,
+    reset,
     formState: { errors },
   } = useForm<DirectorAccountValues>({
     resolver: zodResolver(directorAccountSchema),
-    defaultValues: {
+    defaultValues: initialValues ?? {
       country: 'BF',
       preferred_language: 'fr',
     },
   })
+
+  useEffect(() => {
+    if (initialValues) {
+      reset(initialValues)
+    }
+    if (emailConflict) {
+      setSubStep(1)
+    }
+  }, [initialValues, emailConflict, reset])
 
   useEffect(() => {
     onSubStepChange?.(subStep)
@@ -55,6 +72,13 @@ export function DirectorAccountStep({ onComplete, onSubStepChange }: Props) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col">
+      {emailConflict && (
+        <div className="mb-2.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-900">
+          Cet email est déjà utilisé. Modifiez-le ci-dessous — les informations de votre école restent
+          enregistrées.
+        </div>
+      )}
+
       <div>
         {subStep === 1 ? (
           <div className="space-y-2.5">
@@ -80,7 +104,13 @@ export function DirectorAccountStep({ onComplete, onSubStepChange }: Props) {
               </Label>
               <div className="relative">
                 <Mail className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input id="email" type="email" placeholder="directeur@ecole.bf" className="h-9 pl-8 text-sm" {...register('email')} />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="directeur@ecole.bf"
+                  className={`h-9 pl-8 text-sm ${emailConflict ? 'border-amber-400 ring-1 ring-amber-200' : ''}`}
+                  {...register('email')}
+                />
               </div>
               {errors.email && <p className="text-[11px] text-destructive">{errors.email.message}</p>}
             </div>
@@ -179,7 +209,7 @@ export function DirectorAccountStep({ onComplete, onSubStepChange }: Props) {
           </Button>
         ) : (
           <Button type="submit" size="sm" className="h-9 flex-1 bg-[#1a4d2e] hover:bg-[#2d6a4f]">
-            Continuer vers l&apos;école
+            {emailConflict ? 'Reprendre l\'inscription école' : 'Continuer vers l\'école'}
           </Button>
         )}
       </div>

@@ -25,8 +25,11 @@ type Props = {
   directorName: string
   defaultCountry?: string
   directorAccount?: DirectorAccountValues
+  initialForm?: FormState
+  initialSubStep?: number
   onSubStepChange?: (step: number) => void
   onRegistrationComplete?: (email: string) => void
+  onEditDirector?: (draft: { form: FormState; subStep: number }) => void
 }
 
 type FormState = Partial<SchoolWizardValues>
@@ -67,20 +70,25 @@ export function SchoolWizardStep({
   directorName,
   defaultCountry = 'BF',
   directorAccount,
+  initialForm,
+  initialSubStep = 1,
   onSubStepChange,
   onRegistrationComplete,
+  onEditDirector,
 }: Props) {
   const router = useRouter()
-  const [subStep, setSubStep] = useState(1)
-  const [form, setForm] = useState<FormState>({
-    school_name: '',
-    school_type: 'lycee',
-    country: defaultCountry,
-    city: '',
-    address: '',
-    phone: '',
-    email: '',
-  })
+  const [subStep, setSubStep] = useState(initialSubStep)
+  const [form, setForm] = useState<FormState>(
+    initialForm ?? {
+      school_name: '',
+      school_type: 'lycee',
+      country: defaultCountry,
+      city: '',
+      address: '',
+      phone: '',
+      email: '',
+    }
+  )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -140,6 +148,10 @@ export function SchoolWizardStep({
     if (subStep > 1) setSubStep(s => s - 1)
   }
 
+  function saveDraftAndEditDirector() {
+    onEditDirector?.({ form, subStep })
+  }
+
   async function handleFinish() {
     if (!validateCurrentSubStep()) return
 
@@ -159,10 +171,19 @@ export function SchoolWizardStep({
 
     if (directorAccount) {
       const { confirm_password: _, ...director } = directorAccount
-      const result = await completeFullRegistration(director, payload)
+      const result = await completeFullRegistration(director, payload, {
+        appOrigin: window.location.origin,
+      })
       setIsSubmitting(false)
 
       if (result.error) {
+        if ('code' in result && result.code === 'EMAIL_ALREADY_EXISTS') {
+          onEditDirector?.({ form, subStep })
+          notify.warning('Email déjà utilisé', {
+            description: 'Modifiez votre email directeur. Les informations de l\'école sont conservées.',
+          })
+          return
+        }
         notify.error(result.error, 'onboarding_school')
         return
       }
@@ -194,6 +215,19 @@ export function SchoolWizardStep({
     <div className="text-sm">
       <p className="mb-2 rounded-md border border-[#1a4d2e]/15 bg-[#1a4d2e]/5 px-2.5 py-1.5 text-[11px] leading-snug text-gray-700">
         Bienvenue{directorName ? `, ${directorName}` : ''} ! École — {subStep}/{TOTAL_SUB_STEPS}
+        {directorAccount && onEditDirector && (
+          <>
+            {' '}
+            ·{' '}
+            <button
+              type="button"
+              onClick={saveDraftAndEditDirector}
+              className="font-medium text-[#1a4d2e] underline-offset-2 hover:underline"
+            >
+              Modifier mon email
+            </button>
+          </>
+        )}
       </p>
 
       <div className="mb-2.5 flex items-center gap-1 overflow-x-auto pb-0.5">

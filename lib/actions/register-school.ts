@@ -3,7 +3,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getAppUrl } from '@/lib/email/client'
+import { resolveAppUrl } from '@/lib/env/public'
 import { getCountryLabel, parseSchoolYearDates, SUBSCRIPTION_PLANS } from '@/lib/onboarding/constants'
 import type { DirectorAccountServerValues, OnboardingSchoolPayload } from '@/lib/onboarding/schemas'
 import {
@@ -194,7 +194,8 @@ async function createSchoolForFounder(
 
 export async function completeFullRegistration(
   director: FullRegistrationDirectorInput,
-  payload: OnboardingSchoolPayload
+  payload: OnboardingSchoolPayload,
+  options?: { appOrigin?: string }
 ) {
   const directorCheck = directorAccountServerSchema.safeParse(director)
 
@@ -223,6 +224,7 @@ export async function completeFullRegistration(
   if (existingProfile) {
     return {
       error: 'Un compte existe déjà avec cet email. Connectez-vous ou utilisez une autre adresse.',
+      code: 'EMAIL_ALREADY_EXISTS' as const,
     }
   }
 
@@ -240,7 +242,14 @@ export async function completeFullRegistration(
   })
 
   if (createUserError || !createdUser.user) {
-    return { error: createUserError?.message ?? 'Impossible de créer le compte directeur.' }
+    const message = createUserError?.message ?? 'Impossible de créer le compte directeur.'
+    if (/already|existe déjà|registered|duplicate/i.test(message)) {
+      return {
+        error: 'Un compte existe déjà avec cet email. Connectez-vous ou utilisez une autre adresse.',
+        code: 'EMAIL_ALREADY_EXISTS' as const,
+      }
+    }
+    return { error: message }
   }
 
   const userId = createdUser.user.id
@@ -262,7 +271,7 @@ export async function completeFullRegistration(
     return { error: schoolResult.error }
   }
 
-  const appUrl = getAppUrl()
+  const appUrl = resolveAppUrl(options?.appOrigin)
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
     type: 'signup',
     email: director.email,

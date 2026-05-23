@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button'
 import { getFounderRegistrationStatus } from '@/lib/actions/register-school'
 import { DirectorAccountStep } from '@/features/auth/onboarding/director-account-step'
 import { SchoolWizardStep } from '@/features/auth/onboarding/school-wizard-step'
-import type { DirectorAccountValues } from '@/lib/onboarding/schemas'
+import type { DirectorAccountValues, SchoolWizardValues } from '@/lib/onboarding/schemas'
 
 const TOTAL_STEPS = 5
+
+type SchoolFormDraft = Partial<SchoolWizardValues>
 
 function GlobalProgress({ current }: { current: number }) {
   const percent = Math.round((current / TOTAL_STEPS) * 100)
@@ -58,6 +60,9 @@ export function SchoolRegistrationWizard() {
   const [directorAccount, setDirectorAccount] = useState<DirectorAccountValues | null>(null)
   const [directorName, setDirectorName] = useState('')
   const [defaultCountry, setDefaultCountry] = useState('BF')
+  const [schoolFormDraft, setSchoolFormDraft] = useState<SchoolFormDraft | null>(null)
+  const [schoolSubStep, setSchoolSubStep] = useState(1)
+  const [emailConflict, setEmailConflict] = useState(false)
   const [completedEmail, setCompletedEmail] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [legacyAuthenticated, setLegacyAuthenticated] = useState(false)
@@ -84,6 +89,23 @@ export function SchoolRegistrationWizard() {
     init()
   }, [])
 
+  function handleEditDirector(draft: { form: SchoolFormDraft; subStep: number }) {
+    setSchoolFormDraft(draft.form)
+    setSchoolSubStep(draft.subStep)
+    setEmailConflict(true)
+    setPhase(1)
+    setGlobalStep(1)
+  }
+
+  function handleDirectorComplete(values: DirectorAccountValues) {
+    setDirectorAccount(values)
+    setDirectorName(values.full_name)
+    setDefaultCountry(values.country)
+    setEmailConflict(false)
+    setPhase(2)
+    setGlobalStep(schoolFormDraft ? 2 + schoolSubStep : 3)
+  }
+
   if (loading) {
     return <div className="py-8 text-center text-sm text-muted-foreground">Chargement…</div>
   }
@@ -98,22 +120,21 @@ export function SchoolRegistrationWizard() {
 
       {phase === 1 ? (
         <DirectorAccountStep
+          initialValues={directorAccount}
+          emailConflict={emailConflict}
           onSubStepChange={setGlobalStep}
-          onComplete={values => {
-            setDirectorAccount(values)
-            setDirectorName(values.full_name)
-            setDefaultCountry(values.country)
-            setPhase(2)
-            setGlobalStep(3)
-          }}
+          onComplete={handleDirectorComplete}
         />
       ) : (
         <SchoolWizardStep
           directorName={directorName}
           defaultCountry={defaultCountry}
           directorAccount={legacyAuthenticated ? undefined : directorAccount ?? undefined}
+          initialForm={schoolFormDraft ?? undefined}
+          initialSubStep={schoolFormDraft ? schoolSubStep : 1}
           onSubStepChange={step => setGlobalStep(2 + step)}
           onRegistrationComplete={email => setCompletedEmail(email)}
+          onEditDirector={legacyAuthenticated ? undefined : handleEditDirector}
         />
       )}
 
