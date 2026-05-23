@@ -184,10 +184,6 @@ export const TOAST_SUCCESS = {
     title: 'Message envoyé',
     description: 'Votre message a bien été transmis.',
   },
-  attendanceSavedOffline: (count: number) => ({
-    title: 'Présences sauvegardées hors ligne',
-    description: `${count} enregistrement${count > 1 ? 's' : ''} sera synchronisé au retour de la connexion.`,
-  }),
   attendanceSaved: {
     title: 'Présences enregistrées',
     description: 'La prise de présence a été sauvegardée.',

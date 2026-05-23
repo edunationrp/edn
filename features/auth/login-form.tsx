@@ -51,7 +51,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
       <div className="space-y-1.5">
         <Label htmlFor="email">Email</Label>
         <div className="relative">
@@ -109,16 +109,16 @@ export function LoginForm() {
         Se connecter
       </Button>
 
-      <div className="relative">
+      <div className="relative py-1">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">ou</span>
+          <span className="bg-white px-2 text-muted-foreground">ou</span>
         </div>
       </div>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-xs text-muted-foreground sm:text-sm">
         Votre établissement n&apos;est pas encore inscrit ?{' '}
         <a href="/register/school" className="text-primary hover:underline font-medium">
           Inscrire mon école

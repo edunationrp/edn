@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import {
   Users, FileCheck, Calendar, BookOpen,
   ChevronRight, UserCheck, ArrowUp, ArrowDown,
-  Clock, CheckCircle2, AlertCircle
+  Clock, CircleCheck, AlertCircle
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -182,7 +182,7 @@ export async function ProfesseurDashboard({ schoolId, userId, userName = 'M. Tra
                   </p>
                 </div>
                 {s.status === 'done' ? (
-                  <CheckCircle2 className="h-4.5 w-4.5 text-gray-300 flex-shrink-0" />
+                  <CircleCheck className="h-4.5 w-4.5 text-gray-300 flex-shrink-0" />
                 ) : s.status === 'current' ? (
                   <span className="flex-shrink-0 text-[10px] font-bold bg-[#7AB832] text-white px-2 py-0.5 rounded-full animate-pulse">
                     En cours

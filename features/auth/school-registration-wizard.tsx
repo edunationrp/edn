@@ -1,44 +1,36 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle2 } from 'lucide-react'
 import { getFounderRegistrationStatus } from '@/lib/actions/register-school'
 import { DirectorAccountStep } from '@/features/auth/onboarding/director-account-step'
 import { SchoolWizardStep } from '@/features/auth/onboarding/school-wizard-step'
 
-function MainStepIndicator({ step }: { step: 1 | 2 }) {
-  const steps = [
-    { n: 1, label: 'Compte directeur' },
-    { n: 2, label: 'Création école' },
-  ]
+const TOTAL_STEPS = 9
+
+function GlobalProgress({ current }: { current: number }) {
+  const percent = Math.round((current / TOTAL_STEPS) * 100)
 
   return (
-    <div className="flex items-center gap-3 mb-8">
-      {steps.map((s, i) => (
-        <div key={s.n} className="flex items-center gap-3 flex-1">
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                step >= s.n ? 'bg-[#1a4d2e] text-white' : 'bg-gray-100 text-gray-400'
-              }`}
-            >
-              {step > s.n ? <CheckCircle2 className="h-4 w-4" /> : s.n}
-            </div>
-            <span className={`text-xs font-medium hidden sm:block ${step >= s.n ? 'text-gray-900' : 'text-gray-400'}`}>
-              {s.label}
-            </span>
-          </div>
-          {i < steps.length - 1 && (
-            <div className={`flex-1 h-0.5 rounded ${step > s.n ? 'bg-[#1a4d2e]' : 'bg-gray-200'}`} />
-          )}
-        </div>
-      ))}
+    <div className="mb-4 shrink-0">
+      <div className="mb-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>
+          Étape {current} sur {TOTAL_STEPS}
+        </span>
+        <span>{percent}%</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+        <div
+          className="h-full rounded-full bg-[#1a4d2e] transition-all duration-300"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
     </div>
   )
 }
 
 export function SchoolRegistrationWizard() {
-  const [step, setStep] = useState<1 | 2>(1)
+  const [phase, setPhase] = useState<1 | 2>(1)
+  const [globalStep, setGlobalStep] = useState(1)
   const [directorName, setDirectorName] = useState('')
   const [defaultCountry, setDefaultCountry] = useState('BF')
   const [loading, setLoading] = useState(true)
@@ -54,7 +46,8 @@ export function SchoolRegistrationWizard() {
           window.location.href = '/dashboard'
           return
         }
-        setStep(2)
+        setPhase(2)
+        setGlobalStep(3)
       }
 
       setLoading(false)
@@ -64,43 +57,33 @@ export function SchoolRegistrationWizard() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="py-12 text-center text-sm text-muted-foreground">
-        Chargement…
-      </div>
-    )
+    return <div className="py-8 text-center text-sm text-muted-foreground">Chargement…</div>
   }
 
   return (
-    <div>
-      <MainStepIndicator step={step} />
+    <div className="flex flex-col">
+      <GlobalProgress current={globalStep} />
 
-      {step === 1 ? (
-        <>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">Étape 1 — Compte directeur</h2>
-          <p className="text-muted-foreground text-sm mb-6">
-            Création rapide du compte lié à votre ou vos établissements.
-          </p>
-          <DirectorAccountStep
-            onSuccess={name => {
-              setDirectorName(name)
-              setStep(2)
-            }}
-          />
-        </>
+      {phase === 1 ? (
+        <DirectorAccountStep
+          onSubStepChange={setGlobalStep}
+          onSuccess={name => {
+            setDirectorName(name)
+            setPhase(2)
+            setGlobalStep(3)
+          }}
+        />
       ) : (
-        <>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">Étape 2 — Création de l&apos;école</h2>
-          <p className="text-muted-foreground text-sm mb-6">
-            Wizard pas à pas : organisation, école, paramètres et structure académique.
-          </p>
-          <SchoolWizardStep directorName={directorName} defaultCountry={defaultCountry} />
-        </>
+        <SchoolWizardStep
+          directorName={directorName}
+          defaultCountry={defaultCountry}
+          onSubStepChange={step => setGlobalStep(2 + step)}
+        />
       )}
 
-      <p className="text-center text-sm text-muted-foreground mt-6">
+      <p className="mt-4 text-center text-xs text-muted-foreground">
         Déjà inscrit ?{' '}
-        <a href="/login" className="text-primary hover:underline font-medium">
+        <a href="/login" className="font-medium text-primary hover:underline">
           Se connecter
         </a>
       </p>

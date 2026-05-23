@@ -7,12 +7,10 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <>
-      <h2 className="text-2xl font-bold text-gray-900 mb-1">Connexion</h2>
-      <p className="text-muted-foreground text-sm mb-6">
-        Connectez-vous à votre espace EduNation
-      </p>
+    <div className="flex flex-col">
+      <h2 className="mb-1 text-xl font-bold text-gray-900 sm:text-2xl">Connexion</h2>
+      <p className="mb-4 text-sm text-muted-foreground">Connectez-vous à votre espace EduNation</p>
       <LoginForm />
-    </>
+    </div>
   )
 }

@@ -1,39 +1,33 @@
-import Image from 'next/image'
 import { LogoSVG } from '@/components/brand/logo'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1B3A6B] via-[#1e4080] to-[#152F58] flex items-center justify-center p-4">
-      {/* Cercles décoratifs */}
-      <div className="fixed -top-32 -right-32 w-96 h-96 rounded-full bg-[#7AB832]/15 pointer-events-none" />
-      <div className="fixed -bottom-24 -left-24 w-72 h-72 rounded-full bg-[#7AB832]/10 pointer-events-none" />
+    <div className="flex h-dvh flex-col overflow-hidden bg-gradient-to-br from-[#1B3A6B] via-[#1e4080] to-[#152F58]">
+      <div className="pointer-events-none fixed -right-32 -top-32 h-96 w-96 rounded-full bg-[#7AB832]/15" />
+      <div className="pointer-events-none fixed -bottom-24 -left-24 h-72 w-72 rounded-full bg-[#7AB832]/10" />
 
-      <div className="relative w-full max-w-md">
-        {/* Brand lockup */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center mb-4">
-            {/* Essaie le PNG, sinon fallback sur le SVG */}
-            <div className="bg-white rounded-2xl shadow-xl px-6 py-4 flex items-center gap-3">
-              <LogoSVG width={36} height={36} />
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-4 sm:py-6">
+        <div className="mb-4 shrink-0 text-center sm:mb-5">
+          <div className="inline-flex items-center justify-center">
+            <div className="flex items-center gap-3 rounded-2xl bg-white px-5 py-3 shadow-xl">
+              <LogoSVG width={32} height={32} />
               <div className="text-left">
-                <div className="text-[#1B3A6B] font-extrabold text-2xl leading-none tracking-tight">
+                <div className="text-xl font-extrabold leading-none tracking-tight text-[#1B3A6B]">
                   Edu<span className="text-[#7AB832]">Nation</span>
                 </div>
-                <div className="text-[#6B7280] text-[9px] font-semibold tracking-[0.18em] uppercase mt-0.5">
-                  ÉDUQUER · GÉRER · CONNECTER
+                <div className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#6B7280]">
+                  Éduquer · Gérer · Connecter
                 </div>
               </div>
             </div>
           </div>
-          <p className="text-white/60 text-sm">Plateforme scolaire numérique — Burkina Faso</p>
         </div>
 
-        {/* Carte auth */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {children}
+        <div className="flex w-full max-w-md min-h-0 shrink-0 flex-col">
+          <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-2xl sm:p-6">{children}</div>
         </div>
 
-        <p className="text-center text-white/35 text-xs mt-6">
+        <p className="mt-3 shrink-0 text-center text-[11px] text-white/35">
           © {new Date().getFullYear()} EduNation · Tous droits réservés
         </p>
       </div>

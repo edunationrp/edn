@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/cards/kpi-card'
-import { UserCheck, UserX, Clock, AlertTriangle, Plus, WifiOff } from 'lucide-react'
+import { UserCheck, UserX, Clock, AlertTriangle, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
 
@@ -73,24 +73,6 @@ export default async function AttendancePage() {
           </Button>
         )}
       </div>
-
-      {/* Notification PWA/Offline */}
-      <Card className="border-blue-200 bg-blue-50">
-        <CardContent className="p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-            <WifiOff className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-medium text-blue-800 text-sm">Mode hors ligne disponible</p>
-            <p className="text-xs text-blue-700">
-              Vous pouvez faire l&apos;appel sans connexion Internet. Les données seront synchronisées automatiquement dès le retour de la connexion.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" className="ml-auto border-blue-300 text-blue-700 hover:bg-blue-100 shrink-0" asChild>
-            <Link href="/dashboard/attendance/take">Faire l&apos;appel</Link>
-          </Button>
-        </CardContent>
-      </Card>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">

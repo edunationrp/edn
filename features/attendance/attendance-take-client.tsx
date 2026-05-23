@@ -1,11 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { createClient } from '@/lib/supabase/client'
-import { Wifi, WifiOff, Save, Check, AlertCircle, Clock, RefreshCw } from 'lucide-react'
+import { Save, Check, Clock } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import { notify } from '@/lib/feedback/toast'
 import { TOAST_SUCCESS } from '@/lib/feedback/messages'
@@ -29,24 +27,9 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg
 }
 
 export function AttendanceTakeClient() {
-  const supabase = createClient()
-  const [isOnline, setIsOnline] = useState(true)
   const [attendances, setAttendances] = useState<StudentAttendance[]>([])
-  const [pendingSync, setPendingSync] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    setIsOnline(navigator.onLine)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [])
 
   const cycleStatus = (studentId: string) => {
     const cycle: AttendanceStatus[] = ['present', 'absent', 'late', 'sick', 'excused']
@@ -67,34 +50,22 @@ export function AttendanceTakeClient() {
   }
 
   const saveAttendances = async () => {
+    if (!navigator.onLine) {
+      notify.error('Connexion Internet requise pour enregistrer les présences.', 'attendance_save')
+      return
+    }
+
     setSaving(true)
 
-    if (!isOnline) {
-      // Sauvegarder dans IndexedDB / localStorage
-      try {
-        const pending = JSON.parse(localStorage.getItem('edunation_offline_attendance') ?? '[]')
-        const newEntries = attendances.map(a => ({
-          ...a,
-          recorded_at: new Date().toISOString(),
-          source: 'offline_sync',
-        }))
-        localStorage.setItem('edunation_offline_attendance', JSON.stringify([...pending, ...newEntries]))
-        setPendingSync(prev => prev + attendances.length)
-        setSaved(true)
-        const msg = TOAST_SUCCESS.attendanceSavedOffline(attendances.length)
-        notify.success(msg.title, { description: msg.description })
-      } catch {
-        notify.error('Impossible de sauvegarder hors ligne', 'attendance_save')
-      }
-    } else {
+    try {
       setSaved(true)
       notify.success(TOAST_SUCCESS.attendanceSaved.title, {
         description: TOAST_SUCCESS.attendanceSaved.description,
       })
+    } finally {
+      setSaving(false)
+      setTimeout(() => setSaved(false), 3000)
     }
-
-    setSaving(false)
-    setTimeout(() => setSaved(false), 3000)
   }
 
   const presentCount = attendances.filter(a => a.status === 'present').length
@@ -102,36 +73,11 @@ export function AttendanceTakeClient() {
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto animate-fade-in">
-      {/* En-tête avec statut connexion */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Prise de présence</h1>
-          <p className="text-muted-foreground text-sm">Sélectionnez la classe et saisissez les présences</p>
-        </div>
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${isOnline ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
-          {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-          {isOnline ? 'En ligne' : 'Hors ligne'}
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Prise de présence</h1>
+        <p className="text-muted-foreground text-sm">Sélectionnez la classe et saisissez les présences</p>
       </div>
 
-      {!isOnline && (
-        <div className="p-3 rounded-lg bg-orange-50 border border-orange-200 flex items-center gap-2 text-sm text-orange-800">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          Mode hors ligne activé — Les données seront synchronisées au retour de la connexion.
-        </div>
-      )}
-
-      {pendingSync > 0 && (
-        <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-2 text-sm text-blue-800">
-          <RefreshCw className="h-4 w-4 flex-shrink-0" />
-          {pendingSync} enregistrement{pendingSync > 1 ? 's' : ''} en attente de synchronisation
-          <Button variant="outline" size="sm" className="ml-auto text-blue-700 border-blue-300" asChild>
-            <a href="/dashboard/attendance/offline-queue">Voir</a>
-          </Button>
-        </div>
-      )}
-
-      {/* Sélection classe/matière */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Configuration du cours</CardTitle>
@@ -152,7 +98,6 @@ export function AttendanceTakeClient() {
         </CardContent>
       </Card>
 
-      {/* Résumé */}
       {attendances.length > 0 && (
         <div className="flex gap-3">
           <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-3 text-center">
@@ -172,7 +117,6 @@ export function AttendanceTakeClient() {
         </div>
       )}
 
-      {/* Liste élèves */}
       {attendances.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
@@ -187,7 +131,9 @@ export function AttendanceTakeClient() {
           {attendances.map(a => {
             const config = STATUS_CONFIG[a.status]
             return (
-              <div key={a.studentId} className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${config.bg}`}
+              <div
+                key={a.studentId}
+                className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${config.bg}`}
                 onClick={() => cycleStatus(a.studentId)}
               >
                 <div className="flex items-center gap-3">
@@ -201,7 +147,6 @@ export function AttendanceTakeClient() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs font-semibold ${config.color}`}>{config.label}</span>
-                  {/* Boutons statuts rapides */}
                   <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                     {(['present', 'absent', 'late'] as AttendanceStatus[]).map(s => (
                       <button
@@ -221,7 +166,6 @@ export function AttendanceTakeClient() {
         </div>
       )}
 
-      {/* Actions */}
       {attendances.length > 0 && (
         <div className="flex gap-3 pt-2">
           <Button
@@ -238,7 +182,7 @@ export function AttendanceTakeClient() {
             ) : (
               <>
                 <Save className="h-4 w-4" />
-                {isOnline ? 'Enregistrer' : 'Sauvegarder hors ligne'}
+                Enregistrer
               </>
             )}
           </Button>

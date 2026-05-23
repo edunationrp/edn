@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import {
   GraduationCap, FileCheck, Award, Wallet,
   ChevronRight, AlertTriangle, TrendingUp, Bell,
-  UserX, CheckCircle2, ArrowUp
+  UserX, CircleCheck, ArrowUp
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -135,7 +135,7 @@ export async function ParentDashboard({ schoolId, userId, userName = 'M. Ouedrao
                 </div>
                 <div className="flex gap-3 text-xs text-gray-500">
                   <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" />13,4/20</span>
-                  <span className="flex items-center gap-1 text-[#7AB832]"><CheckCircle2 className="h-3 w-3" />Présent</span>
+                  <span className="flex items-center gap-1 text-[#7AB832]"><CircleCheck className="h-3 w-3" />Présent</span>
                 </div>
               </div>
             )
