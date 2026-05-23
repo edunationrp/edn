@@ -75,6 +75,12 @@ export default async function DashboardLayout({
     .eq('recipient_id', user.id)
     .eq('is_read', false)
 
+  const { count: unreadNotifications } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('is_read', false)
+
   const fullName = profile.full_name ?? user.email ?? 'Utilisateur'
   const initials = fullName
     .split(' ')
@@ -100,6 +106,7 @@ export default async function DashboardLayout({
         schoolName: activeSchool?.name ?? 'EduNation',
         schoolYear: schoolYear?.name ?? '2025-2026',
         unreadMessages: unreadMessages ?? 0,
+        unreadNotifications: unreadNotifications ?? 0,
       }}
     >
       {children}

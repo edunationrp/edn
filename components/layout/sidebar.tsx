@@ -62,7 +62,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Système', items: [
         { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/audit-logs' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
       ]},
     ],
   },
@@ -75,7 +75,8 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'École', items: [
         { id: 'personnel', label: 'Personnel', icon: 'users', href: '/dashboard/staff' },
-        { id: 'invitations', label: 'Liens d\'inscription', icon: 'link', href: '/dashboard/staff' },
+        { id: 'roles', label: 'Rôles & permissions', icon: 'shield', href: '/dashboard/staff/roles-permissions' },
+        { id: 'invitations', label: 'Invitations', icon: 'link', href: '/dashboard/staff/roles-permissions?tab=invitations' },
         { id: 'inscriptions', label: 'Inscriptions élèves', icon: 'userPlus', href: '/dashboard/students' },
       ]},
       { group: 'Pédagogie', items: [
@@ -87,8 +88,8 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'budget', label: 'Finance', icon: 'wallet', href: '/dashboard/finance' },
       ]},
       { group: 'Espace personnel', items: [
-        { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages', badge: '5', badgeColor: 'red' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
+        { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
       ]},
     ],
   },
@@ -109,7 +110,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
       ]},
     ],
   },
@@ -133,7 +134,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
       ]},
     ],
   },
@@ -156,7 +157,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
       ]},
     ],
   },
@@ -177,7 +178,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
       ]},
     ],
   },
@@ -197,7 +198,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'send', href: '/dashboard/messages' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
       ]},
     ],
   },
@@ -212,11 +213,11 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'appel', label: 'Faire l\'appel', icon: 'userCheck', href: '/dashboard/attendance/take' },
       ]},
       { group: 'Communication', items: [
-        { id: 'notif-parents', label: 'Notifications parents', icon: 'mail', href: '/dashboard/notifications' },
+        { id: 'notif-parents', label: 'Notifications parents', icon: 'mail', href: '/dashboard/messages' },
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'send', href: '/dashboard/messages' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
       ]},
     ],
   },
@@ -236,7 +237,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'parents', label: 'Messages', icon: 'mail', href: '/dashboard/messages' },
       ]},
       { group: 'Espace personnel', items: [
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/notifications' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
       ]},
     ],
   },

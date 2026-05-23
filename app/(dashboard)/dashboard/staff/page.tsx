@@ -49,12 +49,19 @@ export default async function StaffPage() {
         title="Personnel"
         description={`${count ?? 0} membre${(count ?? 0) > 1 ? 's' : ''} du personnel`}
         actions={
-          <Button className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto" asChild>
-            <Link href="/dashboard/staff/invitations">
-              <UserPlus className="h-4 w-4" />
-              Inviter du personnel
-            </Link>
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto" asChild>
+              <Link href="/dashboard/staff/roles-permissions?tab=invitations">
+                <UserPlus className="h-4 w-4" />
+                Inviter du personnel
+              </Link>
+            </Button>
+            <Button variant="outline" className="w-full sm:w-auto" asChild>
+              <Link href="/dashboard/staff/roles-permissions">
+                Rôles & permissions
+              </Link>
+            </Button>
+          </div>
         }
       />
 
@@ -165,7 +172,7 @@ export default async function StaffPage() {
               <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
               <p className="text-muted-foreground">Aucun personnel enregistré</p>
               <Button variant="outline" className="mt-3" asChild>
-                <Link href="/dashboard/staff/invitations">Inviter du personnel</Link>
+                <Link href="/dashboard/staff/roles-permissions?tab=invitations">Inviter du personnel</Link>
               </Button>
             </div>
           )}

@@ -68,7 +68,10 @@ export function Topbar({
           )}
         </Link>
 
-        <div className="hidden items-center gap-2 rounded-xl px-2 py-1 sm:flex">
+        <Link
+          href="/dashboard/settings"
+          className="hidden items-center gap-2 rounded-xl px-2 py-1 sm:flex hover:bg-gray-50"
+        >
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#7AB832] to-[#5F941F] text-xs font-bold text-white shadow-sm">
             {initials}
           </div>
@@ -80,7 +83,7 @@ export function Topbar({
               {userTitle} · {schoolName}
             </div>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   )
