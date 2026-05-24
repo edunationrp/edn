@@ -3,37 +3,12 @@ import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/cards/kpi-card'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { UserCheck, UserX, Clock, AlertTriangle, Plus } from 'lucide-react'
 import Link from 'next/link'
-import { formatDate } from '@/lib/utils'
+import { AttendanceRecordsTable } from '@/features/attendance/attendance-records-table'
 import { isSchoolFullAuthority } from '@/types/permissions'
-
-type AttendanceRecord = {
-  id: string
-  student_id: string
-  status: string
-  recorded_at: string
-  students?: { first_name: string; last_name: string } | null
-}
-
-function statusLabel(status: string) {
-  if (status === 'absent') return 'Absent'
-  if (status === 'late') return 'Retard'
-  if (status === 'present') return 'Présent'
-  if (status === 'sick') return 'Malade'
-  if (status === 'excused') return 'Excusé'
-  return status
-}
-
-function statusBadgeClass(status: string) {
-  if (status === 'absent') return 'bg-red-100 text-red-800'
-  if (status === 'late') return 'bg-orange-100 text-orange-800'
-  if (status === 'present') return 'bg-green-100 text-green-800'
-  return 'bg-gray-100 text-gray-800'
-}
 
 export default async function AttendancePage() {
   const supabase = await createClient()
@@ -57,7 +32,13 @@ export default async function AttendancePage() {
       : Promise.resolve({ data: null }),
   ])
 
-  const records = (recentResult.data as AttendanceRecord[] | null) ?? []
+  const records = (recentResult.data as Array<{
+    id: string
+    student_id: string
+    status: string
+    recorded_at: string
+    students?: { first_name: string; last_name: string } | null
+  }> | null) ?? []
   const classes = (classesResult.data as Array<{ id: string; name: string }> | null) ?? []
 
   const absentCount = records.filter(r => r.status === 'absent').length
@@ -71,7 +52,15 @@ export default async function AttendancePage() {
     ['DIRECTEUR_ADJOINT', 'CENSEUR'].includes(ctx?.role_code ?? '')
   const canTakeAttendance = isTeacher || isSurveillant || isAdmin
 
-  const recentRows = records.slice(0, 20)
+  const recentRows = records.slice(0, 20).map(r => ({
+    id: r.id,
+    status: r.status,
+    recorded_at: r.recorded_at,
+    studentName: r.students
+      ? `${r.students.last_name} ${r.students.first_name}`
+      : 'Élève inconnu',
+    className: '—',
+  }))
 
   return (
     <div className="space-y-4 animate-fade-in sm:space-y-6">
@@ -132,77 +121,11 @@ export default async function AttendancePage() {
         )}
 
         <div className={canTakeAttendance ? 'xl:col-span-2' : 'xl:col-span-3'}>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <UserX className="h-4 w-4 text-red-500" />
-                Enregistrements récents
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 sm:p-6 sm:pt-0">
-              {recentRows.length > 0 ? (
-                <>
-                  <div className="divide-y sm:hidden">
-                    {recentRows.map(r => {
-                      const name = r.students
-                        ? `${r.students.last_name} ${r.students.first_name}`
-                        : 'Élève inconnu'
-                      return (
-                        <div key={r.id} className="px-4 py-3.5">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-medium">{name}</p>
-                            <Badge className={`text-xs ${statusBadgeClass(r.status)}`}>
-                              {statusLabel(r.status)}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">{formatDate(r.recorded_at)}</p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <div className="hidden overflow-x-auto sm:block">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b bg-muted/30">
-                          <th className="px-3 py-2 text-left font-medium text-muted-foreground">Élève</th>
-                          <th className="px-3 py-2 text-center font-medium text-muted-foreground">Statut</th>
-                          <th className="px-3 py-2 text-left font-medium text-muted-foreground">Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recentRows.map(r => {
-                          const name = r.students
-                            ? `${r.students.last_name} ${r.students.first_name}`
-                            : 'Élève inconnu'
-                          return (
-                            <tr key={r.id} className="border-b last:border-0 hover:bg-muted/20">
-                              <td className="px-3 py-2.5 text-sm font-medium">{name}</td>
-                              <td className="px-3 py-2.5 text-center">
-                                <Badge className={`text-xs ${statusBadgeClass(r.status)}`}>
-                                  {statusLabel(r.status)}
-                                </Badge>
-                              </td>
-                              <td className="px-3 py-2.5 text-xs text-muted-foreground">{formatDate(r.recorded_at)}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <div className="py-10 text-center">
-                  <UserCheck className="mx-auto mb-2 h-12 w-12 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Aucun enregistrement récent</p>
-                  {canTakeAttendance && (
-                    <Button variant="link" size="sm" asChild className="mt-2">
-                      <Link href="/dashboard/attendance/take">Faire le premier appel</Link>
-                    </Button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <AttendanceRecordsTable
+            records={recentRows}
+            title="Enregistrements récents"
+            compact
+          />
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { NotificationsClient } from '@/features/notifications/notifications-client'
+import { NotificationsTable } from '@/features/notifications/notifications-table'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -36,7 +36,7 @@ export default async function NotificationsPage() {
             : 'Historique de vos alertes et rappels'
         }
       />
-      <NotificationsClient notifications={notifications} />
+      <NotificationsTable notifications={notifications} />
     </div>
   )
 }

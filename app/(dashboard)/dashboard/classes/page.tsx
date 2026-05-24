@@ -2,15 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/cards/kpi-card'
 import { DashboardPage } from '@/components/dashboard/dashboard-page'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { BookOpen, Plus, Users, GraduationCap, Settings } from 'lucide-react'
+import { ClassesListTable, LevelsListTable, SubjectsListTable } from '@/features/classes/classes-list-tables'
+import { BookOpen, Plus, GraduationCap, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { cn } from '@/lib/utils'
-import { dashboard } from '@/lib/dashboard/ui-classes'
 
 type ClassRow = {
   id: string
@@ -90,164 +88,12 @@ export default async function ClassesPage() {
         <KPICard title="Matières" value={subjects.length} icon={<Settings className="h-5 w-5" />} color="gold" />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Classes */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-primary" />
-                Classes ({classes.length})
-              </CardTitle>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/dashboard/classes/new">
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Ajouter
-                </Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {classes.length > 0 ? (
-              <div className="space-y-2">
-                {classes.map(cls => (
-                  <div
-                    key={cls.id}
-                    className={cn(
-                      'group flex items-center justify-between rounded-xl border border-slate-100 p-3.5 transition',
-                      dashboard.cardHover
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                        {cls.name[0]}
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{cls.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Capacité : {cls.capacity ?? '—'} élèves
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/dashboard/classes/${cls.id}`}>
-                          <Users className="h-3.5 w-3.5" />
-                        </Link>
-                      </Button>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/dashboard/classes/${cls.id}/edit`}>
-                          <Settings className="h-3.5 w-3.5" />
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Aucune classe configurée</p>
-                <Button variant="link" size="sm" asChild className="mt-1">
-                  <Link href="/dashboard/classes/new">Créer la première classe</Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Matières */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Settings className="h-4 w-4 text-yellow-600" />
-                Matières ({subjects.length})
-              </CardTitle>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/dashboard/classes/subjects/new">
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Ajouter
-                </Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {subjects.length > 0 ? (
-              <div className="space-y-2">
-                {subjects.map(sub => (
-                  <div
-                    key={sub.id}
-                    className={cn(
-                      'group flex items-center justify-between rounded-xl border border-slate-100 p-3.5 transition',
-                      dashboard.cardHover
-                    )}
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{sub.name}</p>
-                      <p className="text-xs text-muted-foreground">Coefficient : {sub.coefficient}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={sub.is_active ? 'default' : 'secondary'} className="text-xs">
-                        {sub.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                      <Button variant="ghost" size="sm" className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" asChild>
-                        <Link href={`/dashboard/classes/subjects/${sub.id}/edit`}>
-                          <Settings className="h-3.5 w-3.5" />
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Aucune matière configurée</p>
-                <Button variant="link" size="sm" asChild className="mt-1">
-                  <Link href="/dashboard/classes/subjects/new">Créer la première matière</Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <ClassesListTable classes={classes} />
+        <SubjectsListTable subjects={subjects} />
       </div>
 
-      {/* Niveaux */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-blue-500" />
-              Niveaux scolaires ({levels.length})
-            </CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard/classes/levels/new">
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Ajouter
-              </Link>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {levels.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {levels.map(level => (
-                <div key={level.id} className="flex items-center gap-2 p-3 rounded-lg border bg-blue-50/50 hover:border-blue-300 transition-colors">
-                  <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
-                    {level.order_num ?? '?'}
-                  </div>
-                  <span className="text-sm font-medium">{level.name}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <p className="text-sm text-muted-foreground">Aucun niveau configuré</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <LevelsListTable levels={levels} />
     </DashboardPage>
   )
 }

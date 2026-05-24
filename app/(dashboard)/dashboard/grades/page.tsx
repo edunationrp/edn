@@ -3,12 +3,11 @@ import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/cards/kpi-card'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { BookOpen, Plus, TrendingUp, ClipboardList, Lock, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
-import { formatDate } from '@/lib/utils'
+import { EvaluationsTable } from '@/features/grades/evaluations-table'
 
 type GradeRow = {
   id: string
@@ -128,112 +127,7 @@ export default async function GradesPage() {
         )}
       </div>
 
-      {/* Liste des évaluations */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ClipboardList className="h-4 w-4 text-primary" />
-              Évaluations récentes
-            </CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard/grades/all">Voir tout</Link>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {evaluations.length > 0 ? (
-            <>
-              <div className="divide-y sm:hidden">
-                {evaluations.map(ev => (
-                  <div key={ev.id} className="px-1 py-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-sm">{ev.title}</p>
-                      {ev.is_locked ? (
-                        <Badge className="bg-green-100 text-green-800 text-xs">Verrouillée</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">En cours</Badge>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground capitalize">
-                      {ev.eval_type} · Max {ev.max_score} · {formatDate(ev.eval_date)}
-                    </p>
-                    <Button variant="link" size="sm" className="mt-1 h-auto p-0" asChild>
-                      <Link href={ev.is_locked ? `/dashboard/grades/${ev.id}` : `/dashboard/grades/entry`}>
-                        {ev.is_locked ? 'Voir' : 'Saisir'}
-                      </Link>
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <div className="hidden overflow-x-auto sm:block">
-                <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Titre</th>
-                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Type</th>
-                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">Note max</th>
-                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Date</th>
-                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">Statut</th>
-                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {evaluations.map(ev => (
-                    <tr key={ev.id} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="px-3 py-2.5 font-medium">{ev.title}</td>
-                      <td className="px-3 py-2.5">
-                        <Badge variant="secondary" className="capitalize text-xs">
-                          {ev.eval_type}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2.5 text-center">{ev.max_score}</td>
-                      <td className="px-3 py-2.5 text-muted-foreground">{formatDate(ev.eval_date)}</td>
-                      <td className="px-3 py-2.5 text-center">
-                        {ev.is_locked ? (
-                          <Badge className="bg-green-100 text-green-800 text-xs">
-                            <Lock className="h-3 w-3 mr-1" />
-                            Verrouillée
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
-                            En cours
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/dashboard/grades/${ev.id}`}>
-                            Voir
-                          </Link>
-                        </Button>
-                        {!ev.is_locked && (
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/dashboard/grades/${ev.id}/entry`}>
-                              Saisir
-                            </Link>
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-10">
-              <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground">Aucune évaluation créée</p>
-              {(isTeacher || isAdmin) && (
-                <Button variant="link" size="sm" asChild className="mt-2">
-                  <Link href="/dashboard/grades/entry">Commencer une saisie</Link>
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <EvaluationsTable evaluations={evaluations} />
     </div>
   )
 }

@@ -8,7 +8,7 @@ import { KPICard } from '@/components/cards/kpi-card'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { FileText, Plus, Download, QrCode, CheckCircle, Clock, Lock } from 'lucide-react'
 import Link from 'next/link'
-import { formatDate } from '@/lib/utils'
+import { ReportCardsTable } from '@/features/report-cards/report-cards-table'
 
 type ReportCard = {
   id: string
@@ -19,6 +19,7 @@ type ReportCard = {
   is_published: boolean
   is_locked: boolean
   hash: string | null
+  qr_hash?: string | null
   created_at: string
   students?: { first_name: string; last_name: string } | null
 }
@@ -53,6 +54,19 @@ export default async function ReportCardsPage() {
   const pendingCount = reportCards.filter(r => !r.is_published && !r.is_locked).length
 
   const isAdmin = ['PROVISEUR', 'DIRECTEUR_ADJOINT', 'CENSEUR', 'SUPER_ADMIN_EDUNATION'].includes(ctx?.role_code ?? '')
+
+  const reportCardRows = reportCards.map(rc => ({
+    id: rc.id,
+    term: rc.term,
+    average: rc.average,
+    rank: rc.rank,
+    is_locked: rc.is_locked,
+    is_published: rc.is_published,
+    hash: rc.hash ?? rc.qr_hash ?? null,
+    studentName: rc.students
+      ? `${rc.students.last_name} ${rc.students.first_name}`
+      : 'Élève inconnu',
+  }))
 
   return (
     <div className="space-y-4 animate-fade-in sm:space-y-6">
@@ -153,125 +167,7 @@ export default async function ReportCardsPage() {
         </Card>
       )}
 
-      {/* Liste des bulletins */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
-              Bulletins récents ({reportCards.length})
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {reportCards.length > 0 ? (
-            <>
-              <div className="divide-y sm:hidden">
-                {reportCards.map(rc => {
-                  const name = rc.students
-                    ? `${rc.students.last_name} ${rc.students.first_name}`
-                    : 'Élève inconnu'
-                  return (
-                    <div key={rc.id} className="px-1 py-3">
-                      <p className="text-sm font-medium">{name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {rc.term} · {rc.average !== null ? `${rc.average.toFixed(2)}/20` : '—'}
-                        {rc.rank ? ` · Rang ${rc.rank}` : ''}
-                      </p>
-                      <div className="mt-2">
-                        {rc.is_published ? (
-                          <Badge className="bg-green-100 text-green-800 text-xs">Publié</Badge>
-                        ) : rc.is_locked ? (
-                          <Badge className="bg-blue-100 text-blue-800 text-xs">Verrouillé</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">En attente</Badge>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="hidden overflow-x-auto sm:block">
-                <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Élève</th>
-                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trimestre</th>
-                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">Moyenne</th>
-                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">Rang</th>
-                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">Statut</th>
-                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">Authentification</th>
-                    <th className="text-center px-3 py-2 font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportCards.map(rc => {
-                    const name = rc.students
-                      ? `${rc.students.last_name} ${rc.students.first_name}`
-                      : 'Élève inconnu'
-                    return (
-                    <tr key={rc.id} className="border-b last:border-0 hover:bg-muted/20">
-                      <td className="px-3 py-2.5 text-sm font-medium">{name}</td>
-                      <td className="px-3 py-2.5 text-center">
-                        <Badge variant="outline" className="text-xs">{rc.term}</Badge>
-                      </td>
-                      <td className="px-3 py-2.5 text-center font-bold">
-                        {rc.average !== null ? `${rc.average.toFixed(2)}/20` : '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">{rc.rank ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-center">
-                        {rc.is_published ? (
-                          <Badge className="bg-green-100 text-green-800 text-xs">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Publié
-                          </Badge>
-                        ) : rc.is_locked ? (
-                          <Badge className="bg-blue-100 text-blue-800 text-xs">
-                            <Lock className="h-3 w-3 mr-1" />
-                            Verrouillé
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
-                            <Clock className="h-3 w-3 mr-1" />
-                            En attente
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        {rc.hash ? (
-                          <Badge className="bg-purple-100 text-purple-800 text-xs">
-                            <QrCode className="h-3 w-3 mr-1" />
-                            QR Code
-                          </Badge>
-                        ) : '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/dashboard/report-cards/${rc.id}`}>
-                            Voir
-                          </Link>
-                        </Button>
-                      </td>
-                    </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-10">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground">Aucun bulletin généré</p>
-              {isAdmin && (
-                <Button variant="link" size="sm" asChild>
-                  <Link href="/dashboard/report-cards/generate">Générer les premiers bulletins</Link>
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <ReportCardsTable reportCards={reportCardRows} />
     </div>
   )
 }

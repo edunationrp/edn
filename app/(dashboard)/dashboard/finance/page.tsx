@@ -4,12 +4,13 @@ import { getScopedStudentIds, canAccessFinance } from '@/lib/dashboard/role-scop
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/cards/kpi-card'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { CreditCard, TrendingUp, AlertTriangle, FileText, Plus, Download, Search } from 'lucide-react'
 import Link from 'next/link'
-import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
+import { PaymentsTable } from '@/features/finance/payments-table'
+import { FeeStructuresTable } from '@/features/finance/fee-structures-table'
 
 type Payment = {
   id: string
@@ -19,6 +20,7 @@ type Payment = {
   status: string
   created_at: string
   student_id: string | null
+  students?: { first_name: string; last_name: string } | null
 }
 
 type FeeStructure = {
@@ -40,7 +42,7 @@ export default async function FinancePage() {
   const scopedStudentIds = user && ctx ? await getScopedStudentIds(user.id, ctx.role_code) : null
 
   let paymentsQuery = schoolId
-    ? supabase.from('payments').select('id, reference, amount, payment_method, status, created_at, student_id').eq('school_id', schoolId).order('created_at', { ascending: false }).limit(30)
+    ? supabase.from('payments').select('id, reference, amount, payment_method, status, created_at, student_id, students(first_name, last_name)').eq('school_id', schoolId).order('created_at', { ascending: false }).limit(30)
     : null
 
   if (paymentsQuery && scopedStudentIds) {
@@ -71,6 +73,18 @@ export default async function FinancePage() {
   const partialCount = payments.filter(p => p.status === 'partial').length
   const overdueCount = payments.filter(p => p.status === 'overdue').length
   const collectionRate = totalPayments > 0 ? Math.round((paidCount / totalPayments) * 100) : 0
+
+  const paymentRows = payments.map(p => ({
+    id: p.id,
+    reference: p.reference,
+    amount: p.amount,
+    payment_method: p.payment_method,
+    status: p.status,
+    created_at: p.created_at,
+    studentName: p.students
+      ? `${p.students.last_name} ${p.students.first_name}`
+      : 'Élève',
+  }))
 
   return (
     <div className="space-y-4 animate-fade-in sm:space-y-6">
@@ -156,144 +170,17 @@ export default async function FinancePage() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Derniers paiements */}
         <div className="xl:col-span-2">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-primary" />
-                  Derniers paiements
-                </CardTitle>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/dashboard/finance/payments">Voir tout</Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {payments.length > 0 ? (
-                <>
-                  <div className="divide-y sm:hidden">
-                    {payments.map(p => (
-                      <div key={p.id} className="px-1 py-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-mono text-xs text-muted-foreground">{p.reference ?? '—'}</p>
-                            <p className="mt-1 font-semibold">{formatCurrency(p.amount)}</p>
-                          </div>
-                          <Badge className={`text-xs ${getStatusColor(p.status)}`}>
-                            {getStatusLabel(p.status)}
-                          </Badge>
-                        </div>
-                        <p className="mt-1 text-xs capitalize text-muted-foreground">
-                          {p.payment_method?.replace('_', ' ')} · {formatDate(p.created_at)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="hidden overflow-x-auto sm:block">
-                    <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Référence</th>
-                        <th className="text-right px-3 py-2 font-medium text-muted-foreground">Montant</th>
-                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Méthode</th>
-                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Statut</th>
-                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Date</th>
-                        <th className="text-center px-3 py-2 font-medium text-muted-foreground">Reçu</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payments.map(p => (
-                        <tr key={p.id} className="border-b last:border-0 hover:bg-muted/20">
-                          <td className="px-3 py-2.5 font-mono text-xs">{p.reference ?? '—'}</td>
-                          <td className="px-3 py-2.5 text-right font-semibold">{formatCurrency(p.amount)}</td>
-                          <td className="px-3 py-2.5 capitalize text-muted-foreground text-xs">
-                            {p.payment_method?.replace('_', ' ')}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <Badge className={`text-xs ${getStatusColor(p.status)}`}>
-                              {getStatusLabel(p.status)}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2.5 text-muted-foreground text-xs">{formatDate(p.created_at)}</td>
-                          <td className="px-3 py-2.5 text-center">
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/finance/payments/${p.id}/receipt`}>
-                                <FileText className="h-3.5 w-3.5" />
-                              </Link>
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-10">
-                  <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Aucun paiement enregistré</p>
-                  <Button variant="link" size="sm" asChild>
-                    <Link href="/dashboard/finance/payments/new">Enregistrer le premier paiement</Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-slate-900">Derniers paiements</h2>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/finance/payments">Voir tout</Link>
+            </Button>
+          </div>
+          <PaymentsTable payments={paymentRows} embedded />
         </div>
 
-        {/* Structures tarifaires */}
-        <div>
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-yellow-600" />
-                  Frais scolaires
-                </CardTitle>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/dashboard/finance/fees/new">
-                    <Plus className="h-3.5 w-3.5" />
-                  </Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {feeStructures.length > 0 ? (
-                <div className="space-y-2">
-                  {feeStructures.map(fee => (
-                    <div key={fee.id} className="p-3 rounded-lg border hover:border-yellow-300 hover:bg-yellow-50/30 transition-colors">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-sm">{fee.name}</p>
-                          {fee.due_date && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Échéance : {formatDate(fee.due_date)}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-bold text-sm">{formatCurrency(fee.amount)}</p>
-                          {fee.is_mandatory && (
-                            <Badge className="text-xs bg-red-100 text-red-700 mt-0.5">Obligatoire</Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-xs text-muted-foreground">Aucune structure tarifaire</p>
-                  <Button variant="link" size="sm" asChild>
-                    <Link href="/dashboard/finance/fees/new">Configurer les frais</Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Lien paiement rapide */}
+        <div className="space-y-4">
+          <FeeStructuresTable fees={feeStructures} />
           <Card className="mt-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
             <CardContent className="p-4 text-center space-y-2">
               <CreditCard className="h-8 w-8 text-primary mx-auto" />
