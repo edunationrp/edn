@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { canManageClasses, teacherCanAccessClass } from '@/lib/classes/access'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +9,7 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { Settings, Users } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import type { Metadata } from 'next'
+import type { UserRole } from '@/types/roles'
 
 export async function generateMetadata({
   params,
@@ -36,6 +38,9 @@ export default async function ClassDetailPage({
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx?.school_id) redirect('/dashboard')
 
+  const role = ctx.role_code as UserRole
+  const canManage = canManageClasses(role)
+
   const { data: classRaw } = await supabase
     .from('classes')
     .select('id, name, capacity, class_levels(name), school_years(name)')
@@ -54,6 +59,9 @@ export default async function ClassDetailPage({
   )?.[0]
 
   if (!cls) notFound()
+
+  const hasAccess = await teacherCanAccessClass(supabase, user.id, ctx.school_id, id, role)
+  if (!hasAccess) redirect('/dashboard/classes')
 
   const { data: yearRaw } = await supabase
     .from('school_years')
@@ -98,12 +106,14 @@ export default async function ClassDetailPage({
         title={cls.name}
         description={`${cls.class_levels?.name ?? 'Niveau'} · ${cls.school_years?.name ?? 'Année scolaire'}`}
         actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/classes/${id}/edit`}>
-              <Settings className="h-4 w-4 mr-1" />
-              Modifier
-            </Link>
-          </Button>
+          canManage ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/dashboard/classes/${id}/edit`}>
+                <Settings className="h-4 w-4 mr-1" />
+                Modifier
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
 

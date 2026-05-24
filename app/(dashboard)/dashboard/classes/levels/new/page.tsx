@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { canManageClasses } from '@/lib/classes/access'
 import { redirect } from 'next/navigation'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { CreateLevelForm } from '@/features/classes/create-level-form'
@@ -14,6 +15,7 @@ export default async function NewLevelPage() {
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx) redirect('/dashboard')
+  if (!canManageClasses(ctx.role_code)) redirect('/dashboard/classes')
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 animate-fade-in sm:space-y-6">

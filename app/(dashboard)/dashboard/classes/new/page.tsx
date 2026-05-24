@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { canManageClasses } from '@/lib/classes/access'
 import { redirect } from 'next/navigation'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { CreateClassForm } from '@/features/classes/create-class-form'
@@ -14,6 +15,7 @@ export default async function NewClassPage() {
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx) redirect('/dashboard')
+  if (!canManageClasses(ctx.role_code)) redirect('/dashboard/classes')
 
   const [levelsResult, yearsResult] = await Promise.all([
     supabase.from('class_levels').select('id, name').eq('school_id', ctx.school_id).order('order_num'),

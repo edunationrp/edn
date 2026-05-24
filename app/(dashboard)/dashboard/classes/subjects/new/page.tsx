@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { canManageSubjects } from '@/lib/classes/access'
 import { redirect } from 'next/navigation'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { CreateSubjectForm } from '@/features/classes/create-subject-form'
@@ -14,6 +15,7 @@ export default async function NewSubjectPage() {
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx) redirect('/dashboard')
+  if (!canManageSubjects(ctx.role_code)) redirect('/dashboard/classes')
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 animate-fade-in sm:space-y-6">

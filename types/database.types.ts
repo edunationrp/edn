@@ -540,6 +540,74 @@ export interface Database {
           body?: string
         }
       }
+      chat_conversations: {
+        Row: {
+          id: string
+          school_id: string
+          participant_one: string
+          participant_two: string
+          last_message_at: string
+          last_message_preview: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          participant_one: string
+          participant_two: string
+          last_message_at?: string
+          last_message_preview?: string | null
+          created_at?: string
+        }
+        Update: {
+          last_message_at?: string
+          last_message_preview?: string | null
+        }
+      }
+      chat_messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          sender_id: string
+          body: string | null
+          message_type: 'text' | 'audio' | 'image' | 'file'
+          attachment_url: string | null
+          attachment_name: string | null
+          attachment_mime: string | null
+          attachment_size: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          sender_id: string
+          body?: string | null
+          message_type?: 'text' | 'audio' | 'image' | 'file'
+          attachment_url?: string | null
+          attachment_name?: string | null
+          attachment_mime?: string | null
+          attachment_size?: number | null
+          created_at?: string
+        }
+        Update: {
+          body?: string | null
+        }
+      }
+      chat_participant_state: {
+        Row: {
+          conversation_id: string
+          user_id: string
+          last_read_at: string
+        }
+        Insert: {
+          conversation_id: string
+          user_id: string
+          last_read_at?: string
+        }
+        Update: {
+          last_read_at?: string
+        }
+      }
       announcements: {
         Row: {
           id: string
@@ -594,6 +662,10 @@ export interface Database {
       is_student_owner: {
         Args: { p_student_id: string }
         Returns: boolean
+      }
+      get_my_unread_chat_count: {
+        Args: Record<string, never>
+        Returns: number
       }
     }
     Enums: Record<string, never>

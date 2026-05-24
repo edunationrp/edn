@@ -69,11 +69,18 @@ export default async function DashboardLayout({
 
   const schoolYear = (schoolYearRaw as Array<{ id: string; name: string }> | null)?.[0]
 
-  const { count: unreadMessages } = await supabase
-    .from('message_recipients')
-    .select('id', { count: 'exact', head: true })
-    .eq('recipient_id', user.id)
-    .is('read_at', null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: chatUnreadRaw } = await (supabase as any).rpc('get_my_unread_chat_count')
+  const unreadMessages =
+    typeof chatUnreadRaw === 'number'
+      ? chatUnreadRaw
+      : (
+          await supabase
+            .from('message_recipients')
+            .select('id', { count: 'exact', head: true })
+            .eq('recipient_id', user.id)
+            .is('read_at', null)
+        ).count ?? 0
 
   const { count: unreadNotifications } = await supabase
     .from('notifications')

@@ -1,13 +1,14 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { requireClassesManage, requireSubjectsManage } from '@/lib/classes/access'
 
 export async function createClassLevel(schoolId: string, name: string, orderNum: number) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Session expirée.' }
+  const access = await requireClassesManage()
+  if ('error' in access) return { error: access.error }
+  if (access.schoolId !== schoolId) return { error: 'Établissement invalide.' }
 
+  const { supabase } = access
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).from('class_levels').insert({
     school_id: schoolId,
@@ -24,10 +25,11 @@ export async function createClass(
   schoolId: string,
   data: { name: string; levelId: string; schoolYearId: string; capacity?: number }
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Session expirée.' }
+  const access = await requireClassesManage()
+  if ('error' in access) return { error: access.error }
+  if (access.schoolId !== schoolId) return { error: 'Établissement invalide.' }
 
+  const { supabase } = access
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).from('classes').insert({
     school_id: schoolId,
@@ -46,10 +48,11 @@ export async function createSubject(
   schoolId: string,
   data: { name: string; coefficient: number }
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Session expirée.' }
+  const access = await requireSubjectsManage()
+  if ('error' in access) return { error: access.error }
+  if (access.schoolId !== schoolId) return { error: 'Établissement invalide.' }
 
+  const { supabase } = access
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).from('subjects').insert({
     school_id: schoolId,
@@ -68,10 +71,11 @@ export async function updateClass(
   schoolId: string,
   data: { name: string; levelId: string; schoolYearId: string; capacity?: number }
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Session expirée.' }
+  const access = await requireClassesManage()
+  if ('error' in access) return { error: access.error }
+  if (access.schoolId !== schoolId) return { error: 'Établissement invalide.' }
 
+  const { supabase } = access
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from('classes')
@@ -95,10 +99,11 @@ export async function updateSubject(
   schoolId: string,
   data: { name: string; coefficient: number; isActive: boolean }
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Session expirée.' }
+  const access = await requireSubjectsManage()
+  if ('error' in access) return { error: access.error }
+  if (access.schoolId !== schoolId) return { error: 'Établissement invalide.' }
 
+  const { supabase } = access
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from('subjects')

@@ -1,14 +1,25 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { redirect } from 'next/navigation'
 import { KPICard } from '@/components/cards/kpi-card'
 import { DashboardPage } from '@/components/dashboard/dashboard-page'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { ClassesListTable, LevelsListTable, SubjectsListTable } from '@/features/classes/classes-list-tables'
-import { BookOpen, Plus, GraduationCap, Settings } from 'lucide-react'
+import {
+  ClassesListTable,
+  LevelsListTable,
+  SubjectsListTable,
+  TeacherAssignmentsTable,
+} from '@/features/classes/classes-list-tables'
+import {
+  canManageClasses,
+  canManageSubjects,
+  getTeacherAssignments,
+} from '@/lib/classes/access'
+import { BookOpen, GraduationCap, Settings } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { Plus } from 'lucide-react'
+import type { UserRole } from '@/types/roles'
 
 type ClassRow = {
   id: string
@@ -37,6 +48,49 @@ export default async function ClassesPage() {
 
   const ctx = await getUserSchoolContext(user.id)
   const schoolId = ctx?.school_id
+  const role = ctx?.role_code as UserRole
+  const isTeacherView = role === 'PROFESSEUR'
+  const canManage = canManageClasses(role)
+  const canManageSubjectList = canManageSubjects(role)
+
+  if (isTeacherView && schoolId) {
+    const assignments = await getTeacherAssignments(supabase, user.id, schoolId)
+    const assignedClassIds = [...new Set(assignments.map(a => a.classId).filter(Boolean))] as string[]
+    const assignedSubjectIds = [...new Set(assignments.map(a => a.subjectId).filter(Boolean))] as string[]
+
+    const [classesResult, subjectsResult] = await Promise.all([
+      assignedClassIds.length > 0
+        ? supabase.from('classes').select('id, name, capacity, school_year_id').eq('school_id', schoolId).in('id', assignedClassIds).order('name')
+        : Promise.resolve({ data: [] }),
+      assignedSubjectIds.length > 0
+        ? supabase.from('subjects').select('id, name, coefficient, is_active').eq('school_id', schoolId).in('id', assignedSubjectIds).order('name')
+        : Promise.resolve({ data: [] }),
+    ])
+
+    const classes = (classesResult.data as ClassRow[] | null) ?? []
+    const subjects = (subjectsResult.data as SubjectRow[] | null) ?? []
+
+    return (
+      <DashboardPage>
+        <PageHeader
+          title="Mes classes & matières"
+          description="Consultez vos affectations — la direction gère la structure pédagogique"
+        />
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <KPICard title="Classes assignées" value={classes.length} icon={<BookOpen className="h-5 w-5" />} color="navy" />
+          <KPICard title="Matières enseignées" value={subjects.length} icon={<Settings className="h-5 w-5" />} color="gold" />
+        </div>
+
+        <TeacherAssignmentsTable assignments={assignments} />
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <ClassesListTable classes={classes} canManage={false} readOnlyTitle="Mes classes" />
+          <SubjectsListTable subjects={subjects} canManage={false} readOnlyTitle="Mes matières" />
+        </div>
+      </DashboardPage>
+    )
+  }
 
   const [classesResult, levelsResult, subjectsResult, schoolYearResult] = await Promise.all([
     schoolId
@@ -65,20 +119,22 @@ export default async function ClassesPage() {
         title="Classes, Niveaux & Matières"
         description={`Gérez la structure pédagogique de votre établissement${currentYear ? ` · ${currentYear.name}` : ''}`}
         actions={
-          <>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/classes/levels/new">
-                <Plus className="h-4 w-4" />
-                Nouveau niveau
-              </Link>
-            </Button>
-            <Button size="sm" variant="brand" asChild>
-              <Link href="/dashboard/classes/new">
-                <Plus className="h-4 w-4" />
-                Nouvelle classe
-              </Link>
-            </Button>
-          </>
+          canManage ? (
+            <>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard/classes/levels/new">
+                  <Plus className="h-4 w-4" />
+                  Nouveau niveau
+                </Link>
+              </Button>
+              <Button size="sm" variant="brand" asChild>
+                <Link href="/dashboard/classes/new">
+                  <Plus className="h-4 w-4" />
+                  Nouvelle classe
+                </Link>
+              </Button>
+            </>
+          ) : undefined
         }
       />
 
@@ -89,11 +145,11 @@ export default async function ClassesPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <ClassesListTable classes={classes} />
-        <SubjectsListTable subjects={subjects} />
+        <ClassesListTable classes={classes} canManage={canManage} />
+        <SubjectsListTable subjects={subjects} canManage={canManageSubjectList} />
       </div>
 
-      <LevelsListTable levels={levels} />
+      {canManage && <LevelsListTable levels={levels} canManage={canManage} />}
     </DashboardPage>
   )
 }

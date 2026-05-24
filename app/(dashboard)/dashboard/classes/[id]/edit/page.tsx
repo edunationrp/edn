@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { canManageClasses } from '@/lib/classes/access'
 import { redirect, notFound } from 'next/navigation'
 import { EditClassForm } from '@/features/classes/edit-class-form'
 import { PageHeader } from '@/components/dashboard/page-header'
@@ -21,6 +22,7 @@ export default async function EditClassPage({
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx?.school_id) redirect('/dashboard')
+  if (!canManageClasses(ctx.role_code)) redirect('/dashboard/classes')
 
   const [classResult, levelsResult, yearResult] = await Promise.all([
     supabase

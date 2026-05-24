@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { getTeacherAssignments } from '@/lib/classes/access'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,8 +18,9 @@ export default async function AttendancePage() {
 
   const ctx = await getUserSchoolContext(user.id)
   const schoolId = ctx?.school_id
+  const isTeacher = ctx?.role_code === 'PROFESSEUR'
 
-  const [recentResult, classesResult] = await Promise.all([
+  const [recentResult, classesResult, assignmentsResult] = await Promise.all([
     schoolId
       ? supabase
           .from('attendance_records')
@@ -30,6 +32,9 @@ export default async function AttendancePage() {
     schoolId
       ? supabase.from('classes').select('id, name').eq('school_id', schoolId).order('name')
       : Promise.resolve({ data: null }),
+    isTeacher && schoolId
+      ? getTeacherAssignments(supabase, user.id, schoolId)
+      : Promise.resolve([]),
   ])
 
   const records = (recentResult.data as Array<{
@@ -39,14 +44,19 @@ export default async function AttendancePage() {
     recorded_at: string
     students?: { first_name: string; last_name: string } | null
   }> | null) ?? []
-  const classes = (classesResult.data as Array<{ id: string; name: string }> | null) ?? []
+  const classesRaw = (classesResult.data as Array<{ id: string; name: string }> | null) ?? []
+  const assignedClassIds = new Set(
+    assignmentsResult.map(a => a.classId).filter(Boolean) as string[],
+  )
+  const classes = isTeacher
+    ? classesRaw.filter(cls => assignedClassIds.has(cls.id))
+    : classesRaw
 
   const absentCount = records.filter(r => r.status === 'absent').length
   const lateCount = records.filter(r => r.status === 'late').length
   const presentCount = records.filter(r => r.status === 'present').length
   const totalRecords = records.length
 
-  const isTeacher = ctx?.role_code === 'PROFESSEUR'
   const isSurveillant = ctx?.role_code === 'SURVEILLANT_GENERAL'
   const isAdmin = isSchoolFullAuthority(ctx?.role_code ?? '') ||
     ['DIRECTEUR_ADJOINT', 'CENSEUR'].includes(ctx?.role_code ?? '')

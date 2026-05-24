@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { canManageSubjects } from '@/lib/classes/access'
 import { redirect, notFound } from 'next/navigation'
 import { EditSubjectForm } from '@/features/classes/edit-subject-form'
 import { PageHeader } from '@/components/dashboard/page-header'
@@ -21,6 +22,7 @@ export default async function EditSubjectPage({
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx?.school_id) redirect('/dashboard')
+  if (!canManageSubjects(ctx.role_code)) redirect('/dashboard/classes')
 
   const { data: subjectRaw } = await supabase
     .from('subjects')
