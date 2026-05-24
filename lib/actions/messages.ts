@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { resolveProfileName } from '@/lib/profile/display-name'
 import {
+  dedupeStaffRecipients,
   isMessagingStaffRole,
   orderConversationParticipants,
 } from '@/lib/messaging/staff-eligible'
@@ -364,59 +365,85 @@ export async function searchStaffMessageRecipients(
   query: string,
   limit = 15
 ) {
-  const trimmed = query.trim()
+  const trimmed = query.trim().toLowerCase()
 
   const { supabase, user, error } = await requireUser()
-  if (error || !user) return []
+  if (error || !user || !schoolId) return []
 
-  const { data: rolesRaw } = await supabase
+  const { data: rolesRaw, error: rolesError } = await supabase
     .from('user_school_roles')
-    .select('user_id, role_code')
+    .select(`
+      user_id,
+      role_code,
+      profiles (
+        id,
+        full_name,
+        first_name,
+        last_name,
+        avatar_url
+      )
+    `)
     .eq('school_id', schoolId)
     .eq('is_active', true)
+    .neq('user_id', user.id)
 
-  const staffUserIds = ((rolesRaw ?? []) as Array<{ user_id: string; role_code: string }>)
-    .filter(row => row.user_id !== user.id && isMessagingStaffRole(row.role_code))
-    .map(row => row.user_id)
+  if (rolesError) return []
 
-  if (staffUserIds.length === 0) return []
+  type StaffRow = {
+    user_id: string
+    role_code: string
+    profiles:
+      | {
+          id: string
+          full_name: string | null
+          first_name: string | null
+          last_name: string | null
+          avatar_url: string | null
+        }
+      | {
+          id: string
+          full_name: string | null
+          first_name: string | null
+          last_name: string | null
+          avatar_url: string | null
+        }[]
+      | null
+  }
 
-  let profilesQuery = supabase
-    .from('profiles')
-    .select('id, full_name, first_name, last_name, avatar_url')
-    .in('id', staffUserIds)
+  const mapped = ((rolesRaw ?? []) as StaffRow[])
+    .filter(row => isMessagingStaffRole(row.role_code))
+    .flatMap(row => {
+      const profileRaw = row.profiles
+      const profile = Array.isArray(profileRaw) ? profileRaw[0] : profileRaw
+      if (!profile) return []
+
+      const name = resolveProfileName(profile)
+      return [
+        {
+          id: row.user_id,
+          first_name: name.first_name,
+          last_name: name.last_name,
+          display_name: name.display_name,
+          avatar_url: profile.avatar_url,
+          role_code: row.role_code,
+        },
+      ]
+    })
+
+  let results = dedupeStaffRecipients(mapped)
 
   if (trimmed.length >= 1) {
-    const pattern = `%${trimmed.replace(/[%_\\]/g, '\\$&')}%`
-    profilesQuery = profilesQuery.or(
-      `full_name.ilike.${pattern},first_name.ilike.${pattern},last_name.ilike.${pattern}`
-    )
+    results = results.filter(r => {
+      const haystack = [r.display_name, r.first_name, r.last_name, r.role_code.replace(/_/g, ' ')]
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(trimmed)
+    })
   }
 
-  const { data: profilesRaw } = await profilesQuery.limit(limit)
-
-  const roleMap = new Map<string, string>()
-  for (const r of (rolesRaw ?? []) as Array<{ user_id: string; role_code: string }>) {
-    if (isMessagingStaffRole(r.role_code)) roleMap.set(r.user_id, r.role_code)
-  }
-
-  return ((profilesRaw ?? []) as Array<{
-    id: string
-    full_name: string | null
-    first_name: string | null
-    last_name: string | null
-    avatar_url: string | null
-  }>).map(profile => {
-    const name = resolveProfileName(profile)
-    return {
-      id: profile.id,
-      first_name: name.first_name,
-      last_name: name.last_name,
-      display_name: name.display_name,
-      avatar_url: profile.avatar_url,
-      role_code: roleMap.get(profile.id) ?? null,
-    }
-  })
+  return results
+    .sort((a, b) => a.display_name.localeCompare(b.display_name, 'fr'))
+    .slice(0, limit)
 }
 
 export async function listStaffMessageRecipients(schoolId: string) {

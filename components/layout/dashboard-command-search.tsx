@@ -374,9 +374,9 @@ export function DashboardCommandSearch({ userRole, className }: DashboardCommand
         type="button"
         onClick={openPalette}
         aria-label="Rechercher"
-        className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-600 transition hover:bg-gray-100 md:hidden"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-600 transition hover:bg-gray-100 md:hidden"
       >
-        <Search className="h-4.5 w-4.5" />
+        <Search className="h-[18px] w-[18px]" />
       </button>
 
       <button
