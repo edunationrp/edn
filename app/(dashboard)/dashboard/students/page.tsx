@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { StudentsTable } from '@/features/students/students-table'
+import { DashboardPage } from '@/components/dashboard/dashboard-page'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { EmptyPanel } from '@/components/dashboard/empty-panel'
 import { Button } from '@/components/ui/button'
@@ -65,12 +66,12 @@ export default async function StudentsPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="space-y-4 animate-fade-in sm:space-y-6">
+    <DashboardPage>
       <PageHeader
         title="Élèves"
         description={`${total} élève${total > 1 ? 's' : ''} au total`}
         actions={
-          <Button asChild className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto">
+          <Button asChild className="w-full sm:w-auto" variant="brandDark">
             <Link href="/dashboard/students/new">
               <UserPlus className="h-4 w-4" />
               Inscrire un élève
@@ -84,7 +85,7 @@ export default async function StudentsPage({
           title="Aucun élève inscrit"
           description="Commencez par inscrire votre premier élève pour gérer les dossiers scolaires."
           action={
-            <Button asChild size="sm" className="bg-[#1a4d2e] hover:bg-[#2d6a4f]">
+            <Button asChild size="sm" variant="brandDark">
               <Link href="/dashboard/students/new">Inscrire un élève</Link>
             </Button>
           }
@@ -97,6 +98,6 @@ export default async function StudentsPage({
           totalCount={total}
         />
       )}
-    </div>
+    </DashboardPage>
   )
 }

@@ -350,7 +350,7 @@ export async function acceptStaffInvitation(token: string) {
     .eq('id', user.id)
 
   revalidatePath('/dashboard')
-  return { success: true }
+  return { success: true as const, roleCode: invitation.role_code }
 }
 
 export async function getInvitationPreview(token: string) {
@@ -398,11 +398,20 @@ export async function registerStaffFromInvitation(input: {
   token: string
   email: string
   password: string
-  fullName: string
+  firstName: string
+  lastName: string
   phone?: string
 }) {
   const admin = getAdminOrClient()
   if (!admin) return { error: 'Service d\'inscription indisponible.' }
+
+  const firstName = input.firstName.trim()
+  const lastName = input.lastName.trim()
+  const fullName = [firstName, lastName].filter(Boolean).join(' ')
+
+  if (!firstName || !lastName) {
+    return { error: 'Le prénom et le nom sont requis.' }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: inviteRaw } = await (admin as any)
@@ -436,7 +445,9 @@ export async function registerStaffFromInvitation(input: {
     password: input.password,
     email_confirm: true,
     user_metadata: {
-      full_name: input.fullName.trim(),
+      full_name: fullName,
+      first_name: firstName,
+      last_name: lastName,
       phone: input.phone?.trim(),
     },
   })
@@ -451,7 +462,7 @@ export async function registerStaffFromInvitation(input: {
   await (admin as any).from('profiles').upsert({
     id: userId,
     email,
-    full_name: input.fullName.trim(),
+    full_name: fullName,
     phone: input.phone?.trim() || null,
     preferred_language: 'fr',
     default_role: invitation.role_code,
@@ -471,5 +482,6 @@ export async function registerStaffFromInvitation(input: {
     .update({ status: 'used', used_at: new Date().toISOString() })
     .eq('id', invitation.id)
 
-  return { success: true as const, email }
+  revalidatePath('/dashboard')
+  return { success: true as const, email, roleCode: invitation.role_code }
 }

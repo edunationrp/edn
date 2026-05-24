@@ -9,7 +9,7 @@ const SIDEBAR_COLLAPSED_KEY = 'edunation-sidebar-collapsed'
 
 type ShellProps = {
   children: React.ReactNode
-  sidebar: Omit<React.ComponentProps<typeof Sidebar>, 'collapsed' | 'mobileOpen' | 'onNavigate' | 'onToggleCollapse'>
+  sidebar: Omit<React.ComponentProps<typeof Sidebar>, 'collapsed' | 'mobileOpen' | 'onNavigate'>
   topbar: Omit<React.ComponentProps<typeof Topbar>, 'collapsed' | 'onMenuClick' | 'onToggleSidebar'>
 }
 
@@ -38,13 +38,12 @@ export function DashboardShell({ children, sidebar, topbar }: ShellProps) {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F5F7FA]">
+    <div className="flex min-h-screen bg-[#F0F4F8]">
       <Sidebar
         {...sidebar}
         collapsed={sidebarCollapsed}
         mobileOpen={mobileNavOpen}
         onNavigate={() => setMobileNavOpen(false)}
-        onToggleCollapse={toggleSidebarCollapsed}
       />
 
       {mobileNavOpen && (
@@ -68,7 +67,7 @@ export function DashboardShell({ children, sidebar, topbar }: ShellProps) {
           onMenuClick={() => setMobileNavOpen(true)}
           onToggleSidebar={toggleSidebarCollapsed}
         />
-        <main className="mt-14 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:p-6">
+        <main className="mt-14 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:px-8 lg:py-7">
           {children}
         </main>
       </div>

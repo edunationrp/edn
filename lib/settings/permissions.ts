@@ -61,8 +61,7 @@ export function getSectionAccess(role: UserRole, section: SettingsSectionId): Se
       return 'none'
 
     case 'organization':
-      if (role === 'FONDATEUR' || role === 'SUPER_ADMIN_EDUNATION') return 'edit'
-      if (role === 'PROVISEUR') return 'view'
+      if (isFullSchoolAdmin(role)) return 'edit'
       return 'none'
 
     case 'access-management':
@@ -76,6 +75,7 @@ export function getSectionAccess(role: UserRole, section: SettingsSectionId): Se
 
     case 'teaching':
       if (role === 'PROFESSEUR') return 'edit'
+      if (isFullSchoolAdmin(role)) return 'edit'
       if (ADMIN_ROLES.includes(role)) return 'view'
       return 'none'
 

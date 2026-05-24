@@ -38,7 +38,7 @@ export function Topbar({
   return (
     <header
       className={cn(
-        'fixed left-0 right-0 top-0 z-20 flex h-14 items-center gap-2 border-b border-gray-100 bg-white px-3 shadow-sm transition-[left] duration-200 sm:gap-3 sm:px-4',
+        'fixed left-0 right-0 top-0 z-20 flex h-14 items-center gap-2 border-b border-slate-200/80 bg-white/95 px-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-md transition-[left] duration-200 sm:gap-3 sm:px-5',
         collapsed ? 'lg:left-[72px]' : 'lg:left-[240px]'
       )}
     >
@@ -64,7 +64,7 @@ export function Topbar({
       <Link
         href="/"
         title="Page d'accueil du site"
-        className="hidden h-9 items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 sm:flex"
+        className="hidden h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600 transition hover:border-[#7AB832]/30 hover:bg-white sm:flex"
       >
         <ExternalLink className="h-3.5 w-3.5" />
         Accueil site
@@ -87,7 +87,7 @@ export function Topbar({
 
         <Link
           href="/dashboard/notifications"
-          className="relative flex h-9 w-9 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"
+          className="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100"
         >
           <Bell className="h-4.5 w-4.5" />
           {unreadNotifications > 0 && (
@@ -97,7 +97,7 @@ export function Topbar({
 
         <Link
           href="/dashboard/messages"
-          className="relative flex h-9 w-9 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"
+          className="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100"
         >
           <Mail className="h-4.5 w-4.5" />
           {unreadMessages > 0 && (
@@ -107,7 +107,7 @@ export function Topbar({
 
         <Link
           href="/dashboard/settings"
-          className="hidden items-center gap-2 rounded-xl px-2 py-1 sm:flex hover:bg-gray-50"
+          className="hidden items-center gap-2.5 rounded-xl px-2 py-1 transition hover:bg-slate-50 sm:flex"
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#7AB832] to-[#5F941F] text-xs font-bold text-white shadow-sm">
             {initials}

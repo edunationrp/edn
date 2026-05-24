@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { isSchoolFullAuthority } from '@/types/permissions'
 
 export const FINANCE_STAFF_ROLES = [
   'PROVISEUR',
@@ -69,5 +70,6 @@ export function canAccessFinance(roleCode: string) {
 }
 
 export function canAccessAuditLogs(roleCode: string) {
-  return AUDIT_LOG_ROLES.includes(roleCode as (typeof AUDIT_LOG_ROLES)[number])
+  return isSchoolFullAuthority(roleCode) ||
+    AUDIT_LOG_ROLES.includes(roleCode as (typeof AUDIT_LOG_ROLES)[number])
 }

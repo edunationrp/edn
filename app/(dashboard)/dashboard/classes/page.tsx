@@ -3,9 +3,14 @@ import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { KPICard } from '@/components/cards/kpi-card'
+import { DashboardPage } from '@/components/dashboard/dashboard-page'
+import { PageHeader } from '@/components/dashboard/page-header'
 import { BookOpen, Plus, Users, GraduationCap, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { cn } from '@/lib/utils'
+import { dashboard } from '@/lib/dashboard/ui-classes'
 
 type ClassRow = {
   id: string
@@ -57,67 +62,32 @@ export default async function ClassesPage() {
   const currentYear = schoolYears[0]
 
   return (
-    <div className="space-y-4 animate-fade-in sm:space-y-6">
-      {/* En-tête */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Classes, Niveaux & Matières</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Gérez la structure pédagogique de votre établissement
-            {currentYear ? ` · ${currentYear.name}` : ''}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/classes/levels/new">
-              <Plus className="h-4 w-4 mr-1" />
-              Nouveau niveau
-            </Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/dashboard/classes/new">
-              <Plus className="h-4 w-4 mr-1" />
-              Nouvelle classe
-            </Link>
-          </Button>
-        </div>
-      </div>
+    <DashboardPage>
+      <PageHeader
+        title="Classes, Niveaux & Matières"
+        description={`Gérez la structure pédagogique de votre établissement${currentYear ? ` · ${currentYear.name}` : ''}`}
+        actions={
+          <>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/classes/levels/new">
+                <Plus className="h-4 w-4" />
+                Nouveau niveau
+              </Link>
+            </Button>
+            <Button size="sm" variant="brand" asChild>
+              <Link href="/dashboard/classes/new">
+                <Plus className="h-4 w-4" />
+                Nouvelle classe
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
-      {/* Statistiques */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-l-4 border-l-primary">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-              <BookOpen className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{classes.length}</p>
-              <p className="text-sm text-muted-foreground">Classes</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
-              <GraduationCap className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{levels.length}</p>
-              <p className="text-sm text-muted-foreground">Niveaux</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-gold">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-600">
-              <Settings className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{subjects.length}</p>
-              <p className="text-sm text-muted-foreground">Matières</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <KPICard title="Classes" value={classes.length} icon={<BookOpen className="h-5 w-5" />} color="navy" />
+        <KPICard title="Niveaux" value={levels.length} icon={<GraduationCap className="h-5 w-5" />} color="blue" />
+        <KPICard title="Matières" value={subjects.length} icon={<Settings className="h-5 w-5" />} color="gold" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -141,7 +111,13 @@ export default async function ClassesPage() {
             {classes.length > 0 ? (
               <div className="space-y-2">
                 {classes.map(cls => (
-                  <div key={cls.id} className="flex items-center justify-between p-3 rounded-lg border hover:border-primary/40 hover:bg-primary/5 transition-colors group">
+                  <div
+                    key={cls.id}
+                    className={cn(
+                      'group flex items-center justify-between rounded-xl border border-slate-100 p-3.5 transition',
+                      dashboard.cardHover
+                    )}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
                         {cls.name[0]}
@@ -200,7 +176,13 @@ export default async function ClassesPage() {
             {subjects.length > 0 ? (
               <div className="space-y-2">
                 {subjects.map(sub => (
-                  <div key={sub.id} className="flex items-center justify-between p-3 rounded-lg border hover:border-yellow-300 hover:bg-yellow-50/50 transition-colors group">
+                  <div
+                    key={sub.id}
+                    className={cn(
+                      'group flex items-center justify-between rounded-xl border border-slate-100 p-3.5 transition',
+                      dashboard.cardHover
+                    )}
+                  >
                     <div>
                       <p className="font-medium text-sm">{sub.name}</p>
                       <p className="text-xs text-muted-foreground">Coefficient : {sub.coefficient}</p>
@@ -266,6 +248,6 @@ export default async function ClassesPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </DashboardPage>
   )
 }

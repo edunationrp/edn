@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { UserCheck, UserX, Clock, AlertTriangle, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
+import { isSchoolFullAuthority } from '@/types/permissions'
 
 type AttendanceRecord = {
   id: string
@@ -66,7 +67,8 @@ export default async function AttendancePage() {
 
   const isTeacher = ctx?.role_code === 'PROFESSEUR'
   const isSurveillant = ctx?.role_code === 'SURVEILLANT_GENERAL'
-  const isAdmin = ['PROVISEUR', 'DIRECTEUR_ADJOINT', 'CENSEUR'].includes(ctx?.role_code ?? '')
+  const isAdmin = isSchoolFullAuthority(ctx?.role_code ?? '') ||
+    ['DIRECTEUR_ADJOINT', 'CENSEUR'].includes(ctx?.role_code ?? '')
   const canTakeAttendance = isTeacher || isSurveillant || isAdmin
 
   const recentRows = records.slice(0, 20)

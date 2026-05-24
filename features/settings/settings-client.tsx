@@ -251,12 +251,17 @@ export function SettingsClient({ data }: SettingsClientProps) {
     const byRole: Record<string, Array<{ href: string; label: string; description?: string }>> = {
       PROVISEUR: [
         { href: '/dashboard/students', label: 'Élèves', description: 'Inscriptions et dossiers' },
+        { href: '/dashboard/students/pending', label: 'Inscriptions en attente', description: 'Validation des dossiers' },
         { href: '/dashboard/staff/roles-permissions', label: 'Rôles & permissions', description: 'Matrice des droits' },
         { href: '/dashboard/staff/roles-permissions?tab=invitations', label: 'Invitations personnel', description: 'Accès équipe' },
+        { href: '/dashboard/grades/entry', label: 'Saisie des notes', description: 'Saisie directe' },
         { href: '/dashboard/grades/validate', label: 'Validation des notes', description: 'Contrôle pédagogique' },
         { href: '/dashboard/report-cards/generate', label: 'Bulletins', description: 'Génération & publication' },
+        { href: '/dashboard/attendance/take', label: 'Faire l\'appel', description: 'Présences du jour' },
+        { href: '/dashboard/finance/payments/new', label: 'Nouveau paiement', description: 'Enregistrer un encaissement' },
         { href: '/dashboard/finance', label: 'Finance', description: 'Frais et paiements' },
         { href: '/dashboard/classes', label: 'Classes & matières', description: 'Structure pédagogique' },
+        { href: '/dashboard/audit-logs', label: 'Journaux d\'audit', description: 'Historique des actions' },
       ],
       FONDATEUR: [
         { href: '/dashboard/students', label: 'Élèves' },

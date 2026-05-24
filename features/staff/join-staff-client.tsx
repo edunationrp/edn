@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Shield, CheckCircle, XCircle, Loader2 } from 'lucide-react'
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { acceptStaffInvitation } from '@/lib/actions/staff'
+import { StaffInvitationSignupForm } from '@/features/staff/staff-invitation-signup-form'
 import { notify } from '@/lib/feedback/toast'
 import { ROLE_COLORS } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
@@ -23,6 +24,7 @@ type JoinStaffClientProps = {
     status: string
     expiresAt: string
     invitedName: string | null
+    invitedEmail: string | null
     isExpired: boolean
     isValid: boolean
   } | null
@@ -32,7 +34,6 @@ type JoinStaffClientProps = {
 export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaffClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [accepted, setAccepted] = useState(false)
 
   if (error || !preview) {
     return (
@@ -51,35 +52,17 @@ export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaff
     )
   }
 
-  if (accepted) {
-    return (
-      <Card className="border-green-100 bg-green-50/30">
-        <CardContent className="flex flex-col items-center py-12 text-center">
-          <CheckCircle className="mb-4 h-12 w-12 text-green-600" />
-          <h2 className="text-lg font-semibold text-green-900">Bienvenue dans l&apos;équipe !</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Vous avez rejoint <strong>{preview.schoolName}</strong> en tant que{' '}
-            <strong>{preview.roleLabel}</strong>.
-          </p>
-          <Button asChild className="mt-6 bg-[#1a4d2e] hover:bg-[#2d6a4f]">
-            <Link href="/dashboard">Accéder au tableau de bord</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    )
-  }
-
   const invalid = !preview.isValid || preview.isExpired || preview.status !== 'pending'
 
   function handleAccept() {
     startTransition(async () => {
       const result = await acceptStaffInvitation(token)
       if (result.error) {
-        notify.error(result.error, 'join')
+        notify.error(result.error)
         return
       }
-      setAccepted(true)
-      notify.success('Invitation acceptée')
+      notify.success('Invitation acceptée — bienvenue dans l\'équipe !')
+      router.push('/dashboard')
       router.refresh()
     })
   }
@@ -95,7 +78,7 @@ export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaff
           {preview.invitedName ? `${preview.invitedName}, vous` : 'Vous'} êtes invité(e) à rejoindre une équipe
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         <div className="rounded-xl border bg-muted/20 p-4 text-center">
           <p className="text-sm text-muted-foreground">Établissement</p>
           <p className="text-lg font-bold text-[#1B3A6B]">{preview.schoolName}</p>
@@ -116,39 +99,45 @@ export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaff
               : 'Cette invitation n\'est plus disponible.'}
           </div>
         ) : !isLoggedIn ? (
-          <div className="space-y-3">
-            <p className="text-center text-sm text-muted-foreground">
-              Créez un compte ou connectez-vous pour accepter l&apos;invitation.
-            </p>
-            <Button asChild className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]">
-              <Link href={`/join/staff/${token}/signup`}>
-                Créer mon compte
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="w-full">
-              <Link href={`/login?redirect=${encodeURIComponent(`/join/staff/${token}`)}`}>
-                J&apos;ai déjà un compte
-              </Link>
-            </Button>
+          <div className="space-y-4">
+            <div className="border-t pt-4">
+              <h3 className="mb-1 text-center text-sm font-semibold text-foreground">
+                Finalisez votre compte
+              </h3>
+              <p className="mb-4 text-center text-xs text-muted-foreground">
+                Complétez vos informations pour rejoindre {preview.schoolName}.
+              </p>
+              <StaffInvitationSignupForm
+                token={token}
+                invitedName={preview.invitedName}
+                invitedEmail={preview.invitedEmail}
+              />
+            </div>
           </div>
         ) : (
-          <Button
-            className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"
-            disabled={isPending}
-            onClick={handleAccept}
-          >
-            {isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Acceptation…
-              </>
-            ) : (
-              <>
-                <CheckCircle className="h-4 w-4" />
-                Accepter l&apos;invitation
-              </>
-            )}
-          </Button>
+          <div className="space-y-3">
+            <p className="text-center text-sm text-muted-foreground">
+              Vous êtes connecté. Confirmez pour accéder à votre espace{' '}
+              <strong>{preview.roleLabel}</strong>.
+            </p>
+            <Button
+              className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"
+              disabled={isPending}
+              onClick={handleAccept}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Acceptation…
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  Accepter et accéder au tableau de bord
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

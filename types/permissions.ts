@@ -72,6 +72,39 @@ export type Permission =
   | 'admin:school'
 
 import type { UserRole } from './roles'
+import { normalizeRole } from './roles'
+
+/** Réservé à la super-administration EduNation (multi-établissements). */
+const PLATFORM_ONLY_PERMISSIONS: Permission[] = ['admin:platform']
+
+/** Proviseur et fondateur : contrôle total de leur établissement. */
+export const SCHOOL_FULL_AUTHORITY_ROLES: UserRole[] = ['PROVISEUR', 'FONDATEUR']
+
+export function isSchoolFullAuthority(role: string): boolean {
+  return SCHOOL_FULL_AUTHORITY_ROLES.includes(role as UserRole)
+}
+
+/** Toutes les permissions applicables à un établissement (hors plateforme). */
+export const ALL_SCHOOL_PERMISSIONS: Permission[] = [
+  'schools:read', 'schools:create', 'schools:update', 'schools:delete',
+  'staff:read', 'staff:invite', 'staff:activate', 'staff:deactivate',
+  'students:read', 'students:create', 'students:update', 'students:validate', 'students:delete',
+  'parents:read', 'parents:validate', 'parents:link_student',
+  'classes:read', 'classes:manage',
+  'subjects:read', 'subjects:manage',
+  'grades:read_own', 'grades:read_class', 'grades:read_all',
+  'grades:create', 'grades:update', 'grades:lock', 'grades:validate',
+  'attendance:read', 'attendance:create', 'attendance:justify', 'attendance:manage',
+  'discipline:read', 'discipline:manage',
+  'timetable:read', 'timetable:manage',
+  'finance:read', 'finance:manage', 'finance:receipts',
+  'report_cards:read', 'report_cards:generate', 'report_cards:validate', 'report_cards:publish',
+  'messages:read', 'messages:send',
+  'announcements:read', 'announcements:create',
+  'documents:read', 'documents:generate',
+  'reports:read', 'reports:financial', 'reports:academic',
+  'audit_logs:read', 'admin:school',
+]
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   SUPER_ADMIN_EDUNATION: [
@@ -84,34 +117,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'reports:read', 'reports:financial', 'reports:academic',
     'audit_logs:read', 'admin:platform', 'admin:school',
   ],
-  FONDATEUR: [
-    'schools:read', 'schools:create', 'schools:update',
-    'staff:read', 'staff:invite', 'staff:activate', 'staff:deactivate',
-    'students:read', 'parents:read', 'classes:read', 'subjects:read',
-    'grades:read_all', 'attendance:read',
-    'finance:read', 'report_cards:read',
-    'reports:read', 'reports:financial', 'reports:academic',
-    'messages:read', 'announcements:read',
-  ],
-  PROVISEUR: [
-    'schools:read', 'schools:update',
-    'staff:read', 'staff:invite', 'staff:activate', 'staff:deactivate',
-    'students:read', 'students:create', 'students:update', 'students:validate',
-    'parents:read', 'parents:validate', 'parents:link_student',
-    'classes:read', 'classes:manage',
-    'subjects:read', 'subjects:manage',
-    'grades:read_all', 'grades:lock', 'grades:validate',
-    'attendance:read', 'attendance:manage',
-    'discipline:read', 'discipline:manage',
-    'timetable:read', 'timetable:manage',
-    'finance:read',
-    'report_cards:read', 'report_cards:generate', 'report_cards:validate', 'report_cards:publish',
-    'messages:read', 'messages:send',
-    'announcements:read', 'announcements:create',
-    'documents:read', 'documents:generate',
-    'reports:read', 'reports:financial', 'reports:academic',
-    'audit_logs:read', 'admin:school',
-  ],
+  PROVISEUR: [...ALL_SCHOOL_PERMISSIONS],
+  FONDATEUR: [...ALL_SCHOOL_PERMISSIONS],
   DIRECTEUR_ADJOINT: [
     'schools:read',
     'staff:read',
@@ -235,8 +242,19 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 }
 
-export function hasPermission(role: UserRole, permission: Permission): boolean {
-  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false
+export function hasPermission(role: UserRole | string, permission: Permission): boolean {
+  const rawRole = role as UserRole
+  if (isSchoolFullAuthority(rawRole)) {
+    return !PLATFORM_ONLY_PERMISSIONS.includes(permission)
+  }
+
+  const normalized = normalizeRole(role)
+  if (isSchoolFullAuthority(normalized)) {
+    return !PLATFORM_ONLY_PERMISSIONS.includes(permission)
+  }
+
+  const effectiveRole = ROLE_PERMISSIONS[normalized] ? normalized : rawRole
+  return ROLE_PERMISSIONS[effectiveRole]?.includes(permission) ?? false
 }
 
 export function hasAnyPermission(role: UserRole, permissions: Permission[]): boolean {

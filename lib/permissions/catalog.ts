@@ -235,7 +235,7 @@ export function getAllPermissions(): Permission[] {
 }
 
 export function countRolePermissions(role: UserRole) {
-  return ROLE_PERMISSIONS[role]?.length ?? 0
+  return getAllPermissions().filter(p => hasPermission(role, p)).length
 }
 
 export function getPermissionCoverage(role: UserRole) {

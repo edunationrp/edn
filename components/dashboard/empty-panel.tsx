@@ -13,14 +13,20 @@ export function EmptyPanel({ icon, title, description, action, className }: Prop
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 px-4 py-10 text-center',
+        'flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-gradient-to-b from-slate-50/90 to-white px-6 py-12 text-center',
         className
       )}
     >
-      {icon && <div className="mb-3 text-gray-300">{icon}</div>}
-      <p className="text-sm font-semibold text-gray-700">{title}</p>
-      {description && <p className="mt-1 max-w-sm text-xs leading-relaxed text-gray-500">{description}</p>}
-      {action && <div className="mt-4">{action}</div>}
+      {icon && (
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+          {icon}
+        </div>
+      )}
+      <p className="text-base font-semibold text-slate-800">{title}</p>
+      {description && (
+        <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">{description}</p>
+      )}
+      {action && <div className="mt-5">{action}</div>}
     </div>
   )
 }

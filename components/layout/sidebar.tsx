@@ -13,7 +13,7 @@ import {
   FileText, Building2, Shield, TrendingUp,
   ChevronDown, Folder, Award,
   UserCheck, BookMarked, Send, Book, Compass, Heart,
-  Home, Clock, Grid, PanelLeftClose,
+  Home, Clock, Grid,
 } from 'lucide-react'
 import { LogoSVG } from '@/components/brand/logo'
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -79,14 +79,25 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'roles', label: 'Rôles & permissions', icon: 'shield', href: '/dashboard/staff/roles-permissions' },
         { id: 'invitations', label: 'Invitations', icon: 'link', href: '/dashboard/staff/roles-permissions?tab=invitations' },
         { id: 'inscriptions', label: 'Inscriptions élèves', icon: 'userPlus', href: '/dashboard/students' },
+        { id: 'pending', label: 'En attente validation', icon: 'clock', href: '/dashboard/students/pending' },
       ]},
       { group: 'Pédagogie', items: [
-        { id: 'notes', label: 'Validation des notes', icon: 'fileCheck', href: '/dashboard/grades' },
+        { id: 'saisie-notes', label: 'Saisie des notes', icon: 'fileCheck', href: '/dashboard/grades/entry' },
+        { id: 'notes', label: 'Validation des notes', icon: 'fileCheck', href: '/dashboard/grades/validate' },
         { id: 'bulletins', label: 'Bulletins & attestations', icon: 'award', href: '/dashboard/report-cards' },
         { id: 'classes', label: 'Classes & matières', icon: 'grid', href: '/dashboard/classes' },
       ]},
+      { group: 'Vie scolaire', items: [
+        { id: 'absences', label: 'Présences & absences', icon: 'userX', href: '/dashboard/attendance' },
+        { id: 'appel', label: 'Faire l\'appel', icon: 'userCheck', href: '/dashboard/attendance/take' },
+      ]},
       { group: 'Finances', items: [
         { id: 'budget', label: 'Finance', icon: 'wallet', href: '/dashboard/finance' },
+        { id: 'paiements', label: 'Paiements', icon: 'wallet', href: '/dashboard/finance/payments' },
+        { id: 'nouveau-paiement', label: 'Nouveau paiement', icon: 'userPlus', href: '/dashboard/finance/payments/new' },
+      ]},
+      { group: 'Système', items: [
+        { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/audit-logs' },
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
@@ -288,7 +299,6 @@ interface SidebarProps {
   collapsed?: boolean
   mobileOpen?: boolean
   onNavigate?: () => void
-  onToggleCollapse?: () => void
 }
 
 export function Sidebar({
@@ -301,7 +311,6 @@ export function Sidebar({
   collapsed = false,
   mobileOpen = false,
   onNavigate,
-  onToggleCollapse,
 }: SidebarProps) {
   const pathname = usePathname()
   const roleCfg = ROLE_NAV[resolveNavRole(userRole)] ?? ROLE_NAV.PROVISEUR
@@ -322,7 +331,7 @@ export function Sidebar({
           collapsed ? 'px-2 py-4' : 'px-5 pt-5 pb-4'
         )}
       >
-        <div className={cn('flex items-center', collapsed ? 'flex-col gap-3' : 'justify-between gap-2')}>
+        <div className={cn('flex items-center', collapsed ? 'flex-col gap-3' : 'gap-2')}>
           <Link
             href="/"
             title="Retour à l'accueil EduNation"
@@ -340,17 +349,6 @@ export function Sidebar({
               <BrandLockupDark />
             )}
           </Link>
-
-          {!collapsed && (
-            <button
-              type="button"
-              onClick={onToggleCollapse}
-              title="Réduire le menu"
-              className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/50 transition hover:bg-white/10 hover:text-white lg:flex"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </button>
-          )}
         </div>
 
       </div>

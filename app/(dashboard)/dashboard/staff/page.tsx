@@ -51,7 +51,7 @@ export default async function StaffPage() {
         description={`${count ?? 0} membre${(count ?? 0) > 1 ? 's' : ''} du personnel`}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Button className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto" asChild>
+            <Button className="w-full sm:w-auto" variant="brandDark" asChild>
               <Link href="/dashboard/staff/roles-permissions?tab=invitations">
                 <UserPlus className="h-4 w-4" />
                 Inviter du personnel

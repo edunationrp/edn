@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Shield, Users, Grid3X3, UserPlus, GitCompare, Check, X, Minus,
-  Copy, Mail, ChevronDown, ChevronUp, Search, Crown, Sparkles,
-  Link2, Ban, RefreshCw, AlertTriangle, ExternalLink, ArrowLeftRight,
+  ChevronDown, ChevronUp, Search, Crown, Sparkles,
+  RefreshCw, ArrowLeftRight,
   UnfoldVertical, FoldVertical, Eye,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,11 +20,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { notify } from '@/lib/feedback/toast'
-import { getInitials, formatDate, cn, copyToClipboard, buildInviteMailto } from '@/lib/utils'
+import { getInitials, formatDate, cn, copyToClipboard } from '@/lib/utils'
 import {
   PERMISSION_GROUPS,
   MATRIX_ROLES,
@@ -38,6 +38,7 @@ import {
 import type { Permission } from '@/types/permissions'
 import type { UserRole } from '@/types/roles'
 import type { RolesPermissionsPayload } from '@/features/staff/roles-permissions-types'
+import { StaffInvitationsPanel } from '@/features/staff/staff-invitations-panel'
 import {
   cancelStaffInvitation,
   createStaffInvitation,
@@ -133,12 +134,6 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
   const [compareA, setCompareA] = useState<UserRole>('PROVISEUR')
   const [compareB, setCompareB] = useState<UserRole>('PROFESSEUR')
 
-  const [inviteForm, setInviteForm] = useState({
-    roleCode: 'PROFESSEUR' as string,
-    email: '',
-    name: '',
-    sendEmail: true,
-  })
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null)
   const [confirmState, setConfirmState] = useState<ConfirmState>(null)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
@@ -289,9 +284,22 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
   const pendingInvites = data.invitations.filter(i => i.status === 'pending')
   const proviseurCoverage = getPermissionCoverage('PROVISEUR')
 
+  const rolePermissionGroups = useMemo(() => {
+    const rolePerms = new Set(ROLE_PERMISSIONS[selectedRoleDetail] ?? [])
+    return PERMISSION_GROUPS
+      .map(group => ({
+        ...group,
+        permissions: group.permissions.filter(perm => rolePerms.has(perm.key)),
+      }))
+      .filter(group => group.permissions.length > 0)
+  }, [selectedRoleDetail])
+
+  const selectedRoleCoverage = getPermissionCoverage(selectedRoleDetail)
+  const selectedRoleMemberCount = data.roleCounts[selectedRoleDetail] ?? 0
+
   return (
     <div className="space-y-4">
-      {/* Hero directeur */}
+      {activeTab !== 'invitations' && (
       <div className="relative overflow-hidden rounded-2xl border border-[#1a4d2e]/20 bg-gradient-to-br from-[#1a4d2e]/10 via-white to-blue-50/50 p-4 sm:p-6">
         <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -331,6 +339,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
         </div>
         <Shield className="pointer-events-none absolute -right-4 -top-4 h-32 w-32 text-[#1a4d2e]/5" />
       </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={v => handleTabChange(v as TabId)}>
         <TabsList className="h-auto w-full flex-wrap justify-start gap-1 p-1">
@@ -682,240 +691,40 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
 
         {/* INVITATIONS */}
         <TabsContent value="invitations" className="space-y-4">
-          {!data.canInvite ? (
-            <Card>
-              <CardContent className="flex items-center gap-3 py-8 text-muted-foreground">
-                <AlertTriangle className="h-5 w-5 shrink-0" />
-                Vous n&apos;avez pas les droits pour créer des invitations.
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Créer une invitation</CardTitle>
-                  <CardDescription>
-                    Lien sécurisé valable 7 jours — l&apos;invité choisit son mot de passe à l&apos;acceptation
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form
-                    onSubmit={e => {
-                      e.preventDefault()
-                      runAction(
-                        'create-invite',
-                        () => createStaffInvitation({
-                          roleCode: inviteForm.roleCode,
-                          invitedEmail: inviteForm.email || undefined,
-                          invitedName: inviteForm.name || undefined,
-                          sendEmail: inviteForm.sendEmail && !!inviteForm.email,
-                        }),
-                        inviteForm.sendEmail && inviteForm.email
-                          ? 'Invitation créée et email envoyé'
-                          : 'Invitation créée',
-                        r => { if (r.inviteUrl) setLastInviteUrl(r.inviteUrl) }
-                      )
-                    }}
-                    className="space-y-4"
-                  >
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Rôle attribué *</Label>
-                        <Select
-                          value={inviteForm.roleCode}
-                          onValueChange={v => setInviteForm(f => ({ ...f, roleCode: v }))}
-                        >
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {INVITABLE_ROLES.map(role => (
-                              <SelectItem key={role} value={role}>
-                                <span className="flex items-center gap-2">
-                                  {ROLE_LABELS[role]}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          {ROLE_DESCRIPTIONS[inviteForm.roleCode as UserRole]}
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Nom (optionnel)</Label>
-                        <Input
-                          value={inviteForm.name}
-                          onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))}
-                          placeholder="Prénom Nom"
-                        />
-                      </div>
-                      <div className="space-y-2 sm:col-span-2">
-                        <Label>Email (optionnel — pour envoi automatique)</Label>
-                        <Input
-                          type="email"
-                          value={inviteForm.email}
-                          onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))}
-                          placeholder="collegue@ecole.bf"
-                        />
-                      </div>
-                    </div>
-                    <ToggleRowInvite
-                      label="Envoyer l'email d'invitation"
-                      checked={inviteForm.sendEmail}
-                      onCheckedChange={v => setInviteForm(f => ({ ...f, sendEmail: v }))}
-                      disabled={!inviteForm.email}
-                    />
-                    <Button type="submit" disabled={isPending} loading={pendingKey === 'create-invite'} className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f] sm:w-auto">
-                      <Link2 className="h-4 w-4" />
-                      {isPending ? 'Création…' : 'Générer le lien d\'invitation'}
-                    </Button>
-                  </form>
-
-                  {lastInviteUrl && (
-                    <div className="mt-4 rounded-lg border border-green-200 bg-green-50/50 p-3">
-                      <p className="text-xs font-medium text-green-800">Lien généré</p>
-                      <p className="mt-1 break-all text-xs text-green-700">{lastInviteUrl}</p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="mt-2"
-                        onClick={() => handleCopyInviteUrl(lastInviteUrl)}
-                      >
-                        <Copy className="h-3 w-3" />
-                        Copier le lien
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="mt-2 ml-2"
-                        asChild
-                      >
-                        <a href={lastInviteUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3 w-3" />
-                          Ouvrir
-                        </a>
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Invitations en cours</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {data.invitations.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-muted-foreground">
-                      Aucune invitation pour le moment.
-                    </p>
-                  ) : (
-                    data.invitations.map(invite => {
-                      const url = `${data.appUrl}/join/staff/${invite.token}`
-                      const isExpired = new Date(invite.expiresAt) < new Date()
-                      return (
-                        <div
-                          key={invite.id}
-                          className="flex flex-col gap-2 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge className={ROLE_COLORS[invite.roleCode as UserRole]}>
-                                {ROLE_LABELS[invite.roleCode as UserRole] ?? invite.roleCode}
-                              </Badge>
-                              <Badge variant={
-                                invite.status === 'pending' && !isExpired ? 'warning'
-                                  : invite.status === 'used' ? 'success'
-                                    : 'secondary'
-                              }>
-                                {invite.status === 'pending' && isExpired ? 'Expirée' : invite.status}
-                              </Badge>
-                            </div>
-                            <p className="mt-1 text-sm">
-                              {invite.invitedName || invite.invitedEmail || 'Invitation ouverte'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Expire le {formatDate(invite.expiresAt)}
-                            </p>
-                          </div>
-                          {invite.status === 'pending' && !isExpired && (
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleCopyInviteUrl(url)}
-                                aria-label="Copier le lien d'invitation"
-                              >
-                                <Copy className="h-3 w-3" />
-                                Copier
-                              </Button>
-                              <Button size="sm" variant="outline" asChild>
-                                <a href={url} target="_blank" rel="noopener noreferrer" aria-label="Ouvrir le lien">
-                                  <ExternalLink className="h-3 w-3" />
-                                  Ouvrir
-                                </a>
-                              </Button>
-                              {invite.invitedEmail && (
-                                <>
-                                  <Button size="sm" variant="outline" asChild>
-                                    <a
-                                      href={buildInviteMailto(
-                                        invite.invitedEmail,
-                                        data.schoolName,
-                                        ROLE_LABELS[invite.roleCode as UserRole] ?? invite.roleCode,
-                                        url
-                                      )}
-                                      aria-label="Envoyer par email"
-                                    >
-                                      <Mail className="h-3 w-3" />
-                                      Email
-                                    </a>
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    loading={pendingKey === `resend-${invite.id}`}
-                                    disabled={isPending}
-                                    onClick={() =>
-                                      runAction(
-                                        `resend-${invite.id}`,
-                                        () => resendStaffInvitationEmail(invite.id),
-                                        'Email renvoyé'
-                                      )
-                                    }
-                                  >
-                                    <RefreshCw className="h-3 w-3" />
-                                    Renvoyer
-                                  </Button>
-                                </>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 hover:text-red-700"
-                                disabled={isPending}
-                                onClick={() =>
-                                  setConfirmState({
-                                    type: 'cancel-invite',
-                                    inviteId: invite.id,
-                                    label: invite.invitedName || invite.invitedEmail || 'cette invitation',
-                                  })
-                                }
-                              >
-                                <Ban className="h-3 w-3" />
-                                Annuler
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })
-                  )}
-                </CardContent>
-              </Card>
-            </>
-          )}
+          <StaffInvitationsPanel
+            canInvite={data.canInvite}
+            schoolName={data.schoolName}
+            appUrl={data.appUrl}
+            invitations={data.invitations}
+            isPending={isPending}
+            pendingKey={pendingKey}
+            lastInviteUrl={lastInviteUrl}
+            onCopyUrl={handleCopyInviteUrl}
+            onCreateInvite={payload =>
+              runAction(
+                'create-invite',
+                () => createStaffInvitation(payload),
+                payload.sendEmail && payload.invitedEmail
+                  ? 'Invitation créée et email envoyé'
+                  : 'Invitation créée',
+                r => { if (r.inviteUrl) setLastInviteUrl(r.inviteUrl) }
+              )
+            }
+            onResend={inviteId =>
+              runAction(
+                `resend-${inviteId}`,
+                () => resendStaffInvitationEmail(inviteId),
+                'Email renvoyé'
+              )
+            }
+            onCancel={invite =>
+              setConfirmState({
+                type: 'cancel-invite',
+                inviteId: invite.id,
+                label: invite.invitedName || invite.invitedEmail || 'cette invitation',
+              })
+            }
+          />
         </TabsContent>
 
         {/* COMPARE */}
@@ -1067,56 +876,123 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
       />
 
       <Dialog open={roleDetailOpen} onOpenChange={setRoleDetailOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Badge className={ROLE_COLORS[selectedRoleDetail]}>{ROLE_LABELS[selectedRoleDetail]}</Badge>
-            </DialogTitle>
-            <DialogDescription>{ROLE_DESCRIPTIONS[selectedRoleDetail]}</DialogDescription>
-          </DialogHeader>
-          <CoverageBar role={selectedRoleDetail} />
-          <div className="mt-4 space-y-2">
-            <p className="text-xs font-semibold uppercase text-muted-foreground">Permissions accordées</p>
-            <ul className="max-h-64 space-y-1 overflow-y-auto rounded-lg border p-2">
-              {(ROLE_PERMISSIONS[selectedRoleDetail] ?? []).map(perm => (
-                <li key={perm} className="flex items-center gap-2 rounded px-2 py-1 text-xs even:bg-muted/20">
-                  <Check className="h-3 w-3 shrink-0 text-green-600" />
-                  {perm}
-                </li>
-              ))}
-            </ul>
+        <DialogContent className="flex max-h-[min(90vh,760px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+          <div className="border-b border-slate-200 bg-slate-50 px-6 pb-5 pt-6">
+            <DialogHeader className="space-y-3 text-left">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={cn('shrink-0', ROLE_COLORS[selectedRoleDetail])}>
+                  {ROLE_LABELS[selectedRoleDetail]}
+                </Badge>
+                {selectedRoleDetail === 'PROVISEUR' && (
+                  <Crown className="h-4 w-4 text-[#1a4d2e]" />
+                )}
+              </div>
+              <DialogTitle className="text-xl font-bold text-slate-900">
+                Détails du rôle
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed text-slate-600">
+                {ROLE_DESCRIPTIONS[selectedRoleDetail]}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Couverture
+                </p>
+                <p className="mt-0.5 text-lg font-bold text-[#1B3A6B]">
+                  {selectedRoleCoverage.percent}%
+                </p>
+                <p className="text-xs text-slate-500">
+                  {selectedRoleCoverage.granted}/{selectedRoleCoverage.total} permissions
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Membres actifs
+                </p>
+                <p className="mt-0.5 text-lg font-bold text-[#1a4d2e]">
+                  {selectedRoleMemberCount}
+                </p>
+                <p className="text-xs text-slate-500">
+                  dans votre établissement
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+              <CoverageBar role={selectedRoleDetail} />
+            </div>
           </div>
-          <Button
-            type="button"
-            className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"
-            onClick={() => {
-              setRoleDetailOpen(false)
-              focusRoleInMatrix(selectedRoleDetail)
-            }}
-          >
-            Voir dans la matrice
-          </Button>
+
+          <div className="flex-1 space-y-4 overflow-y-auto bg-white px-6 py-5">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Permissions accordées</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Droits regroupés par domaine fonctionnel
+              </p>
+            </div>
+
+            {rolePermissionGroups.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-500">
+                Aucune permission définie pour ce rôle.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {rolePermissionGroups.map(group => (
+                  <div
+                    key={group.id}
+                    className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/50"
+                  >
+                    <div className="border-b border-slate-200 bg-white px-4 py-3">
+                      <p className="text-sm font-semibold text-[#1B3A6B]">{group.label}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{group.description}</p>
+                    </div>
+                    <ul className="divide-y divide-slate-200/80 bg-white">
+                      {group.permissions.map(perm => (
+                        <li
+                          key={perm.key}
+                          className="flex items-start gap-3 px-4 py-3"
+                        >
+                          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                            <Check className="h-3 w-3" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-900">{perm.label}</p>
+                            <p className="mt-0.5 text-xs text-slate-500">{perm.description}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRoleDetailOpen(false)}
+            >
+              Fermer
+            </Button>
+            <Button
+              type="button"
+              variant="brandDark"
+              onClick={() => {
+                setRoleDetailOpen(false)
+                focusRoleInMatrix(selectedRoleDetail)
+              }}
+            >
+              <Grid3X3 className="h-4 w-4" />
+              Voir dans la matrice
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
 
-function ToggleRowInvite({
-  label,
-  checked,
-  onCheckedChange,
-  disabled,
-}: {
-  label: string
-  checked: boolean
-  onCheckedChange: (v: boolean) => void
-  disabled?: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-3">
-      <p className="text-sm font-medium">{label}</p>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
-    </div>
-  )
-}
