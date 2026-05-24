@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition, useCallback, Fragment, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import {
   Shield, Users, Grid3X3, UserPlus, GitCompare, Check, X, Minus,
   ChevronDown, ChevronUp, Search, Crown, Sparkles,
@@ -14,7 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -24,7 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { notify } from '@/lib/feedback/toast'
-import { getInitials, formatDate, cn, copyToClipboard } from '@/lib/utils'
+import { cn, copyToClipboard } from '@/lib/utils'
 import {
   PERMISSION_GROUPS,
   MATRIX_ROLES,
@@ -39,6 +37,7 @@ import type { Permission } from '@/types/permissions'
 import type { UserRole } from '@/types/roles'
 import type { RolesPermissionsPayload } from '@/features/staff/roles-permissions-types'
 import { StaffInvitationsPanel } from '@/features/staff/staff-invitations-panel'
+import { StaffTeamTable } from '@/features/staff/staff-team-table'
 import {
   cancelStaffInvitation,
   createStaffInvitation,
@@ -130,7 +129,6 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
     finance: true,
   })
   const [selectedRoleDetail, setSelectedRoleDetail] = useState<UserRole>('PROVISEUR')
-  const [teamFilter, setTeamFilter] = useState<string>('all')
   const [compareA, setCompareA] = useState<UserRole>('PROVISEUR')
   const [compareB, setCompareB] = useState<UserRole>('PROFESSEUR')
 
@@ -169,13 +167,6 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
       ),
     })).filter(g => g.permissions.length > 0)
   }, [searchQuery])
-
-  const filteredMembers = useMemo(() => {
-    if (teamFilter === 'all') return data.members
-    if (teamFilter === 'active') return data.members.filter(m => m.isActive)
-    if (teamFilter === 'inactive') return data.members.filter(m => !m.isActive)
-    return data.members.filter(m => m.roleCode === teamFilter)
-  }, [data.members, teamFilter])
 
   const compareDiff = useMemo(() => {
     const onlyA: Permission[] = []
@@ -561,132 +552,32 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
 
         {/* TEAM */}
         <TabsContent value="team" className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Select value={teamFilter} onValueChange={setTeamFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filtrer" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les membres</SelectItem>
-                <SelectItem value="active">Actifs seulement</SelectItem>
-                <SelectItem value="inactive">Inactifs</SelectItem>
-                {INVITABLE_ROLES.map(role => (
-                  <SelectItem key={role} value={role}>{ROLE_LABELS[role]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" asChild className="w-full sm:w-auto">
-              <Link href="/dashboard/staff">Vue liste classique</Link>
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {filteredMembers.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  Aucun membre pour ce filtre.
-                </CardContent>
-              </Card>
-            ) : (
-              filteredMembers.map(member => {
-                const canEdit = (data.canActivate || data.canDeactivate) &&
-                  !member.isCurrentUser &&
-                  member.roleCode !== 'PROVISEUR' &&
-                  member.roleCode !== 'FONDATEUR'
-
-                return (
-                  <Card key={member.id} className={cn(!member.isActive && 'opacity-70')}>
-                    <CardContent className="p-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                            {getInitials(member.fullName)}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate font-semibold">{member.fullName}</p>
-                              {member.isCurrentUser && (
-                                <Badge variant="outline" className="text-[10px]">Vous</Badge>
-                              )}
-                            </div>
-                            <p className="truncate text-sm text-muted-foreground">{member.email || '—'}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Depuis {formatDate(member.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2 sm:items-end">
-                          <div className="flex flex-wrap gap-2">
-                            <Badge className={ROLE_COLORS[member.roleCode]}>
-                              {ROLE_LABELS[member.roleCode]}
-                            </Badge>
-                            <Badge variant={member.isActive ? 'success' : 'secondary'}>
-                              {member.isActive ? 'Actif' : 'Inactif'}
-                            </Badge>
-                          </div>
-
-                          {canEdit && (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Select
-                                key={`${member.id}-${member.roleCode}`}
-                                value={member.roleCode}
-                                onValueChange={newRole => {
-                                  if (newRole === member.roleCode) return
-                                  setConfirmState({
-                                    type: 'change-role',
-                                    memberId: member.id,
-                                    memberName: member.fullName,
-                                    oldRole: member.roleCode,
-                                    newRole: newRole as UserRole,
-                                  })
-                                }}
-                                disabled={isPending}
-                              >
-                                <SelectTrigger className="h-8 w-[140px] text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {INVITABLE_ROLES.map(role => (
-                                    <SelectItem key={role} value={role}>{ROLE_LABELS[role]}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <div className="flex items-center gap-2 rounded-lg border px-2 py-1">
-                                <Label htmlFor={`active-${member.id}`} className="text-xs">
-                                  Actif
-                                </Label>
-                                <Switch
-                                  id={`active-${member.id}`}
-                                  checked={member.isActive}
-                                  disabled={isPending || pendingKey === `active-${member.id}`}
-                                  onCheckedChange={v => {
-                                    if (v) {
-                                      runAction(
-                                        `active-${member.id}`,
-                                        () => setStaffMemberActive(member.id, true),
-                                        'Membre activé'
-                                      )
-                                      return
-                                    }
-                                    setConfirmState({
-                                      type: 'deactivate',
-                                      memberId: member.id,
-                                      memberName: member.fullName,
-                                    })
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
+          <StaffTeamTable
+            members={data.members}
+            canActivate={data.canActivate}
+            canDeactivate={data.canDeactivate}
+            isPending={isPending}
+            pendingKey={pendingKey}
+            onRoleChange={payload =>
+              setConfirmState({
+                type: 'change-role',
+                memberId: payload.memberId,
+                memberName: payload.memberName,
+                oldRole: payload.oldRole,
+                newRole: payload.newRole,
               })
-            )}
-          </div>
+            }
+            onRequestDeactivate={(memberId, memberName) =>
+              setConfirmState({ type: 'deactivate', memberId, memberName })
+            }
+            onActivate={memberId =>
+              runAction(
+                `active-${memberId}`,
+                () => setStaffMemberActive(memberId, true),
+                'Membre activé'
+              )
+            }
+          />
         </TabsContent>
 
         {/* INVITATIONS */}

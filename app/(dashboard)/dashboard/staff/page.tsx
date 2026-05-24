@@ -1,16 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { Users, UserPlus, Mail } from 'lucide-react'
+import { StaffDirectoryTable } from '@/features/staff/staff-directory-table'
+import type { StaffDirectoryRow } from '@/features/staff/staff-directory-table'
+import { UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ROLE_LABELS, ROLE_COLORS, STAFF_ROLES } from '@/types/roles'
-import { getInitials, formatDate } from '@/lib/utils'
+import { ROLE_LABELS, STAFF_ROLES } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 import type { Metadata } from 'next'
+import { cn } from '@/lib/utils'
+import { dashboard } from '@/lib/dashboard/ui-classes'
 
 export const metadata: Metadata = {
   title: 'Gestion du personnel',
@@ -35,8 +36,18 @@ export default async function StaffPage() {
     .order('created_at', { ascending: false })
 
   const staffMembers = staffMembersRaw as Array<{
-    id: string; role_code: string; is_active: boolean; created_at: string;
-    profiles: { id: string; full_name: string | null; email: string | null; phone: string | null; avatar_url: string | null; is_active: boolean } | null;
+    id: string
+    role_code: string
+    is_active: boolean
+    created_at: string
+    profiles: {
+      id: string
+      full_name: string | null
+      email: string | null
+      phone: string | null
+      avatar_url: string | null
+      is_active: boolean
+    } | null
   }> | null
 
   const roleGroups = STAFF_ROLES.reduce((acc, role) => {
@@ -44,8 +55,18 @@ export default async function StaffPage() {
     return acc
   }, {} as Record<string, number>)
 
+  const rows: StaffDirectoryRow[] = (staffMembers ?? []).map(member => ({
+    id: member.id,
+    roleCode: member.role_code as UserRole,
+    isActive: member.is_active,
+    createdAt: member.created_at,
+    fullName: member.profiles?.full_name?.trim() || '—',
+    email: member.profiles?.email ?? null,
+    phone: member.profiles?.phone ?? null,
+  }))
+
   return (
-    <div className="space-y-4 animate-fade-in sm:space-y-6">
+    <div className={dashboard.page}>
       <PageHeader
         title="Personnel"
         description={`${count ?? 0} membre${(count ?? 0) > 1 ? 's' : ''} du personnel`}
@@ -66,119 +87,24 @@ export default async function StaffPage() {
         }
       />
 
-      {/* Répartition par rôle */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible lg:grid-cols-6">
         {STAFF_ROLES.map(role => (
-          <div key={role} className="bg-white rounded-xl border p-3 text-center">
-            <p className="text-2xl font-bold text-[#1a4d2e]">{roleGroups[role]}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{ROLE_LABELS[role as UserRole]}</p>
+          <div
+            key={role}
+            className={cn(
+              dashboard.card,
+              'min-w-[108px] shrink-0 snap-start p-3 text-center sm:min-w-0',
+            )}
+          >
+            <p className="text-2xl font-bold tabular-nums text-[#1a4d2e]">{roleGroups[role]}</p>
+            <p className="mt-0.5 text-[11px] font-medium leading-tight text-slate-500 sm:text-xs">
+              {ROLE_LABELS[role as UserRole]}
+            </p>
           </div>
         ))}
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Équipe pédagogique et administrative</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {staffMembers && staffMembers.length > 0 ? (
-            <>
-              <div className="divide-y sm:hidden">
-                {staffMembers.map(member => {
-                  const profile = member.profiles
-                  return (
-                    <div key={member.id} className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                          {getInitials(profile?.full_name ?? 'U')}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{profile?.full_name ?? '—'}</p>
-                          <p className="truncate text-xs text-muted-foreground">{profile?.email ?? '—'}</p>
-                        </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <Badge className={ROLE_COLORS[member.role_code as UserRole]}>
-                          {ROLE_LABELS[member.role_code as UserRole]}
-                        </Badge>
-                        <Badge variant={member.is_active ? 'success' : 'secondary'}>
-                          {member.is_active ? 'Actif' : 'Inactif'}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Depuis {formatDate(member.created_at)}
-                      </p>
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="hidden overflow-x-auto sm:block">
-                <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Nom</th>
-                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Rôle</th>
-                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Email</th>
-                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Téléphone</th>
-                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Statut</th>
-                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Depuis</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {staffMembers.map(member => {
-                    const profile = member.profiles as any
-                    return (
-                      <tr key={member.id} className="border-b last:border-0 hover:bg-muted/20">
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
-                              {getInitials(profile?.full_name ?? 'U')}
-                            </div>
-                            <span className="font-medium">{profile?.full_name ?? '—'}</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <Badge className={ROLE_COLORS[member.role_code as UserRole]}>
-                            {ROLE_LABELS[member.role_code as UserRole]}
-                          </Badge>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          {profile?.email ? (
-                            <a href={`mailto:${profile.email}`} className="flex items-center gap-1 text-primary hover:underline">
-                              <Mail className="h-3 w-3" />
-                              {profile.email}
-                            </a>
-                          ) : '—'}
-                        </td>
-                        <td className="py-2.5 px-3 text-muted-foreground">
-                          {profile?.phone ?? '—'}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <Badge variant={member.is_active ? 'success' : 'secondary'}>
-                            {member.is_active ? 'Actif' : 'Inactif'}
-                          </Badge>
-                        </td>
-                        <td className="py-2.5 px-3 text-muted-foreground">
-                          {formatDate(member.created_at)}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-              <p className="text-muted-foreground">Aucun personnel enregistré</p>
-              <Button variant="outline" className="mt-3" asChild>
-                <Link href="/dashboard/staff/roles-permissions?tab=invitations">Inviter du personnel</Link>
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <StaffDirectoryTable members={rows} />
     </div>
   )
 }
