@@ -168,19 +168,52 @@ export function StaffInvitationsPanel({
 
   if (!canInvite) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
-            <AlertTriangle className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="font-semibold text-slate-900">Accès restreint</p>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              Vous n&apos;avez pas les droits pour créer ou gérer des invitations personnel.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {invitations.length > 0 ? (
+          <Card>
+            <CardHeader className="space-y-4 border-b pb-4">
+              <div>
+                <CardTitle className="text-base">Invitations</CardTitle>
+                <CardDescription>
+                  Consultation seule — {schoolName}
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="space-y-2">
+                {invitations.map(invite => (
+                  <InvitationRowCard
+                    key={invite.id}
+                    invite={invite}
+                    appUrl={appUrl}
+                    schoolName={schoolName}
+                    isPending={isPending}
+                    pendingKey={pendingKey}
+                    readOnly
+                    onCopyUrl={onCopyUrl}
+                    onResend={onResend}
+                    onCancel={onCancel}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900">Accès restreint</p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  Vous n&apos;avez pas les droits pour créer ou gérer des invitations personnel.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     )
   }
 
@@ -425,6 +458,7 @@ function InvitationRowCard({
   schoolName,
   isPending,
   pendingKey,
+  readOnly = false,
   onCopyUrl,
   onResend,
   onCancel,
@@ -434,6 +468,7 @@ function InvitationRowCard({
   schoolName: string
   isPending: boolean
   pendingKey: string | null
+  readOnly?: boolean
   onCopyUrl: (url: string) => void
   onResend: (inviteId: string) => void
   onCancel: (invite: InvitationRow) => void
@@ -483,7 +518,7 @@ function InvitationRowCard({
         </div>
       </div>
 
-      {status.actionable ? (
+      {status.actionable && !readOnly ? (
         <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
           <Button
             size="sm"

@@ -186,9 +186,16 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
 
   const runAction = useCallback((
     actionKey: string,
-    action: () => Promise<{ error?: string; success?: boolean; inviteUrl?: string }>,
+    action: () => Promise<{
+      error?: string
+      success?: boolean
+      inviteUrl?: string
+      emailSent?: boolean
+      emailWarning?: string
+      reused?: boolean
+    }>,
     successMsg: string,
-    onSuccess?: (result: { inviteUrl?: string }) => void
+    onSuccess?: (result: { inviteUrl?: string; emailSent?: boolean; emailWarning?: string; reused?: boolean }) => void
   ) => {
     setPendingKey(actionKey)
     startTransition(async () => {
@@ -198,7 +205,19 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
           notify.error(result.error, 'staff')
           return
         }
-        notify.success(successMsg)
+
+        if (result.emailWarning) {
+          notify.success(successMsg, { description: result.emailWarning })
+        } else if (result.reused) {
+          notify.success('Invitation mise à jour', {
+            description: result.emailSent
+              ? 'Lien renvoyé par email.'
+              : 'Le lien existant a été prolongé — copiez-le si besoin.',
+          })
+        } else {
+          notify.success(successMsg)
+        }
+
         if (result.inviteUrl) setLastInviteUrl(result.inviteUrl)
         onSuccess?.(result)
         router.refresh()
@@ -596,8 +615,8 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                 'create-invite',
                 () => createStaffInvitation(payload),
                 payload.sendEmail && payload.invitedEmail
-                  ? 'Invitation créée et email envoyé'
-                  : 'Invitation créée',
+                  ? 'Invitation créée'
+                  : 'Invitation créée — copiez le lien',
                 r => { if (r.inviteUrl) setLastInviteUrl(r.inviteUrl) }
               )
             }
@@ -605,7 +624,10 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
               runAction(
                 `resend-${inviteId}`,
                 () => resendStaffInvitationEmail(inviteId),
-                'Email renvoyé'
+                'Relance traitée',
+                r => {
+                  if (r.inviteUrl) setLastInviteUrl(r.inviteUrl)
+                }
               )
             }
             onCancel={invite =>

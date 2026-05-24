@@ -1,19 +1,42 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { resolveAppUrl } from '@/lib/env/public'
-import { sendStaffInviteEmail } from '@/lib/email/send'
+import { sendStaffInviteEmail, type SendEmailResult } from '@/lib/email/send'
 import { hasPermission } from '@/types/permissions'
 import { ROLE_LABELS, STAFF_ROLES } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 import { INVITABLE_ROLES } from '@/lib/permissions/catalog'
 
-type ActionResult = { success: true; inviteUrl?: string } | { error: string }
+export type StaffInviteActionResult =
+  | {
+      success: true
+      inviteUrl: string
+      emailSent?: boolean
+      emailWarning?: string
+      reused?: boolean
+    }
+  | { error: string }
 
-async function requireStaffAccess(minPermission: 'staff:read' | 'staff:invite' | 'staff:activate' | 'staff:deactivate') {
+type StaffAccessError = { error: string }
+type StaffAccessOk = {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  user: User
+  ctx: NonNullable<Awaited<ReturnType<typeof getUserSchoolContext>>>
+  role: UserRole
+  schoolId: string
+}
+
+type AdminDbError = { error: string }
+type AdminDbOk = { admin: ReturnType<typeof createAdminClient> }
+
+async function requireStaffAccess(
+  minPermission: 'staff:read' | 'staff:invite' | 'staff:activate' | 'staff:deactivate'
+): Promise<StaffAccessError | StaffAccessOk> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Session expirée.' as const }
@@ -37,8 +60,56 @@ function getAdminOrClient() {
   }
 }
 
-function getWritableDb(base: { supabase: Awaited<ReturnType<typeof createClient>> }) {
-  return getAdminOrClient() ?? base.supabase
+function requireAdminDb(): AdminDbError | AdminDbOk {
+  const admin = getAdminOrClient()
+  if (!admin) {
+    return {
+      error:
+        'Configuration serveur incomplète (SUPABASE_SERVICE_ROLE_KEY). Les invitations nécessitent la clé service Supabase.',
+    } as const
+  }
+  return { admin }
+}
+
+function summarizeEmailResult(result: SendEmailResult): { sent: boolean; warning?: string } {
+  if (!result.ok) {
+    return {
+      sent: false,
+      warning: 'error' in result ? result.error : 'Envoi email impossible.',
+    }
+  }
+  if ('skipped' in result && result.skipped) {
+    return {
+      sent: false,
+      warning:
+        'Email non configuré (RESEND_API_KEY). Copiez le lien d\'invitation et envoyez-le manuellement.',
+    }
+  }
+  return { sent: true }
+}
+
+async function fetchInviteEmailContext(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  schoolId: string,
+  userId: string
+) {
+  const { data: schoolRaw } = await supabase
+    .from('schools')
+    .select('name')
+    .eq('id', schoolId)
+    .limit(1)
+
+  const { data: inviterRaw } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', userId)
+    .limit(1)
+
+  return {
+    schoolName: (schoolRaw as Array<{ name: string }> | null)?.[0]?.name ?? 'Votre établissement',
+    inviterName:
+      (inviterRaw as Array<{ full_name: string | null }> | null)?.[0]?.full_name ?? 'Le directeur',
+  }
 }
 
 export async function createStaffInvitation(data: {
@@ -46,19 +117,83 @@ export async function createStaffInvitation(data: {
   invitedEmail?: string
   invitedName?: string
   sendEmail?: boolean
-}) {
+}): Promise<StaffInviteActionResult> {
   const base = await requireStaffAccess('staff:invite')
-  if ('error' in base) return base
+  if ('error' in base) return { error: base.error }
 
   if (!INVITABLE_ROLES.includes(data.roleCode as UserRole)) {
     return { error: 'Rôle non invitable.' }
   }
 
-  const admin = getAdminOrClient()
-  const db = admin ?? base.supabase
+  const adminResult = requireAdminDb()
+  if ('error' in adminResult) return { error: adminResult.error }
+  const db = adminResult.admin
+
+  const invitedEmail = data.invitedEmail?.trim().toLowerCase() || null
+  const invitedName = data.invitedName?.trim() || null
 
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + 7)
+
+  // Réutiliser une invitation en attente pour le même email
+  if (invitedEmail) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existingRaw } = await (db as any)
+      .from('staff_invitations')
+      .select('id, token, status, expires_at')
+      .eq('school_id', base.schoolId)
+      .ilike('invited_email', invitedEmail)
+      .eq('status', 'pending')
+      .order('expires_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const existing = existingRaw as {
+      id: string
+      token: string
+      expires_at: string
+    } | null
+
+    if (existing && new Date(existing.expires_at) > new Date()) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any)
+        .from('staff_invitations')
+        .update({
+          role_code: data.roleCode,
+          invited_name: invitedName,
+          expires_at: expiresAt.toISOString(),
+          invited_by: base.user.id,
+        })
+        .eq('id', existing.id)
+
+      const inviteUrl = `${resolveAppUrl()}/join/staff/${existing.token}`
+      let emailSent: boolean | undefined
+      let emailWarning: string | undefined
+
+      if (data.sendEmail && invitedEmail) {
+        const ctx = await fetchInviteEmailContext(base.supabase, base.schoolId, base.user.id)
+        const emailResult = await sendStaffInviteEmail(invitedEmail, {
+          inviterName: ctx.inviterName,
+          schoolName: ctx.schoolName,
+          roleLabel: ROLE_LABELS[data.roleCode as UserRole] ?? data.roleCode,
+          inviteUrl,
+        })
+        const summary = summarizeEmailResult(emailResult)
+        emailSent = summary.sent
+        emailWarning = summary.warning
+      }
+
+      revalidatePath('/dashboard/staff/roles-permissions')
+      revalidatePath('/dashboard/staff/invitations')
+      return {
+        success: true,
+        inviteUrl,
+        reused: true,
+        emailSent,
+        emailWarning,
+      }
+    }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: invitation, error } = await (db as any)
@@ -67,55 +202,49 @@ export async function createStaffInvitation(data: {
       school_id: base.schoolId,
       role_code: data.roleCode,
       invited_by: base.user.id,
-      invited_email: data.invitedEmail?.trim() || null,
-      invited_name: data.invitedName?.trim() || null,
+      invited_email: invitedEmail,
+      invited_name: invitedName,
       expires_at: expiresAt.toISOString(),
       status: 'pending',
     })
     .select('id, token')
     .single()
 
-  if (error || !invitation) return { error: error?.message ?? 'Impossible de créer l\'invitation.' }
+  if (error || !invitation) {
+    return { error: error?.message ?? 'Impossible de créer l\'invitation.' }
+  }
 
   const inviteUrl = `${resolveAppUrl()}/join/staff/${invitation.token}`
+  let emailSent: boolean | undefined
+  let emailWarning: string | undefined
 
-  if (data.sendEmail && data.invitedEmail?.trim()) {
-    const { data: schoolRaw } = await base.supabase
-      .from('schools')
-      .select('name')
-      .eq('id', base.schoolId)
-      .limit(1)
-
-    const schoolName = (schoolRaw as Array<{ name: string }> | null)?.[0]?.name ?? 'Votre établissement'
-    const { data: inviterRaw } = await base.supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', base.user.id)
-      .limit(1)
-
-    const inviterName = (inviterRaw as Array<{ full_name: string | null }> | null)?.[0]?.full_name ?? 'Le directeur'
-
-    await sendStaffInviteEmail(data.invitedEmail.trim(), {
-      inviterName,
-      schoolName,
+  if (data.sendEmail && invitedEmail) {
+    const ctx = await fetchInviteEmailContext(base.supabase, base.schoolId, base.user.id)
+    const emailResult = await sendStaffInviteEmail(invitedEmail, {
+      inviterName: ctx.inviterName,
+      schoolName: ctx.schoolName,
       roleLabel: ROLE_LABELS[data.roleCode as UserRole] ?? data.roleCode,
       inviteUrl,
     })
+    const summary = summarizeEmailResult(emailResult)
+    emailSent = summary.sent
+    emailWarning = summary.warning
   }
 
   revalidatePath('/dashboard/staff/roles-permissions')
   revalidatePath('/dashboard/staff/invitations')
-  return { success: true, inviteUrl }
+  return { success: true, inviteUrl, emailSent, emailWarning }
 }
 
 export async function cancelStaffInvitation(invitationId: string) {
   const base = await requireStaffAccess('staff:invite')
   if ('error' in base) return base
 
-  const db = getWritableDb(base)
+  const adminResult = requireAdminDb()
+  if ('error' in adminResult) return adminResult
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await (adminResult.admin as any)
     .from('staff_invitations')
     .update({ status: 'cancelled' })
     .eq('id', invitationId)
@@ -128,11 +257,15 @@ export async function cancelStaffInvitation(invitationId: string) {
   return { success: true }
 }
 
-export async function resendStaffInvitationEmail(invitationId: string) {
+export async function resendStaffInvitationEmail(
+  invitationId: string
+): Promise<StaffInviteActionResult> {
   const base = await requireStaffAccess('staff:invite')
-  if ('error' in base) return base
+  if ('error' in base) return { error: base.error }
 
-  const db = getAdminOrClient() ?? base.supabase
+  const adminResult = requireAdminDb()
+  if ('error' in adminResult) return { error: adminResult.error }
+  const db = adminResult.admin
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: inviteRaw } = await (db as any)
@@ -159,34 +292,30 @@ export async function resendStaffInvitationEmail(invitationId: string) {
   }
 
   const inviteUrl = `${resolveAppUrl()}/join/staff/${invitation.token}`
-
-  const { data: schoolRaw } = await base.supabase
-    .from('schools')
-    .select('name')
-    .eq('id', base.schoolId)
-    .limit(1)
-
-  const schoolName = (schoolRaw as Array<{ name: string }> | null)?.[0]?.name ?? 'Votre établissement'
-  const { data: inviterRaw } = await base.supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', base.user.id)
-    .limit(1)
-
-  const inviterName = (inviterRaw as Array<{ full_name: string | null }> | null)?.[0]?.full_name ?? 'Le directeur'
+  const ctx = await fetchInviteEmailContext(base.supabase, base.schoolId, base.user.id)
 
   const emailResult = await sendStaffInviteEmail(invitation.invited_email.trim(), {
-    inviterName,
-    schoolName,
+    inviterName: ctx.inviterName,
+    schoolName: ctx.schoolName,
     roleLabel: ROLE_LABELS[invitation.role_code as UserRole] ?? invitation.role_code,
     inviteUrl,
   })
 
-  if (!emailResult.ok) {
-    return { error: 'error' in emailResult ? emailResult.error : 'Envoi email impossible.' }
+  const summary = summarizeEmailResult(emailResult)
+  if (!summary.sent) {
+    return {
+      success: true,
+      inviteUrl,
+      emailSent: false,
+      emailWarning: summary.warning ?? 'Envoi email impossible. Copiez le lien d\'invitation.',
+    }
   }
 
-  return { success: true, inviteUrl }
+  return { success: true, inviteUrl, emailSent: true }
+}
+
+function getWritableDb(base: { supabase: Awaited<ReturnType<typeof createClient>> }) {
+  return getAdminOrClient() ?? base.supabase
 }
 
 export async function setStaffMemberActive(memberRoleId: string, isActive: boolean) {
@@ -283,13 +412,14 @@ export async function acceptStaffInvitation(token: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Connectez-vous pour accepter l\'invitation.' }
 
-  const admin = getAdminOrClient()
-  if (!admin) return { error: 'Service indisponible.' }
+  const adminResult = requireAdminDb()
+  if ('error' in adminResult) return adminResult
+  const admin = adminResult.admin
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: inviteRaw } = await (admin as any)
     .from('staff_invitations')
-    .select('id, school_id, role_code, status, expires_at, used_at')
+    .select('id, school_id, role_code, status, expires_at, used_at, invited_email')
     .eq('token', token)
     .limit(1)
 
@@ -300,6 +430,7 @@ export async function acceptStaffInvitation(token: string) {
     status: string
     expires_at: string
     used_at: string | null
+    invited_email: string | null
   }> | null)?.[0]
 
   if (!invitation) return { error: 'Invitation introuvable ou invalide.' }
@@ -308,6 +439,16 @@ export async function acceptStaffInvitation(token: string) {
   if (new Date(invitation.expires_at) < new Date()) {
     await (admin as any).from('staff_invitations').update({ status: 'expired' }).eq('id', invitation.id)
     return { error: 'Invitation expirée. Demandez un nouveau lien au directeur.' }
+  }
+
+  if (
+    invitation.invited_email &&
+    user.email &&
+    invitation.invited_email.toLowerCase() !== user.email.toLowerCase()
+  ) {
+    return {
+      error: `Cette invitation est réservée à ${invitation.invited_email}. Connectez-vous avec ce compte.`,
+    }
   }
 
   const { data: existingRaw } = await admin
@@ -343,19 +484,29 @@ export async function acceptStaffInvitation(token: string) {
     })
     .eq('id', invitation.id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any)
+  const { data: profileRaw } = await admin
     .from('profiles')
-    .update({ default_role: invitation.role_code })
+    .select('default_role')
     .eq('id', user.id)
+    .limit(1)
+
+  const currentDefault = (profileRaw as Array<{ default_role: string | null }> | null)?.[0]?.default_role
+  if (!currentDefault || currentDefault === 'ELEVE' || currentDefault === 'PARENT') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin as any)
+      .from('profiles')
+      .update({ default_role: invitation.role_code })
+      .eq('id', user.id)
+  }
 
   revalidatePath('/dashboard')
   return { success: true as const, roleCode: invitation.role_code }
 }
 
 export async function getInvitationPreview(token: string) {
-  const admin = getAdminOrClient()
-  if (!admin) return { error: 'Service indisponible.' }
+  const adminResult = requireAdminDb()
+  if ('error' in adminResult) return adminResult
+  const admin = adminResult.admin
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: inviteRaw } = await (admin as any)
@@ -402,8 +553,9 @@ export async function registerStaffFromInvitation(input: {
   lastName: string
   phone?: string
 }) {
-  const admin = getAdminOrClient()
-  if (!admin) return { error: 'Service d\'inscription indisponible.' }
+  const adminResult = requireAdminDb()
+  if ('error' in adminResult) return adminResult
+  const admin = adminResult.admin
 
   const firstName = input.firstName.trim()
   const lastName = input.lastName.trim()
@@ -435,8 +587,8 @@ export async function registerStaffFromInvitation(input: {
     return { error: 'Invitation expirée.' }
   }
 
-  const email = input.email.trim()
-  if (invitation.invited_email && invitation.invited_email.toLowerCase() !== email.toLowerCase()) {
+  const email = input.email.trim().toLowerCase()
+  if (invitation.invited_email && invitation.invited_email.toLowerCase() !== email) {
     return { error: 'Cette invitation est réservée à une autre adresse email.' }
   }
 
@@ -449,38 +601,56 @@ export async function registerStaffFromInvitation(input: {
       first_name: firstName,
       last_name: lastName,
       phone: input.phone?.trim(),
+      default_role: invitation.role_code,
     },
   })
 
   if (signUpError || !authData.user) {
-    return { error: signUpError?.message ?? 'Création du compte impossible.' }
+    const msg = signUpError?.message ?? 'Création du compte impossible.'
+    if (/already|registered|exists|duplicate/i.test(msg)) {
+      return {
+        error: 'Un compte existe déjà avec cet email. Connectez-vous puis acceptez l\'invitation.',
+      }
+    }
+    return { error: msg }
   }
 
   const userId = authData.user.id
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).from('profiles').upsert({
-    id: userId,
-    email,
-    full_name: fullName,
-    phone: input.phone?.trim() || null,
-    preferred_language: 'fr',
-    default_role: invitation.role_code,
-  })
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: profileError } = await (admin as any).from('profiles').upsert({
+      id: userId,
+      email,
+      full_name: fullName,
+      phone: input.phone?.trim() || null,
+      preferred_language: 'fr',
+      default_role: invitation.role_code,
+    })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).from('user_school_roles').insert({
-    user_id: userId,
-    school_id: invitation.school_id,
-    role_code: invitation.role_code,
-    is_active: true,
-  })
+    if (profileError) throw new Error(profileError.message)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any)
-    .from('staff_invitations')
-    .update({ status: 'used', used_at: new Date().toISOString() })
-    .eq('id', invitation.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: roleError } = await (admin as any).from('user_school_roles').insert({
+      user_id: userId,
+      school_id: invitation.school_id,
+      role_code: invitation.role_code,
+      is_active: true,
+    })
+
+    if (roleError) throw new Error(roleError.message)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: inviteError } = await (admin as any)
+      .from('staff_invitations')
+      .update({ status: 'used', used_at: new Date().toISOString() })
+      .eq('id', invitation.id)
+
+    if (inviteError) throw new Error(inviteError.message)
+  } catch (err) {
+    await admin.auth.admin.deleteUser(userId)
+    return { error: err instanceof Error ? err.message : 'Inscription interrompue.' }
+  }
 
   revalidatePath('/dashboard')
   return { success: true as const, email, roleCode: invitation.role_code }

@@ -7,8 +7,8 @@ import type { StaffDirectoryRow } from '@/features/staff/staff-directory-table'
 import { UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ROLE_LABELS, STAFF_ROLES } from '@/types/roles'
-import type { UserRole } from '@/types/roles'
+import { hasPermission } from '@/types/permissions'
+import { ROLE_LABELS, STAFF_ROLES, type UserRole } from '@/types/roles'
 import type { Metadata } from 'next'
 import { cn } from '@/lib/utils'
 import { dashboard } from '@/lib/dashboard/ui-classes'
@@ -24,6 +24,9 @@ export default async function StaffPage() {
   if (!user) redirect('/login')
 
   const schoolRole = await getUserSchoolContext(user.id)
+  const canInvite = schoolRole?.role_code
+    ? hasPermission(schoolRole.role_code as UserRole, 'staff:invite')
+    : false
 
   const { data: staffMembersRaw, count } = await supabase
     .from('user_school_roles')
@@ -72,12 +75,14 @@ export default async function StaffPage() {
         description={`${count ?? 0} membre${(count ?? 0) > 1 ? 's' : ''} du personnel`}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Button className="w-full sm:w-auto" variant="brandDark" asChild>
-              <Link href="/dashboard/staff/roles-permissions?tab=invitations">
-                <UserPlus className="h-4 w-4" />
-                Inviter du personnel
-              </Link>
-            </Button>
+            {canInvite && (
+              <Button className="w-full sm:w-auto" variant="brandDark" asChild>
+                <Link href="/dashboard/staff/roles-permissions?tab=invitations">
+                  <UserPlus className="h-4 w-4" />
+                  Inviter du personnel
+                </Link>
+              </Button>
+            )}
             <Button variant="outline" className="w-full sm:w-auto" asChild>
               <Link href="/dashboard/staff/roles-permissions">
                 Rôles & permissions

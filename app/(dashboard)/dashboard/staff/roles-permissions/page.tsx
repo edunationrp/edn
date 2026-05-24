@@ -81,6 +81,7 @@ export default async function RolesPermissionsPage() {
   }
 
   const canManage = hasPermission(role, 'staff:invite')
+  const canViewInvites = hasPermission(role, 'staff:read')
   const schoolId = ctx.school_id
 
   const [schoolResult, membersResult, invitations] = await Promise.all([
@@ -93,7 +94,7 @@ export default async function RolesPermissionsPage() {
       `)
       .eq('school_id', schoolId)
       .order('created_at', { ascending: false }),
-    canManage ? loadInvitations(schoolId, supabase) : Promise.resolve([]),
+    canViewInvites ? loadInvitations(schoolId, supabase) : Promise.resolve([]),
   ])
 
   const schoolName = (schoolResult.data as Array<{ name: string }> | null)?.[0]?.name ?? 'Mon établissement'
