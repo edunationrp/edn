@@ -475,7 +475,7 @@ export function MessagesClient({
   const showChatPanel = mobileView === 'chat' || mobileView === 'newChat'
 
   return (
-    <div className="fixed inset-x-0 bottom-0 top-14 z-10 flex flex-col overflow-hidden bg-white lg:static lg:z-auto lg:h-full lg:min-h-0">
+    <div className="fixed inset-x-0 bottom-0 top-14 z-10 flex w-full max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-white lg:static lg:z-auto lg:h-full lg:min-h-0">
       <input
         ref={imageInputRef}
         type="file"
@@ -507,7 +507,7 @@ export function MessagesClient({
           )}
         >
           <InboxHeader unreadCount={totalUnread} onNewChat={openNewChat} />
-          <div className="border-b border-slate-100 px-4 py-3">
+          <div className="border-b border-slate-100 px-3 py-3 sm:px-4">
             <SearchField
               value={searchQuery}
               onChange={setSearchQuery}
@@ -659,7 +659,7 @@ export function MessagesClient({
         <button
           type="button"
           onClick={openNewChat}
-          className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#1a4d2e] to-[#14532d] text-white shadow-[0_8px_24px_-4px_rgba(20,83,45,0.55)] transition active:scale-95 lg:hidden"
+          className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#1a4d2e] to-[#14532d] text-white shadow-[0_8px_24px_-4px_rgba(20,83,45,0.55)] transition active:scale-95 lg:hidden"
           aria-label="Nouvelle conversation"
         >
           <Plus className="h-6 w-6" />

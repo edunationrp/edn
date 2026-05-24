@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn, formatRelativeDate, getInitials } from '@/lib/utils'
+import { cn, formatRelativeDateCompact, getInitials } from '@/lib/utils'
 import type { ChatConversationSummary, ChatMessageRow } from '@/lib/actions/messages'
 
 export function ChatAvatar({
@@ -181,7 +181,7 @@ export function ConversationRow({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-3 px-4 py-3.5 text-left transition active:bg-slate-100/80',
+        'flex w-full max-w-full items-center gap-2.5 overflow-hidden px-3 py-3.5 text-left transition active:bg-slate-100/80 sm:gap-3 sm:px-4',
         active && 'bg-[#EEF3FA]/80',
         unread && !active && 'bg-[#f0fdf4]/50'
       )}
@@ -190,26 +190,42 @@ export function ConversationRow({
         name={conversation.other_user.display_name}
         avatarUrl={conversation.other_user.avatar_url}
         unread={unread}
+        size="sm"
       />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className={cn('truncate text-[15px]', unread ? 'font-bold text-slate-900' : 'font-semibold text-slate-800')}>
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <div className="flex items-center gap-2">
+          <p
+            className={cn(
+              'min-w-0 flex-1 truncate text-[15px]',
+              unread ? 'font-bold text-slate-900' : 'font-semibold text-slate-800'
+            )}
+          >
             {conversation.other_user.display_name}
           </p>
-          <span className={cn('shrink-0 text-[11px]', unread ? 'font-semibold text-[#1a4d2e]' : 'text-slate-400')}>
-            {formatRelativeDate(conversation.last_message_at)}
+          {unread && (
+            <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#7AB832] px-1 text-[10px] font-bold text-white">
+              {conversation.unread_count > 9 ? '9+' : conversation.unread_count}
+            </span>
+          )}
+          <span
+            className={cn(
+              'shrink-0 text-[10px] sm:text-[11px]',
+              unread ? 'font-semibold text-[#1a4d2e]' : 'text-slate-400'
+            )}
+          >
+            {formatRelativeDateCompact(conversation.last_message_at)}
           </span>
         </div>
         <p className="truncate text-xs text-slate-500">{roleLabel}</p>
-        <p className={cn('truncate text-sm', unread ? 'font-medium text-slate-700' : 'text-slate-500')}>
+        <p
+          className={cn(
+            'truncate text-sm',
+            unread ? 'font-medium text-slate-700' : 'text-slate-500'
+          )}
+        >
           {conversation.last_message_preview || 'Nouvelle conversation'}
         </p>
       </div>
-      {unread && (
-        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#7AB832] px-1.5 text-[10px] font-bold text-white shadow-sm">
-          {conversation.unread_count > 9 ? '9+' : conversation.unread_count}
-        </span>
-      )}
     </button>
   )
 }
@@ -229,14 +245,14 @@ export function StaffRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition active:bg-slate-100/80"
+      className="flex w-full max-w-full items-center gap-2.5 overflow-hidden px-3 py-3.5 text-left transition active:bg-slate-100/80 sm:gap-3 sm:px-4"
     >
-      <ChatAvatar name={name} avatarUrl={avatarUrl} />
+      <ChatAvatar name={name} avatarUrl={avatarUrl} size="sm" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-semibold text-slate-900">{name}</p>
         <p className="truncate text-xs text-slate-500">{roleLabel}</p>
       </div>
-      <span className="rounded-full bg-[#EEF3FA] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#1B3A6B]">
+      <span className="hidden shrink-0 rounded-full bg-[#EEF3FA] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#1B3A6B] sm:inline">
         Écrire
       </span>
     </button>
@@ -289,17 +305,17 @@ export function InboxHeader({
   onNewChat: () => void
 }) {
   return (
-    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200/70 bg-gradient-to-br from-[#1B3A6B] via-[#1a4d2e] to-[#14532d] px-4 pb-4 pt-3 text-white shadow-lg sm:rounded-t-3xl">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200/70 bg-gradient-to-br from-[#1B3A6B] via-[#1a4d2e] to-[#14532d] px-3 pb-4 pt-3 text-white shadow-lg sm:rounded-t-3xl sm:px-4">
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-[#7AB832]" />
+            <Sparkles className="h-4 w-4 shrink-0 text-[#7AB832]" />
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70">
               Temps réel
             </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Messages</h1>
-          <p className="mt-0.5 text-sm text-white/75">
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Messages</h1>
+          <p className="mt-0.5 truncate text-sm text-white/75">
             {unreadCount > 0
               ? `${unreadCount} message${unreadCount > 1 ? 's' : ''} non lu${unreadCount > 1 ? 's' : ''}`
               : 'Personnel de l\'établissement'}
@@ -308,7 +324,7 @@ export function InboxHeader({
         <Button
           type="button"
           size="icon"
-          className="h-11 w-11 shrink-0 rounded-full bg-white/15 text-white shadow-lg backdrop-blur hover:bg-white/25"
+          className="hidden h-10 w-10 shrink-0 rounded-full bg-white/15 text-white shadow-lg backdrop-blur hover:bg-white/25 sm:inline-flex"
           onClick={onNewChat}
           aria-label="Nouvelle conversation"
         >

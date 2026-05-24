@@ -22,6 +22,20 @@ export function formatRelativeDate(date: string | Date) {
   })
 }
 
+/** Format court pour listes mobiles (ex. « 4 min », « 2 j ») */
+export function formatRelativeDateCompact(date: string | Date) {
+  const then = new Date(date)
+  const diffMs = Date.now() - then.getTime()
+  const diffMin = Math.floor(diffMs / 60_000)
+  if (diffMin < 1) return 'Maintenant'
+  if (diffMin < 60) return `${diffMin} min`
+  const diffH = Math.floor(diffMin / 60)
+  if (diffH < 24) return `${diffH} h`
+  const diffD = Math.floor(diffH / 24)
+  if (diffD < 7) return `${diffD} j`
+  return format(then, 'dd/MM', { locale: fr })
+}
+
 export function formatCurrency(amount: number, currency = 'FCFA') {
   return `${new Intl.NumberFormat('fr-FR').format(amount)} ${currency}`
 }

@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   authors: [{ name: 'EduNation' }],
   manifest: '/manifest.json',
   applicationName: 'EduNation',
+  icons: {
+    icon: [{ url: '/edunation.jpeg', type: 'image/jpeg' }],
+    apple: [{ url: '/edunation.jpeg', type: 'image/jpeg' }],
+    shortcut: '/edunation.jpeg',
+  },
   appleWebApp: {
     capable: true,
     title: 'EduNation',
