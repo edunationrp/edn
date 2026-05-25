@@ -29,6 +29,7 @@ import {
   SearchField,
   StaffRow,
 } from '@/features/messages/messages-ui'
+import { useMessagingPresence } from '@/features/messages/use-messaging-presence'
 
 interface MessagesClientProps {
   currentUserId: string
@@ -83,6 +84,8 @@ export function MessagesClient({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  const recordingStreamRef = useRef<MediaStream | null>(null)
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -110,14 +113,21 @@ export function MessagesClient({
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false)
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
   const [isSearchingStaff, setIsSearchingStaff] = useState(false)
   const [pendingAttachment, setPendingAttachment] = useState<{
     file: File
     previewUrl?: string
     messageType: 'audio' | 'image' | 'file'
   } | null>(null)
+  const [otherParticipantLastReadAt, setOtherParticipantLastReadAt] = useState<string | null>(null)
+  const { isUserOnline } = useMessagingPresence(schoolId, currentUserId)
 
   const activeConversation = conversations.find(c => c.id === activeConversationId) ?? null
+  const otherUserOnline = activeConversation
+    ? isUserOnline(activeConversation.other_user_id)
+    : false
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0)
   const messageGroups = useMemo(() => groupMessagesByDate(messages), [messages])
 
@@ -138,6 +148,22 @@ export function MessagesClient({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
+  const loadOtherParticipantReadState = useCallback(
+    async (conversationId: string, otherUserId: string) => {
+      const { data } = await supabase
+        .from('chat_participant_state')
+        .select('last_read_at')
+        .eq('conversation_id', conversationId)
+        .eq('user_id', otherUserId)
+        .maybeSingle()
+
+      setOtherParticipantLastReadAt(
+        (data as { last_read_at: string } | null)?.last_read_at ?? null
+      )
+    },
+    [supabase]
+  )
+
   const loadMessages = useCallback(async (conversationId: string) => {
     setIsLoadingMessages(true)
     const { data, error } = await supabase
@@ -156,16 +182,23 @@ export function MessagesClient({
   }, [supabase])
 
   const openConversation = useCallback(
-    async (conversationId: string) => {
+    async (conversationId: string, otherUserId?: string) => {
       setActiveConversationId(conversationId)
       setMobileView('chat')
+      const conversation = conversations.find(c => c.id === conversationId)
+      const resolvedOtherUserId = otherUserId ?? conversation?.other_user_id
+      if (resolvedOtherUserId) {
+        void loadOtherParticipantReadState(conversationId, resolvedOtherUserId)
+      } else {
+        setOtherParticipantLastReadAt(null)
+      }
       await loadMessages(conversationId)
       await markConversationRead(conversationId)
       setConversations(prev =>
         prev.map(c => (c.id === conversationId ? { ...c, unread_count: 0 } : c))
       )
     },
-    [loadMessages]
+    [conversations, loadMessages, loadOtherParticipantReadState]
   )
 
   const startConversationWith = useCallback(
@@ -202,7 +235,7 @@ export function MessagesClient({
       }
 
       setStaffSearch('')
-      await openConversation(conversationId)
+      await openConversation(conversationId, staffId)
     },
     [conversations, openConversation, schoolId, staffResults]
   )
@@ -228,6 +261,7 @@ export function MessagesClient({
   const backToInbox = useCallback(() => {
     setMobileView('inbox')
     setActiveConversationId(null)
+    setOtherParticipantLastReadAt(null)
   }, [])
 
   useEffect(() => {
@@ -241,6 +275,35 @@ export function MessagesClient({
   useEffect(() => {
     if (mobileView === 'newChat' && schoolId) void loadStaffList()
   }, [mobileView, schoolId, loadStaffList])
+
+  useEffect(() => {
+    if (!activeConversationId || !activeConversation) return
+
+    const otherUserId = activeConversation.other_user_id
+
+    const channel = supabase
+      .channel(`chat-read:${activeConversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_participant_state',
+          filter: `conversation_id=eq.${activeConversationId}`,
+        },
+        payload => {
+          const row = payload.new as { user_id?: string; last_read_at?: string } | null
+          if (row?.user_id === otherUserId && row.last_read_at) {
+            setOtherParticipantLastReadAt(row.last_read_at)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [activeConversation, activeConversationId, supabase])
 
   useEffect(() => {
     if (!activeConversationId) return
@@ -440,36 +503,127 @@ export function MessagesClient({
     })
   }
 
-  async function toggleRecording() {
+  function clearRecordingTimer() {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+  }
+
+  function startRecordingTimer() {
+    clearRecordingTimer()
+    recordingTimerRef.current = setInterval(() => {
+      setRecordingSeconds(s => s + 1)
+    }, 1000)
+  }
+
+  function resetRecordingState() {
+    clearRecordingTimer()
+    setIsRecording(false)
+    setIsRecordingPaused(false)
+    setRecordingSeconds(0)
+    mediaRecorderRef.current = null
+    recordingStreamRef.current = null
+    audioChunksRef.current = []
+  }
+
+  async function startRecording() {
     if (!activeConversationId) {
       notify.error('Sélectionnez une conversation d\'abord', 'chat_record')
-      return
-    }
-    if (isRecording) {
-      mediaRecorderRef.current?.stop()
-      setIsRecording(false)
       return
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
+      recordingStreamRef.current = stream
       audioChunksRef.current = []
-      mediaRecorder.ondataavailable = e => audioChunksRef.current.push(e.data)
+      setRecordingSeconds(0)
+      setIsRecordingPaused(false)
+
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop())
+        recordingStreamRef.current = null
+
+        if (audioChunksRef.current.length === 0) return
+
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
         setPendingAttachment({
           file: new File([audioBlob], `vocal-${Date.now()}.webm`, { type: 'audio/webm' }),
           messageType: 'audio',
         })
+        audioChunksRef.current = []
       }
+
       mediaRecorder.start()
       setIsRecording(true)
+      startRecordingTimer()
     } catch {
+      resetRecordingState()
       notify.error('Microphone inaccessible', 'microphone')
     }
   }
+
+  function stopRecording() {
+    const recorder = mediaRecorderRef.current
+    if (!recorder || recorder.state === 'inactive') return
+
+    clearRecordingTimer()
+    setIsRecording(false)
+    setIsRecordingPaused(false)
+    setRecordingSeconds(0)
+    recorder.stop()
+    mediaRecorderRef.current = null
+  }
+
+  function cancelRecording() {
+    const recorder = mediaRecorderRef.current
+    const stream = recordingStreamRef.current
+
+    if (recorder) {
+      recorder.onstop = () => {
+        stream?.getTracks().forEach(t => t.stop())
+      }
+      if (recorder.state !== 'inactive') recorder.stop()
+    } else {
+      stream?.getTracks().forEach(t => t.stop())
+    }
+
+    resetRecordingState()
+  }
+
+  function pauseRecording() {
+    const recorder = mediaRecorderRef.current
+    if (!recorder || recorder.state !== 'recording') return
+    recorder.pause()
+    setIsRecordingPaused(true)
+    clearRecordingTimer()
+  }
+
+  function resumeRecording() {
+    const recorder = mediaRecorderRef.current
+    if (!recorder || recorder.state !== 'paused') return
+    recorder.resume()
+    setIsRecordingPaused(false)
+    startRecordingTimer()
+  }
+
+  useEffect(() => {
+    return () => {
+      clearRecordingTimer()
+      const recorder = mediaRecorderRef.current
+      const stream = recordingStreamRef.current
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.onstop = () => stream?.getTracks().forEach(t => t.stop())
+        recorder.stop()
+      } else {
+        stream?.getTracks().forEach(t => t.stop())
+      }
+    }
+  }, [])
 
   const showInbox = mobileView === 'inbox'
   const showChatPanel = mobileView === 'chat' || mobileView === 'newChat'
@@ -588,11 +742,10 @@ export function MessagesClient({
                 avatarName={activeConversation.other_user.display_name}
                 avatarUrl={activeConversation.other_user.avatar_url}
                 onBack={backToInbox}
+                online={otherUserOnline}
               />
 
-              <div
-                className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-[#F0F4F8] px-3 py-4 sm:px-5"
-              >
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-[#F0F4F8] px-3 py-4 sm:px-5">
                 {isLoadingMessages ? (
                   <div className="flex justify-center py-16">
                     <Loader2 className="h-7 w-7 animate-spin text-[#1B3A6B]" />
@@ -616,6 +769,8 @@ export function MessagesClient({
                           key={msg.id}
                           message={msg}
                           isOwn={msg.sender_id === currentUserId}
+                          otherLastReadAt={otherParticipantLastReadAt}
+                          otherUserOnline={otherUserOnline}
                         />
                       ))}
                     </div>
@@ -630,7 +785,13 @@ export function MessagesClient({
                 onSend={() => void handleSend()}
                 isSending={isSending}
                 isRecording={isRecording}
-                onToggleRecording={() => void toggleRecording()}
+                isRecordingPaused={isRecordingPaused}
+                recordingSeconds={recordingSeconds}
+                onStartRecording={() => void startRecording()}
+                onStopRecording={stopRecording}
+                onCancelRecording={cancelRecording}
+                onPauseRecording={pauseRecording}
+                onResumeRecording={resumeRecording}
                 onPickImage={() => imageInputRef.current?.click()}
                 onPickFile={() => fileInputRef.current?.click()}
                 pendingAttachment={pendingAttachment}

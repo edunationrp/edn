@@ -13,6 +13,7 @@ export async function createClassLevel(schoolId: string, name: string, orderNum:
   const { error } = await (supabase as any).from('class_levels').insert({
     school_id: schoolId,
     name,
+    order_index: orderNum,
     order_num: orderNum,
   })
 

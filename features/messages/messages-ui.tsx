@@ -4,23 +4,31 @@ import { useState } from 'react'
 import Image from 'next/image'
 import {
   ArrowLeft,
+  Check,
+  CheckCheck,
   Download,
   FileText,
   ImageIcon,
   Loader2,
   Mic,
-  MicOff,
   Paperclip,
+  Pause,
+  Play,
   Plus,
   Search,
   Send,
   Sparkles,
+  Trash2,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn, formatRelativeDateCompact, getInitials } from '@/lib/utils'
 import type { ChatConversationSummary, ChatMessageRow } from '@/lib/actions/messages'
+import {
+  getMessageReceiptStatus,
+  type MessageReceiptStatus,
+} from '@/lib/messaging/message-receipt'
 
 export function ChatAvatar({
   name,
@@ -81,17 +89,52 @@ export function DateSeparator({ label }: { label: string }) {
   )
 }
 
+export function MessageReadReceipt({ status }: { status: MessageReceiptStatus }) {
+  if (status === 'sent') {
+    return <Check className="h-3.5 w-3.5 shrink-0 text-white/55" strokeWidth={2.5} aria-hidden />
+  }
+
+  return (
+    <CheckCheck
+      className={cn(
+        'h-3.5 w-3.5 shrink-0',
+        status === 'read' ? 'text-sky-300' : 'text-white/55'
+      )}
+      strokeWidth={2.5}
+      aria-hidden
+    />
+  )
+}
+
 export function MessageBubble({
   message,
   isOwn,
+  otherLastReadAt,
+  otherUserOnline,
 }: {
   message: ChatMessageRow
   isOwn: boolean
+  otherLastReadAt?: string | null
+  otherUserOnline?: boolean
 }) {
   const time = new Date(message.created_at).toLocaleTimeString('fr-FR', {
     hour: '2-digit',
     minute: '2-digit',
   })
+
+  const receiptStatus =
+    isOwn && otherUserOnline !== undefined
+      ? getMessageReceiptStatus(message.created_at, otherLastReadAt ?? null, otherUserOnline)
+      : null
+
+  const receiptLabel =
+    receiptStatus === 'read'
+      ? 'Lu'
+      : receiptStatus === 'delivered'
+        ? 'Distribué'
+        : receiptStatus === 'sent'
+          ? 'Envoyé'
+          : undefined
 
   return (
     <div className={cn('flex px-1', isOwn ? 'justify-end' : 'justify-start')}>
@@ -155,9 +198,19 @@ export function MessageBubble({
           <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-relaxed opacity-90">{message.body}</p>
         )}
 
-        <p className={cn('mt-1 text-right text-[10px]', isOwn ? 'text-white/65' : 'text-slate-400')}>
-          {time}
-        </p>
+        <div
+          className={cn(
+            'mt-1 flex items-center justify-end gap-1',
+            isOwn ? 'text-white/65' : 'text-slate-400'
+          )}
+        >
+          <span className="text-[10px]">{time}</span>
+          {receiptStatus && (
+            <span title={receiptLabel} aria-label={receiptLabel}>
+              <MessageReadReceipt status={receiptStatus} />
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -266,6 +319,7 @@ export function ChatHeader({
   avatarUrl,
   onBack,
   showBack = true,
+  online = false,
 }: {
   title: string
   subtitle?: string
@@ -273,6 +327,7 @@ export function ChatHeader({
   avatarUrl?: string | null
   onBack?: () => void
   showBack?: boolean
+  online?: boolean
 }) {
   return (
     <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-slate-200/70 bg-white/85 px-3 py-3 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 sm:px-4">
@@ -288,7 +343,7 @@ export function ChatHeader({
           <ArrowLeft className="h-5 w-5" />
         </Button>
       )}
-      {avatarName && <ChatAvatar name={avatarName} avatarUrl={avatarUrl} size="sm" online />}
+      {avatarName && <ChatAvatar name={avatarName} avatarUrl={avatarUrl} size="sm" online={online} />}
       <div className="min-w-0 flex-1">
         <h2 className="truncate text-base font-bold text-slate-900">{title}</h2>
         {subtitle && <p className="truncate text-xs text-slate-500">{subtitle}</p>}
@@ -377,13 +432,47 @@ export function EmptyInbox({ onNewChat }: { onNewChat: () => void }) {
   )
 }
 
+function formatRecordingTime(totalSeconds: number) {
+  const mins = Math.floor(totalSeconds / 60)
+  const secs = totalSeconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+function RecordingWaveform({ paused }: { paused: boolean }) {
+  const bars = [4, 10, 16, 8, 14, 6, 12, 18, 10, 6, 14, 8]
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center justify-center gap-[2px] px-1">
+      {bars.map((height, i) => (
+        <span
+          key={i}
+          className={cn(
+            'w-[3px] shrink-0 rounded-full bg-[#1a4d2e]/70',
+            !paused && 'origin-center animate-[waveform_0.9s_ease-in-out_infinite]'
+          )}
+          style={{
+            height: `${height}px`,
+            animationDelay: paused ? undefined : `${i * 0.07}s`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function ChatComposer({
   draft,
   onDraftChange,
   onSend,
   isSending,
   isRecording,
-  onToggleRecording,
+  isRecordingPaused,
+  recordingSeconds,
+  onStartRecording,
+  onStopRecording,
+  onCancelRecording,
+  onPauseRecording,
+  onResumeRecording,
   onPickImage,
   onPickFile,
   pendingAttachment,
@@ -395,7 +484,13 @@ export function ChatComposer({
   onSend: () => void
   isSending: boolean
   isRecording: boolean
-  onToggleRecording: () => void
+  isRecordingPaused: boolean
+  recordingSeconds: number
+  onStartRecording: () => void
+  onStopRecording: () => void
+  onCancelRecording: () => void
+  onPauseRecording: () => void
+  onResumeRecording: () => void
   onPickImage: () => void
   onPickFile: () => void
   pendingAttachment: { file: File; previewUrl?: string; messageType: string } | null
@@ -407,15 +502,6 @@ export function ChatComposer({
 
   return (
     <div className="shrink-0 border-t border-slate-200/80 bg-white/95 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
-      {isRecording && (
-        <div className="flex items-center justify-center gap-2 border-b border-red-100 bg-red-50 px-4 py-2 text-sm font-medium text-red-600">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
-          </span>
-          Enregistrement en cours…
-        </div>
-      )}
 
       {pendingAttachment && (
         <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-2.5">
@@ -443,7 +529,7 @@ export function ChatComposer({
         </div>
       )}
 
-      {showTools && (
+      {showTools && !isRecording && (
         <div className="grid grid-cols-3 gap-2 border-b border-slate-100 px-4 py-3 sm:hidden">
           <button type="button" onClick={onPickImage} className="flex flex-col items-center gap-1.5 rounded-2xl bg-slate-50 py-3 active:bg-slate-100">
             <ImageIcon className="h-5 w-5 text-[#1B3A6B]" />
@@ -453,68 +539,129 @@ export function ChatComposer({
             <Paperclip className="h-5 w-5 text-[#1B3A6B]" />
             <span className="text-[11px] font-medium text-slate-600">Fichier</span>
           </button>
-          <button type="button" onClick={onToggleRecording} className="flex flex-col items-center gap-1.5 rounded-2xl bg-slate-50 py-3 active:bg-slate-100">
-            {isRecording ? <MicOff className="h-5 w-5 text-red-500" /> : <Mic className="h-5 w-5 text-[#1B3A6B]" />}
+          <button
+            type="button"
+            onClick={() => {
+              setShowTools(false)
+              onStartRecording()
+            }}
+            className="flex flex-col items-center gap-1.5 rounded-2xl bg-slate-50 py-3 active:bg-slate-100"
+          >
+            <Mic className="h-5 w-5 text-[#1B3A6B]" />
             <span className="text-[11px] font-medium text-slate-600">Vocal</span>
           </button>
         </div>
       )}
 
-      <div className="flex items-end gap-1.5 px-3 pt-3 sm:gap-2 sm:px-4">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11 shrink-0 rounded-full sm:hidden"
-          onClick={() => setShowTools(v => !v)}
-          aria-label="Pièces jointes"
-        >
-          <Plus className={cn('h-5 w-5 transition', showTools && 'rotate-45')} />
-        </Button>
-
-        <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
-          <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={onPickImage}>
-            <ImageIcon className="h-4 w-4" />
-          </Button>
-          <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={onPickFile}>
-            <Paperclip className="h-4 w-4" />
-          </Button>
+      {isRecording ? (
+        <div className="flex items-center gap-2 px-3 pt-3 sm:gap-3 sm:px-4">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className={cn('h-10 w-10 rounded-full', isRecording && 'text-red-500')}
-            onClick={onToggleRecording}
+            className="h-11 w-11 shrink-0 rounded-full text-slate-500 hover:bg-red-50 hover:text-red-600"
+            onClick={onCancelRecording}
+            aria-label="Annuler l'enregistrement"
           >
-            {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            <Trash2 className="h-5 w-5" />
+          </Button>
+
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[1.25rem] border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 shadow-inner">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              {!isRecordingPaused && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              )}
+              <span
+                className={cn(
+                  'relative inline-flex h-2.5 w-2.5 rounded-full',
+                  isRecordingPaused ? 'bg-slate-400' : 'bg-red-500'
+                )}
+              />
+            </span>
+            <span className="shrink-0 text-sm font-medium tabular-nums text-slate-700">
+              {formatRecordingTime(recordingSeconds)}
+            </span>
+            <RecordingWaveform paused={isRecordingPaused} />
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 shrink-0 rounded-full text-[#1B3A6B]"
+            onClick={isRecordingPaused ? onResumeRecording : onPauseRecording}
+            aria-label={isRecordingPaused ? 'Reprendre' : 'Mettre en pause'}
+          >
+            {isRecordingPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+          </Button>
+
+          <Button
+            type="button"
+            size="icon"
+            onClick={onStopRecording}
+            className="h-11 w-11 shrink-0 rounded-full bg-gradient-to-br from-[#1a4d2e] to-[#14532d] shadow-md"
+            aria-label="Terminer l'enregistrement"
+          >
+            <Send className="h-4 w-4" />
           </Button>
         </div>
+      ) : (
+        <div className="flex items-end gap-1.5 px-3 pt-3 sm:gap-2 sm:px-4">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 shrink-0 rounded-full sm:hidden"
+            onClick={() => setShowTools(v => !v)}
+            aria-label="Pièces jointes"
+          >
+            <Plus className={cn('h-5 w-5 transition', showTools && 'rotate-45')} />
+          </Button>
 
-        <textarea
-          value={draft}
-          onChange={e => onDraftChange(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              if (canSend) onSend()
-            }
-          }}
-          disabled={disabled}
-          placeholder="Message…"
-          rows={1}
-          className="max-h-32 min-h-[44px] flex-1 resize-none rounded-[1.25rem] border border-slate-200/80 bg-slate-50/80 px-4 py-2.5 text-[15px] leading-snug shadow-inner focus:border-[#7AB832]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7AB832]/20 disabled:opacity-50"
-        />
+          <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
+            <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={onPickImage}>
+              <ImageIcon className="h-4 w-4" />
+            </Button>
+            <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={onPickFile}>
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full"
+              onClick={onStartRecording}
+            >
+              <Mic className="h-4 w-4" />
+            </Button>
+          </div>
 
-        <Button
-          type="button"
-          size="icon"
-          disabled={!canSend}
-          onClick={onSend}
-          className="h-11 w-11 shrink-0 rounded-full bg-gradient-to-br from-[#1a4d2e] to-[#14532d] shadow-md disabled:opacity-40"
-        >
-          {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
-      </div>
+          <textarea
+            value={draft}
+            onChange={e => onDraftChange(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                if (canSend) onSend()
+              }
+            }}
+            disabled={disabled}
+            placeholder="Message…"
+            rows={1}
+            className="max-h-32 min-h-[44px] flex-1 resize-none rounded-[1.25rem] border border-slate-200/80 bg-slate-50/80 px-4 py-2.5 text-[15px] leading-snug shadow-inner focus:border-[#7AB832]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7AB832]/20 disabled:opacity-50"
+          />
+
+          <Button
+            type="button"
+            size="icon"
+            disabled={!canSend}
+            onClick={onSend}
+            className="h-11 w-11 shrink-0 rounded-full bg-gradient-to-br from-[#1a4d2e] to-[#14532d] shadow-md disabled:opacity-40"
+          >
+            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
