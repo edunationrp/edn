@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import {
-  Users, UserCheck, FileCheck, Building2, Grid, Award, Wallet, UserPlus,
+  Building2, Grid, UserCheck, UserPlus, Users, Wallet, ClipboardList, Send,
 } from 'lucide-react'
 import Link from 'next/link'
 import { DashboardPage } from '@/components/dashboard/dashboard-page'
@@ -10,14 +10,21 @@ import { StatCard } from '@/components/dashboard/stat-card'
 import { QuickLinkGrid } from '@/components/dashboard/quick-link-grid'
 import { SectionPanel, SectionRow } from '@/components/dashboard/section-panel'
 import { EmptyPanel } from '@/components/dashboard/empty-panel'
+import { getAdmissionStats, getProviseurQueue } from '@/lib/admissions/queries'
+import { isSchoolFullAuthority } from '@/types/permissions'
 
 interface DirecteurDashboardProps {
   schoolId?: string
   userId: string
   userName?: string
+  role?: string
 }
 
-export async function DirecteurDashboard({ schoolId, userName = 'M. Sawadogo' }: DirecteurDashboardProps) {
+export async function DirecteurDashboard({
+  schoolId,
+  userName = 'M. Sawadogo',
+  role = 'PROVISEUR',
+}: DirecteurDashboardProps) {
   const supabase = await createClient()
 
   if (!schoolId) {
@@ -30,20 +37,23 @@ export async function DirecteurDashboard({ schoolId, userName = 'M. Sawadogo' }:
     )
   }
 
-  const [schoolYearRaw, studentCountResult, pendingCountResult, teacherCountResult, classCountResult] =
+  const isProviseur = isSchoolFullAuthority(role) || role === 'PROVISEUR' || role === 'DIRECTEUR_ADJOINT'
+
+  const [schoolYearRaw, studentCountResult, teacherCountResult, classCountResult, admissionStats, proviseurQueue] =
     await Promise.all([
       supabase.from('school_years').select('id, name').eq('school_id', schoolId).eq('is_active', true).limit(1),
       supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('status', 'active'),
-      supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('status', 'pending'),
       supabase.from('user_school_roles').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role_code', 'PROFESSEUR').eq('is_active', true),
       supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
+      getAdmissionStats(schoolId),
+      isProviseur ? getProviseurQueue(schoolId) : Promise.resolve([]),
     ])
 
   const schoolYear = (schoolYearRaw.data as Array<{ id: string; name: string }> | null)?.[0]
   const studentCount = studentCountResult.count ?? 0
-  const pendingCount = pendingCountResult.count ?? 0
   const teacherCount = teacherCountResult.count ?? 0
   const classCount = classCountResult.count ?? 0
+  const pendingDecisions = admissionStats.awaitingProviseur
 
   const today = new Date()
   const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
@@ -53,14 +63,20 @@ export async function DirecteurDashboard({ schoolId, userName = 'M. Sawadogo' }:
   ]
   const todayStr = `${dayNames[today.getDay()]} ${today.getDate()} ${monthNames[today.getMonth()]} ${today.getFullYear()}`
 
-  const quickLinks = [
-    { href: '/dashboard/students', label: 'Élèves', icon: Users, desc: `${studentCount} inscrit(s)` },
-    { href: '/dashboard/classes', label: 'Classes', icon: Grid, desc: `${classCount} classe(s)` },
-    { href: '/dashboard/grades', label: 'Notes', icon: FileCheck, desc: 'Validation & saisie' },
-    { href: '/dashboard/finance', label: 'Finance', icon: Wallet, desc: 'Trésorerie' },
-    { href: '/dashboard/staff', label: 'Personnel', icon: UserCheck, desc: `${teacherCount} professeur(s)` },
-    { href: '/dashboard/report-cards', label: 'Bulletins', icon: Award, desc: 'Publications' },
-  ]
+  const quickLinks = isProviseur
+    ? [
+        { href: '/dashboard/admissions/to-validate', label: 'À valider', icon: UserCheck, desc: `${pendingDecisions} dossier(s)` },
+        { href: '/dashboard/admissions/new-request', label: 'Nouvelle demande', icon: UserPlus, desc: 'Après entretien parent' },
+        { href: '/dashboard/students', label: 'Élèves', icon: Users, desc: `${studentCount} inscrit(s)` },
+        { href: '/dashboard/classes', label: 'Classes', icon: Grid, desc: `${classCount} classe(s)` },
+        { href: '/dashboard/finance', label: 'Synthèse finance', icon: Wallet, desc: 'Lecture seule' },
+        { href: '/dashboard/staff', label: 'Personnel', icon: UserCheck, desc: `${teacherCount} professeur(s)` },
+      ]
+    : [
+        { href: '/dashboard/students', label: 'Élèves', icon: Users, desc: `${studentCount} inscrit(s)` },
+        { href: '/dashboard/classes', label: 'Classes', icon: Grid, desc: `${classCount} classe(s)` },
+        { href: '/dashboard/grades', label: 'Notes', icon: ClipboardList, desc: 'Consultation' },
+      ]
 
   return (
     <DashboardPage>
@@ -68,103 +84,78 @@ export async function DirecteurDashboard({ schoolId, userName = 'M. Sawadogo' }:
         eyebrow={`${todayStr} · ${schoolYear?.name ?? 'Année scolaire'}`}
         title={`Bonjour ${userName}`}
         description={
-          pendingCount > 0 ? (
+          isProviseur && pendingDecisions > 0 ? (
             <>
-              Bienvenue sur votre espace de pilotage.{' '}
-              <strong className="text-white">{pendingCount} inscription(s)</strong> attendent votre validation.
+              <strong className="text-white">{pendingDecisions} dossier(s)</strong> attendent votre décision d&apos;admission.
             </>
+          ) : isProviseur ? (
+            'Pilotage de l\'établissement — validez les admissions soumises par le secrétariat.'
           ) : (
-            'Bienvenue sur votre espace de pilotage. Commencez par inscrire vos élèves et configurer vos classes.'
+            'Bienvenue sur votre espace de pilotage.'
           )
         }
         icon={<Building2 className="h-14 w-14 text-white/35" />}
         actions={
-          <>
-            <Button asChild size="sm" variant="brand">
-              <Link href="/dashboard/students/pending">
-                <FileCheck className="h-4 w-4" />
-                Inscriptions en attente
-              </Link>
-            </Button>
-            <Button asChild size="sm" variant="navyGhost">
-              <Link href="/dashboard/staff">
-                <UserPlus className="h-4 w-4" />
-                Gérer le personnel
-              </Link>
-            </Button>
-          </>
+          isProviseur ? (
+            <>
+              <Button asChild size="sm" variant="brand">
+                <Link href="/dashboard/admissions/to-validate">
+                  <UserCheck className="h-4 w-4" />
+                  Dossiers à valider
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="navyGhost">
+                <Link href="/dashboard/admissions/new-request">
+                  <UserPlus className="h-4 w-4" />
+                  Créer une demande
+                </Link>
+              </Button>
+            </>
+          ) : undefined
         }
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          title="Élèves inscrits"
-          value={studentCount.toLocaleString('fr-FR')}
-          subtitle="Élèves actifs"
-          icon={<Users className="h-4 w-4" />}
-          tone="navy"
-        />
-        <StatCard
-          title="Personnel actif"
-          value={teacherCount}
-          subtitle="Professeurs actifs"
-          icon={<UserCheck className="h-4 w-4" />}
-          tone="green"
-        />
-        <StatCard
-          title="Inscriptions"
-          value={pendingCount}
-          subtitle="En attente de validation"
-          icon={<FileCheck className="h-4 w-4" />}
-          tone="amber"
-        />
-        <StatCard
-          title="Classes"
-          value={classCount}
-          subtitle={<Link href="/dashboard/classes" className="font-semibold text-[#1B3A6B] hover:text-[#7AB832]">Gérer les classes</Link>}
-          icon={<Grid className="h-4 w-4" />}
-          tone="rose"
-        />
+        <StatCard title="Élèves inscrits" value={studentCount.toLocaleString('fr-FR')} subtitle="Actifs" icon={<Users className="h-4 w-4" />} tone="navy" />
+        {isProviseur ? (
+          <>
+            <StatCard title="À valider" value={pendingDecisions} subtitle="Décision proviseur" icon={<Send className="h-4 w-4" />} tone="amber" />
+            <StatCard title="Chez secrétariat" value={admissionStats.toComplete} subtitle="En complétion" icon={<ClipboardList className="h-4 w-4" />} tone="green" />
+            <StatCard title="Classes" value={classCount} subtitle="Organisation" icon={<Grid className="h-4 w-4" />} tone="rose" />
+          </>
+        ) : (
+          <>
+            <StatCard title="Personnel" value={teacherCount} subtitle="Professeurs" icon={<UserCheck className="h-4 w-4" />} tone="green" />
+            <StatCard title="Classes" value={classCount} subtitle="Actives" icon={<Grid className="h-4 w-4" />} tone="amber" />
+          </>
+        )}
       </div>
 
-      {studentCount === 0 ? (
-        <EmptyPanel
-          title="Commencez par inscrire vos élèves"
-          description="Votre établissement est prêt. Ajoutez vos premières classes et inscrivez vos élèves pour voir les statistiques ici."
-          action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button asChild size="sm" variant="brandDark">
-                <Link href="/dashboard/students/new">Inscrire un élève</Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/dashboard/classes">Configurer les classes</Link>
-              </Button>
-            </div>
-          }
-        />
-      ) : (
-        <>
-          <QuickLinkGrid links={quickLinks} />
+      <QuickLinkGrid links={quickLinks} />
 
-          <SectionPanel
-            title="À traiter"
-            description="Actions prioritaires"
-            actionHref="/dashboard/students/pending"
-          >
-            {pendingCount > 0 ? (
+      {isProviseur && (
+        <SectionPanel
+          title="Décisions en attente"
+          description="Dossiers soumis par le secrétariat"
+          actionHref="/dashboard/admissions/to-validate"
+        >
+          {proviseurQueue.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-500">
+              Aucun dossier en attente de votre décision.
+            </div>
+          ) : (
+            proviseurQueue.slice(0, 5).map(dossier => (
               <SectionRow
-                href="/dashboard/students/pending"
-                title={`${pendingCount} inscription(s) à valider`}
-                subtitle="Accéder à la file d'attente"
-                icon={<UserPlus className="h-4 w-4" />}
+                key={dossier.requestId}
+                href="/dashboard/admissions/to-validate"
+                title={`${dossier.lastName} ${dossier.firstName}`}
+                subtitle={dossier.className ? `Classe ${dossier.className}` : 'Classe à confirmer'}
+                icon={<UserCheck className="h-4 w-4" />}
+                iconClassName="bg-amber-50 text-amber-700"
               />
-            ) : (
-              <div className="px-5 py-8 text-center text-sm text-slate-500">
-                Aucune demande en attente pour le moment.
-              </div>
-            )}
-          </SectionPanel>
-        </>
+            ))
+          )}
+        </SectionPanel>
       )}
     </DashboardPage>
   )

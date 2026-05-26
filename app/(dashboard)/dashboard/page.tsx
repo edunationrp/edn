@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { DirecteurDashboard } from '@/features/dashboard/directeur-dashboard'
+import { SecretaireDashboard } from '@/features/dashboard/secretaire-dashboard'
 import { ProfesseurDashboard } from '@/features/dashboard/professeur-dashboard'
 import { ParentDashboard } from '@/features/dashboard/parent-dashboard'
 import { IntendantDashboard } from '@/features/dashboard/intendant-dashboard'
@@ -44,13 +45,21 @@ export default async function DashboardPage() {
     case 'FONDATEUR':
     case 'CENSEUR':
     case 'CONSEILLER_EDUCATION':
-    case 'SECRETAIRE':
     case 'SURVEILLANT_GENERAL':
     case 'SUPER_ADMIN_EDUNATION':
       return (
         <DirecteurDashboard
           schoolId={schoolId}
           userId={user.id}
+          userName={greetingName}
+          role={currentRole}
+        />
+      )
+
+    case 'SECRETAIRE':
+      return (
+        <SecretaireDashboard
+          schoolId={schoolId}
           userName={greetingName}
         />
       )

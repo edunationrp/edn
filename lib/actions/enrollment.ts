@@ -143,12 +143,13 @@ export async function enrollStudentPublic(
   await (db as any).from('student_registration_requests').insert({
     school_id: input.schoolId,
     student_id: studentRaw.id,
-    channel: 'web',
+    channel: mode === 'staff' ? 'secretariat' : 'web',
     has_student_phone: input.hasStudentPhone,
     parent_phone: input.parentPhone?.trim() || null,
-    status: 'pending',
+    status: mode === 'staff' ? 'approved' : 'pending',
     metadata: {
       class_id: input.classId ?? null,
+      workflow_status: mode === 'staff' ? 'VALIDE' : 'A_COMPLETER',
     },
   })
 

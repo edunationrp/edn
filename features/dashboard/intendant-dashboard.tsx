@@ -6,8 +6,9 @@ import { EmptyPanel } from '@/components/dashboard/empty-panel'
 import { DashboardPage } from '@/components/dashboard/dashboard-page'
 import { WelcomeBanner } from '@/components/dashboard/welcome-banner'
 import { StatCard } from '@/components/dashboard/stat-card'
-import { SectionPanel } from '@/components/dashboard/section-panel'
+import { SectionPanel, SectionRow } from '@/components/dashboard/section-panel'
 import { dashboard } from '@/lib/dashboard/ui-classes'
+import { getAdmittedAwaitingPayment } from '@/lib/admissions/queries'
 
 interface IntendantDashboardProps {
   schoolId?: string
@@ -43,16 +44,21 @@ export async function IntendantDashboard({ schoolId, userName = 'M. Diallo' }: I
   let pendingCount = 0
   let overdueCount = 0
   let recentPayments: Payment[] = []
+  let admittedAwaitingPayment: Awaited<ReturnType<typeof getAdmittedAwaitingPayment>> = []
 
   if (schoolId) {
-    const { data: paymentsRaw } = await supabase
-      .from('payments')
-      .select('id, amount, status, created_at, payment_type, students(first_name, last_name)')
-      .eq('school_id', schoolId)
-      .order('created_at', { ascending: false })
-      .limit(50)
+    const [paymentsResult, admittedResult] = await Promise.all([
+      supabase
+        .from('payments')
+        .select('id, amount, status, created_at, payment_type, students(first_name, last_name)')
+        .eq('school_id', schoolId)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      getAdmittedAwaitingPayment(schoolId),
+    ])
 
-    recentPayments = (paymentsRaw as Payment[] | null) ?? []
+    recentPayments = (paymentsResult.data as Payment[] | null) ?? []
+    admittedAwaitingPayment = admittedResult
 
     for (const p of recentPayments) {
       if (p.status === 'paid') totalCollected += p.amount
@@ -80,7 +86,11 @@ export async function IntendantDashboard({ schoolId, userName = 'M. Diallo' }: I
         eyebrow={`${todayStr} · Gestion financière`}
         title={`Bonjour ${userName}`}
         description={
-          pendingCount > 0 ? (
+          admittedAwaitingPayment.length > 0 ? (
+            <>
+              <strong className="text-white">{admittedAwaitingPayment.length} élève(s) admis</strong> sans paiement enregistré.
+            </>
+          ) : pendingCount > 0 ? (
             <>
               <strong className="text-white">{pendingCount} paiement(s)</strong> en attente de traitement.
             </>
@@ -96,6 +106,12 @@ export async function IntendantDashboard({ schoolId, userName = 'M. Diallo' }: I
         actions={
           <>
             <Button asChild size="sm" variant="brand">
+              <Link href="/dashboard/admissions/admitted">
+                <Clock className="h-4 w-4" />
+                Admis à encaisser ({admittedAwaitingPayment.length})
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="navyGhost">
               <Link href="/dashboard/finance/payments/new">
                 <Plus className="h-4 w-4" />
                 Nouveau paiement
@@ -112,11 +128,30 @@ export async function IntendantDashboard({ schoolId, userName = 'M. Diallo' }: I
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Admis sans paiement" value={admittedAwaitingPayment.length} subtitle="Dossiers à ouvrir" icon={<Clock className="h-4 w-4" />} tone="amber" />
         <StatCard title="Recettes encaissées" value={fmtAmount(totalCollected)} subtitle="Paiements validés" icon={<TrendingUp className="h-4 w-4" />} tone="green" />
-        <StatCard title="En attente" value={fmtAmount(totalPending)} subtitle={pendingCount > 0 ? `${pendingCount} transaction(s)` : 'Aucun en attente'} icon={<Clock className="h-4 w-4" />} tone="amber" />
+        <StatCard title="En attente" value={fmtAmount(totalPending)} subtitle={pendingCount > 0 ? `${pendingCount} transaction(s)` : 'Aucun en attente'} icon={<Clock className="h-4 w-4" />} tone="navy" />
         <StatCard title="Impayés" value={fmtAmount(totalOverdue)} subtitle={overdueCount > 0 ? `${overdueCount} retard(s)` : 'Aucun impayé'} icon={<AlertTriangle className="h-4 w-4" />} tone="rose" />
-        <StatCard title="Transactions" value={recentPayments.length} subtitle="Enregistrées récemment" icon={<Wallet className="h-4 w-4" />} tone="navy" />
       </div>
+
+      {admittedAwaitingPayment.length > 0 && (
+        <SectionPanel
+          title="Admis — paiement à ouvrir"
+          description="Élèves validés par le proviseur, en attente d'encaissement"
+          actionHref="/dashboard/admissions/admitted"
+        >
+          {admittedAwaitingPayment.slice(0, 5).map(student => (
+            <SectionRow
+              key={student.studentId}
+              href={`/dashboard/finance/payments/new?studentId=${student.studentId}`}
+              title={`${student.lastName} ${student.firstName}`}
+              subtitle={student.className ? `Classe ${student.className}` : 'Classe non assignée'}
+              icon={<Wallet className="h-4 w-4" />}
+              iconClassName="bg-amber-50 text-amber-700"
+            />
+          ))}
+        </SectionPanel>
+      )}
 
       {recentPayments.length === 0 ? (
         <EmptyPanel

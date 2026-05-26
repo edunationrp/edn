@@ -74,27 +74,23 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
         { id: 'rapports', label: 'Rapports & analyses', icon: 'chart', href: '/dashboard/finance' },
       ]},
-      { group: 'École', items: [
+      { group: 'Admissions', items: [
+        { id: 'admission-new', label: 'Créer une demande', icon: 'userPlus', href: '/dashboard/admissions/new-request' },
+        { id: 'admission-validate', label: 'Dossiers à valider', icon: 'clock', href: '/dashboard/admissions/to-validate' },
+        { id: 'students-registry', label: 'Registre élèves', icon: 'users', href: '/dashboard/students' },
+      ]},
+      { group: 'Organisation', items: [
         { id: 'personnel', label: 'Personnel', icon: 'users', href: '/dashboard/staff' },
         { id: 'roles', label: 'Rôles & permissions', icon: 'shield', href: '/dashboard/staff/roles-permissions' },
-        { id: 'invitations', label: 'Invitations', icon: 'link', href: '/dashboard/staff/roles-permissions?tab=invitations' },
-        { id: 'inscriptions', label: 'Inscriptions élèves', icon: 'userPlus', href: '/dashboard/students' },
-        { id: 'pending', label: 'En attente validation', icon: 'clock', href: '/dashboard/students/pending' },
-      ]},
-      { group: 'Pédagogie', items: [
-        { id: 'saisie-notes', label: 'Saisie des notes', icon: 'fileCheck', href: '/dashboard/grades/entry' },
-        { id: 'notes', label: 'Validation des notes', icon: 'fileCheck', href: '/dashboard/grades/validate' },
-        { id: 'bulletins', label: 'Bulletins & attestations', icon: 'award', href: '/dashboard/report-cards' },
         { id: 'classes', label: 'Classes & matières', icon: 'grid', href: '/dashboard/classes' },
       ]},
-      { group: 'Vie scolaire', items: [
+      { group: 'Pédagogie', items: [
+        { id: 'notes', label: 'Validation des notes', icon: 'fileCheck', href: '/dashboard/grades/validate' },
+        { id: 'bulletins', label: 'Bulletins & attestations', icon: 'award', href: '/dashboard/report-cards' },
         { id: 'absences', label: 'Présences & absences', icon: 'userX', href: '/dashboard/attendance' },
-        { id: 'appel', label: 'Faire l\'appel', icon: 'userCheck', href: '/dashboard/attendance/take' },
       ]},
       { group: 'Finances', items: [
-        { id: 'budget', label: 'Finance', icon: 'wallet', href: '/dashboard/finance' },
-        { id: 'paiements', label: 'Paiements', icon: 'wallet', href: '/dashboard/finance/payments' },
-        { id: 'nouveau-paiement', label: 'Nouveau paiement', icon: 'userPlus', href: '/dashboard/finance/payments/new' },
+        { id: 'budget', label: 'Synthèse finance', icon: 'wallet', href: '/dashboard/finance' },
       ]},
       { group: 'Système', items: [
         { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/audit-logs' },
@@ -157,11 +153,12 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
       ]},
       { group: 'Caisse', items: [
-        { id: 'paiements', label: 'Paiements élèves', icon: 'wallet', href: '/dashboard/finance' },
-        { id: 'nouveau-paiement', label: 'Nouveau paiement', icon: 'userPlus', href: '/dashboard/finance/payments/new' },
+        { id: 'admis-payer', label: 'Admis à encaisser', icon: 'userPlus', href: '/dashboard/admissions/admitted' },
+        { id: 'nouveau-paiement', label: 'Nouveau paiement', icon: 'wallet', href: '/dashboard/finance/payments/new' },
+        { id: 'paiements', label: 'Historique paiements', icon: 'fileText', href: '/dashboard/finance/payments' },
       ]},
       { group: 'Gestion', items: [
-        { id: 'budget-int', label: 'Budget', icon: 'chart', href: '/dashboard/finance' },
+        { id: 'budget-int', label: 'Budget & trésorerie', icon: 'chart', href: '/dashboard/finance' },
         { id: 'structures', label: 'Structures tarifaires', icon: 'fileText', href: '/dashboard/finance' },
       ]},
       { group: 'Reporting', items: [
@@ -200,13 +197,14 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       { group: 'Pilotage', items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
       ]},
-      { group: 'Élèves & dossiers', items: [
-        { id: 'inscriptions-s', label: 'Inscriptions', icon: 'userPlus', href: '/dashboard/students' },
-        { id: 'pending', label: 'En attente validation', icon: 'clock', href: '/dashboard/students/pending' },
+      { group: 'Admissions & dossiers', items: [
+        { id: 'to-process', label: 'Dossiers à traiter', icon: 'clock', href: '/dashboard/admissions/to-process' },
+        { id: 'inscription-guichet', label: 'Inscription guichet', icon: 'userPlus', href: '/dashboard/students/new' },
+        { id: 'registre', label: 'Registre élèves', icon: 'users', href: '/dashboard/students' },
+        { id: 'suivi-finance', label: 'Suivi admissions validées', icon: 'wallet', href: '/dashboard/admissions/admitted' },
       ]},
       { group: 'Documents', items: [
         { id: 'attestations', label: 'Attestations', icon: 'fileCheck', href: '/dashboard/report-cards' },
-        { id: 'bulletins-s', label: 'Bulletins', icon: 'award', href: '/dashboard/report-cards' },
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'send', href: '/dashboard/messages' },
