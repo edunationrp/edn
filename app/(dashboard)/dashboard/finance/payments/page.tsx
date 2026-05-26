@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { getScopedStudentIds, canAccessFinance } from '@/lib/dashboard/role-scope'
+import { canViewFinancePages } from '@/lib/finance/access'
 import { redirect } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -30,6 +31,7 @@ export default async function PaymentsListPage() {
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx) redirect('/dashboard')
+  if (!canViewFinancePages(ctx.role_code)) redirect('/dashboard')
 
   const scopedStudentIds = await getScopedStudentIds(user.id, ctx.role_code)
   if (scopedStudentIds !== null && scopedStudentIds.length === 0) {

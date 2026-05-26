@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { getScopedStudentIds } from '@/lib/dashboard/role-scope'
+import { canViewFinancePages } from '@/lib/finance/access'
 import { redirect, notFound } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -26,10 +28,11 @@ export default async function PaymentReceiptPage({
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx) redirect('/dashboard')
+  if (!canViewFinancePages(ctx.role_code)) redirect('/dashboard')
 
   const { data: paymentRaw } = await supabase
     .from('payments')
-    .select('id, reference, amount, payment_method, status, created_at, paid_at, notes, metadata, students(first_name, last_name, iun), schools(name)')
+    .select('id, reference, amount, payment_method, status, created_at, paid_at, notes, metadata, student_id, students(first_name, last_name, iun), schools(name)')
     .eq('id', id)
     .eq('school_id', ctx.school_id)
     .limit(1)
@@ -43,6 +46,7 @@ export default async function PaymentReceiptPage({
     created_at: string
     paid_at: string | null
     notes: string | null
+    student_id: string | null
     metadata: {
       line_items?: Array<{ name?: string; amount?: number }>
       total_due?: number
@@ -52,6 +56,13 @@ export default async function PaymentReceiptPage({
   }> | null)?.[0]
 
   if (!payment) notFound()
+
+  const scopedStudentIds = await getScopedStudentIds(user.id, ctx.role_code)
+  if (scopedStudentIds !== null) {
+    if (!payment.student_id || !scopedStudentIds.includes(payment.student_id)) {
+      notFound()
+    }
+  }
 
   const studentName = payment.students
     ? `${payment.students.last_name} ${payment.students.first_name}`
