@@ -81,7 +81,7 @@ const PLATFORM_ONLY_PERMISSIONS: Permission[] = ['admin:platform']
 export const SCHOOL_FULL_AUTHORITY_ROLES: UserRole[] = ['PROVISEUR', 'FONDATEUR']
 
 export function isSchoolFullAuthority(role: string): boolean {
-  return SCHOOL_FULL_AUTHORITY_ROLES.includes(role as UserRole)
+  return SCHOOL_FULL_AUTHORITY_ROLES.includes(normalizeRole(role))
 }
 
 /** Toutes les permissions applicables à un établissement (hors plateforme). */

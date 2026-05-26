@@ -81,7 +81,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'admission-new', label: 'Créer une demande', icon: 'userPlus', href: '/dashboard/admissions/new-request' },
         { id: 'admission-validate', label: 'Dossiers à valider', icon: 'clock', href: '/dashboard/admissions/to-validate' },
         { id: 'admission-archived', label: 'Archives refusées', icon: 'archive', href: '/dashboard/admissions/archived' },
-        { id: 'students-registry', label: 'Registre élèves', icon: 'users', href: '/dashboard/students' },
+        { id: 'students-registry', label: 'Liste des élèves', icon: 'users', href: '/dashboard/students' },
       ]},
       { group: 'Organisation', items: [
         { id: 'personnel', label: 'Personnel', icon: 'users', href: '/dashboard/staff' },
@@ -196,7 +196,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       { group: 'Admissions & dossiers', items: [
         { id: 'to-process', label: 'Dossiers à traiter', icon: 'clock', href: '/dashboard/admissions/to-process' },
         { id: 'admission-archived', label: 'Archives refusées', icon: 'archive', href: '/dashboard/admissions/archived' },
-        { id: 'registre', label: 'Registre élèves', icon: 'users', href: '/dashboard/students' },
+        { id: 'registre', label: 'Liste des élèves', icon: 'users', href: '/dashboard/students' },
         { id: 'suivi-finance', label: 'Suivi admissions validées', icon: 'wallet', href: '/dashboard/admissions/admitted' },
       ]},
       { group: 'Documents', items: [

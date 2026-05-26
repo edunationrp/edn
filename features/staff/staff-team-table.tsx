@@ -14,6 +14,7 @@ import { FilterBar, FilterSearch } from '@/components/dashboard/filter-bar'
 import { INVITABLE_ROLES, ROLE_COLORS, ROLE_LABELS } from '@/lib/permissions/catalog'
 import type { UserRole } from '@/types/roles'
 import type { StaffMemberRow } from '@/features/staff/roles-permissions-types'
+import { canRemoveStaffMember } from '@/lib/staff/member-removal'
 import { cn, formatDate, getInitials } from '@/lib/utils'
 import { dashboard } from '@/lib/dashboard/ui-classes'
 
@@ -249,10 +250,11 @@ function MemberIdentity({
 }
 
 function canRemoveMember(member: StaffMemberRow, canRemove: boolean) {
-  return canRemove &&
-    !member.isCurrentUser &&
-    member.roleCode !== 'PROVISEUR' &&
-    member.roleCode !== 'FONDATEUR'
+  return canRemoveStaffMember({
+    canRemove,
+    isCurrentUser: member.isCurrentUser,
+    roleCode: member.roleCode,
+  })
 }
 
 function MemberActions({

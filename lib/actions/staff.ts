@@ -8,7 +8,7 @@ import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { resolveAppUrl } from '@/lib/env/public'
 import { sendStaffInviteEmail, type SendEmailResult } from '@/lib/email/send'
 import { hasPermission, isSchoolFullAuthority } from '@/types/permissions'
-import { ROLE_LABELS, STAFF_ROLES } from '@/types/roles'
+import { normalizeRole, ROLE_LABELS, STAFF_ROLES } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 import { INVITABLE_ROLES } from '@/lib/permissions/catalog'
 import {
@@ -19,6 +19,10 @@ import {
   validateTeacherInviteAssignments,
   type TeacherInviteAssignmentInput,
 } from '@/lib/staff/invitation-assignments'
+import {
+  cleanupTeacherSchoolMembership,
+  isRemovableStaffRole,
+} from '@/lib/staff/member-removal'
 
 export type StaffInviteActionResult =
   | {
@@ -343,12 +347,6 @@ function getWritableDb(base: { supabase: Awaited<ReturnType<typeof createClient>
   return getAdminOrClient() ?? base.supabase
 }
 
-const NON_REMOVABLE_STAFF_ROLES: UserRole[] = ['PROVISEUR', 'FONDATEUR', 'SUPER_ADMIN_EDUNATION']
-
-function isRemovableStaffRole(roleCode: string) {
-  return !NON_REMOVABLE_STAFF_ROLES.includes(roleCode as UserRole)
-}
-
 export async function setStaffMemberActive(memberRoleId: string, isActive: boolean) {
   const base = await requireStaffAccess(isActive ? 'staff:activate' : 'staff:deactivate')
   if ('error' in base) return base
@@ -420,19 +418,32 @@ export async function removeStaffMemberFromSchool(memberRoleId: string) {
     return { error: 'Impossible de retirer un directeur ou fondateur.' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
-    .from('teacher_assignments')
-    .update({ is_active: false })
-    .eq('school_id', base.schoolId)
-    .eq('teacher_id', member.user_id)
+  if (normalizeRole(member.role_code) === 'PROFESSEUR') {
+    const cleanup = await cleanupTeacherSchoolMembership(db, base.schoolId, member.user_id)
+    if (cleanup.error) {
+      if (!admin) {
+        return {
+          error:
+            'Impossible de retirer les affectations du professeur. Appliquez la migration 020_staff_remove_complete.sql (ou configurez SUPABASE_SERVICE_ROLE_KEY).',
+        }
+      }
+      return { error: cleanup.error }
+    }
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from('teacher_assignments')
+      .update({ is_active: false })
+      .eq('school_id', base.schoolId)
+      .eq('teacher_id', member.user_id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
-    .from('classes')
-    .update({ main_teacher_id: null })
-    .eq('school_id', base.schoolId)
-    .eq('main_teacher_id', member.user_id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from('classes')
+      .update({ main_teacher_id: null })
+      .eq('school_id', base.schoolId)
+      .eq('main_teacher_id', member.user_id)
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error, count } = await (db as any)

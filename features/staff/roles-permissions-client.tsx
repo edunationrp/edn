@@ -803,7 +803,9 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
         }
         description={
           confirmState?.type === 'remove'
-            ? `${confirmState.memberName} sera définitivement retiré(e) de l'établissement et n'apparaîtra plus dans la liste du personnel. Son compte EduNation est conservé.`
+            ? confirmState.memberName && data.members.find(m => m.id === confirmState.memberId)?.roleCode === 'PROFESSEUR'
+              ? `${confirmState.memberName} sera retiré(e) de l'établissement. Ses affectations classes/matières seront supprimées. Son compte EduNation est conservé.`
+              : `${confirmState.memberName} sera définitivement retiré(e) de l'établissement et n'apparaîtra plus dans la liste du personnel. Son compte EduNation est conservé.`
             : confirmState?.type === 'deactivate'
             ? `${confirmState.memberName} ne pourra plus accéder à l'établissement tant que son compte est inactif.`
             : confirmState?.type === 'cancel-invite'

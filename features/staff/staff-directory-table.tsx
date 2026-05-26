@@ -14,6 +14,7 @@ import {
   FilterSelect,
 } from '@/components/dashboard/filter-bar'
 import { removeStaffMemberFromSchool } from '@/lib/actions/staff'
+import { canRemoveStaffMember } from '@/lib/staff/member-removal'
 import { notify } from '@/lib/feedback/toast'
 import { ROLE_COLORS, ROLE_LABELS, STAFF_ROLES } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
@@ -37,12 +38,12 @@ type StaffDirectoryTableProps = {
   canRemove: boolean
 }
 
-const NON_REMOVABLE_ROLES: UserRole[] = ['PROVISEUR', 'FONDATEUR', 'SUPER_ADMIN_EDUNATION']
-
 function canRemoveMember(member: StaffDirectoryRow, canRemove: boolean) {
-  return canRemove &&
-    !member.isCurrentUser &&
-    !NON_REMOVABLE_ROLES.includes(member.roleCode)
+  return canRemoveStaffMember({
+    canRemove,
+    isCurrentUser: member.isCurrentUser,
+    roleCode: member.roleCode,
+  })
 }
 
 function MemberAvatar({ name, inactive }: { name: string; inactive?: boolean }) {
@@ -393,7 +394,9 @@ export function StaffDirectoryTable({ members, canRemove }: StaffDirectoryTableP
         title="Retirer ce membre ?"
         description={
           removeTarget
-            ? `${removeTarget.name} sera définitivement retiré(e) de l'établissement. Son compte EduNation est conservé.`
+            ? members.find(m => m.id === removeTarget.id)?.roleCode === 'PROFESSEUR'
+              ? `${removeTarget.name} sera retiré(e) de l'établissement. Ses affectations classes/matières seront supprimées. Son compte EduNation est conservé.`
+              : `${removeTarget.name} sera définitivement retiré(e) de l'établissement. Son compte EduNation est conservé.`
             : ''
         }
         confirmLabel="Retirer de l'établissement"

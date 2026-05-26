@@ -13,3 +13,10 @@ CREATE POLICY "teacher_assignments_update_staff" ON teacher_assignments FOR UPDA
     is_super_admin() OR
     has_any_school_role(school_id, ARRAY['PROVISEUR', 'FONDATEUR'])
   );
+
+DROP POLICY IF EXISTS "teacher_assignments_delete_staff" ON teacher_assignments;
+CREATE POLICY "teacher_assignments_delete_staff" ON teacher_assignments FOR DELETE
+  USING (
+    is_super_admin() OR
+    has_any_school_role(school_id, ARRAY['PROVISEUR', 'FONDATEUR'])
+  );
