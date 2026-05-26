@@ -1,6 +1,7 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { redirect } from 'next/navigation'
+import { canAccessSecretaryAdmissionQueue } from '@/lib/admissions/access'
 import { StudentEnrollmentForm } from '@/features/students/student-enrollment-form'
 
 export default async function NewStudentPage() {
@@ -10,6 +11,9 @@ export default async function NewStudentPage() {
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx) redirect('/dashboard')
+  if (canAccessSecretaryAdmissionQueue(ctx.role_code)) {
+    redirect('/dashboard/admissions/to-process')
+  }
 
   // Charger classes et niveaux pour le formulaire
   const [levelsResult, yearsResult] = await Promise.all([

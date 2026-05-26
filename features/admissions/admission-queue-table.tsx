@@ -15,8 +15,8 @@ import { formatDate, getInitials } from '@/lib/utils'
 
 export type AdmissionQueueRow = {
   requestId: string
-  studentId: string
-  iun: string
+  studentId: string | null
+  iun: string | null
   firstName: string
   lastName: string
   birthDate: string
@@ -73,7 +73,9 @@ export function AdmissionQueueTable({ dossiers, mode }: AdmissionQueueTableProps
               <p className="font-semibold text-slate-900">
                 {dossier.lastName} {dossier.firstName}
               </p>
-              <p className="text-xs text-slate-500">{dossier.iun} · {formatDate(dossier.birthDate)}</p>
+                <p className="text-xs text-slate-500">
+                  {dossier.iun ? dossier.iun : 'IUN à générer'} · {formatDate(dossier.birthDate)}
+                </p>
               <Badge variant="secondary" className="mt-2">
                 {WORKFLOW_STATUS_LABELS[dossier.workflowStatus]}
               </Badge>
@@ -83,10 +85,9 @@ export function AdmissionQueueTable({ dossiers, mode }: AdmissionQueueTableProps
             <AdmissionSecretaryActions
               requestId={dossier.requestId}
               workflowStatus={dossier.workflowStatus}
-              studentId={dossier.studentId}
             />
           ) : (
-            <AdmissionDecisionActions requestId={dossier.requestId} studentId={dossier.studentId} />
+            <AdmissionDecisionActions requestId={dossier.requestId} />
           )}
         </div>
       )}
@@ -101,7 +102,7 @@ export function AdmissionQueueTable({ dossiers, mode }: AdmissionQueueTableProps
                 <p className="font-semibold text-slate-900">
                   {dossier.lastName} {dossier.firstName}
                 </p>
-                <p className="text-xs text-slate-500">{dossier.iun}</p>
+                <p className="text-xs text-slate-500">{dossier.iun ?? 'IUN à générer'}</p>
               </div>
             </div>
           </DashboardTableCell>
@@ -116,10 +117,9 @@ export function AdmissionQueueTable({ dossiers, mode }: AdmissionQueueTableProps
               <AdmissionSecretaryActions
                 requestId={dossier.requestId}
                 workflowStatus={dossier.workflowStatus}
-                studentId={dossier.studentId}
               />
             ) : (
-              <AdmissionDecisionActions requestId={dossier.requestId} studentId={dossier.studentId} />
+              <AdmissionDecisionActions requestId={dossier.requestId} />
             )}
           </DashboardTableCell>
         </DashboardTableRow>

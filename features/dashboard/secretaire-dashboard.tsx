@@ -42,7 +42,6 @@ export async function SecretaireDashboard({ schoolId, userName = 'Secrétaire' }
 
   const quickLinks = [
     { href: '/dashboard/admissions/to-process', label: 'Dossiers à traiter', icon: ClipboardList, desc: `${stats.toComplete} en cours` },
-    { href: '/dashboard/students/new', label: 'Inscription guichet', icon: UserPlus, desc: 'Saisie directe' },
     { href: '/dashboard/students', label: 'Registre élèves', icon: Users, desc: `${studentCount} actif(s)` },
     { href: '/dashboard/admissions/admitted', label: 'Suivi finance', icon: Wallet, desc: 'Lecture seule' },
   ]
@@ -63,20 +62,12 @@ export async function SecretaireDashboard({ schoolId, userName = 'Secrétaire' }
         }
         icon={<ClipboardList className="h-14 w-14 text-white/35" />}
         actions={
-          <>
-            <Button asChild size="sm" variant="brand">
-              <Link href="/dashboard/admissions/to-process">
-                <FolderOpen className="h-4 w-4" />
-                Dossiers à traiter
-              </Link>
-            </Button>
-            <Button asChild size="sm" variant="navyGhost">
-              <Link href="/dashboard/students/new">
-                <UserPlus className="h-4 w-4" />
-                Inscription guichet
-              </Link>
-            </Button>
-          </>
+          <Button asChild size="sm" variant="brand">
+            <Link href="/dashboard/admissions/to-process">
+              <FolderOpen className="h-4 w-4" />
+              Dossiers à traiter
+            </Link>
+          </Button>
         }
       />
 
@@ -102,7 +93,7 @@ export async function SecretaireDashboard({ schoolId, userName = 'Secrétaire' }
           priorityQueue.map(dossier => (
             <SectionRow
               key={dossier.requestId}
-              href={`/dashboard/students/${dossier.studentId}`}
+              href={`/dashboard/admissions/${dossier.requestId}`}
               title={`${dossier.lastName} ${dossier.firstName}`}
               subtitle={`${WORKFLOW_STATUS_LABELS[dossier.workflowStatus]}${dossier.className ? ` · ${dossier.className}` : ''}`}
               icon={<ClipboardList className="h-4 w-4" />}

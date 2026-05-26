@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { hasPermission } from '@/types/permissions'
+import { canAccessProviseurAdmissionValidation } from '@/lib/admissions/access'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { getProviseurQueue } from '@/lib/admissions/queries'
 import { AdmissionQueueTable } from '@/features/admissions/admission-queue-table'
@@ -18,7 +18,7 @@ export default async function AdmissionsToValidatePage() {
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx?.school_id) redirect('/dashboard')
-  if (!hasPermission(ctx.role_code, 'students:validate')) redirect('/dashboard')
+  if (!canAccessProviseurAdmissionValidation(ctx.role_code)) redirect('/dashboard')
 
   const dossiers = await getProviseurQueue(ctx.school_id)
 

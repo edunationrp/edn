@@ -10,10 +10,9 @@ import { notify } from '@/lib/feedback/toast'
 
 type Props = {
   requestId: string
-  studentId: string
 }
 
-export function AdmissionDecisionActions({ requestId, studentId }: Props) {
+export function AdmissionDecisionActions({ requestId }: Props) {
   const [isPending, startTransition] = useTransition()
   const [showReturn, setShowReturn] = useState(false)
   const [comment, setComment] = useState('')
@@ -21,12 +20,16 @@ export function AdmissionDecisionActions({ requestId, studentId }: Props) {
 
   function decide(decision: 'active' | 'rejected') {
     startTransition(async () => {
-      const result = await decideAdmission(requestId, studentId, decision)
+      const result = await decideAdmission(requestId, decision)
       if ('error' in result && result.error) {
         notify.error(result.error)
         return
       }
-      notify.success(decision === 'active' ? 'Admission validée' : 'Admission refusée')
+      if (decision === 'active' && 'iun' in result && result.iun) {
+        notify.success('Admission validée', { description: `IUN généré : ${result.iun}` })
+      } else {
+        notify.success(decision === 'active' ? 'Admission validée' : 'Admission refusée')
+      }
       router.refresh()
     })
   }

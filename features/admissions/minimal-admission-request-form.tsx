@@ -17,7 +17,7 @@ const schema = z.object({
   first_name: z.string().min(2, 'Prénom requis'),
   last_name: z.string().min(2, 'Nom requis'),
   birth_date: z.string().min(1, 'Date de naissance requise'),
-  class_id: z.string().optional(),
+  class_id: z.string().min(1, 'Classe requise'),
   parent_first_name: z.string().optional(),
   parent_last_name: z.string().optional(),
   parent_phone: z.string().optional(),
@@ -49,8 +49,8 @@ export function MinimalAdmissionRequestForm({ classes }: Props) {
         parentPhone: values.parent_phone,
       })
       if ('error' in result && result.error) throw new Error(result.error)
-      notify.success('Demande créée', { description: 'Le dossier a été transmis au secrétariat.' })
-      router.push('/dashboard/admissions/to-process')
+      notify.success('Demande créée', { description: 'Le secrétariat va compléter le dossier.' })
+      router.push('/dashboard')
       router.refresh()
     } catch (err) {
       notify.error(err, 'admission_request')

@@ -4,9 +4,19 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { hasPermission } from '@/types/permissions'
 import type { AdmissionWorkflowStatus } from '@/lib/admissions/workflow'
-import { enrollStudentPublic } from '@/lib/actions/enrollment'
+import {
+  canAccessProviseurAdmissionValidation,
+  canAccessSecretaryAdmissionQueue,
+} from '@/lib/admissions/access'
+import { checkClassCapacity } from '@/lib/admissions/capacity'
+import {
+  canSubmitToProviseur,
+  getDefaultDocuments,
+  parseDossierMetadata,
+  type DocumentKey,
+  type DocumentStatus,
+} from '@/lib/admissions/dossier-metadata'
 
 function getDb() {
   try {
@@ -16,20 +26,49 @@ function getDb() {
   }
 }
 
-async function requireRole(permissions: Array<'students:create' | 'students:update' | 'students:validate'>) {
+async function requireSecretary() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Session expirée.' as const }
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx?.school_id) return { error: 'Aucun établissement associé.' as const }
-
-  const role = ctx.role_code
-  if (!permissions.some(p => hasPermission(role, p))) {
-    return { error: 'Accès refusé.' as const }
+  if (!canAccessSecretaryAdmissionQueue(ctx.role_code)) {
+    return { error: 'Accès réservé au secrétariat.' as const }
   }
 
-  return { supabase, user, schoolId: ctx.school_id, role }
+  return { supabase, user, schoolId: ctx.school_id, role: ctx.role_code }
+}
+
+async function requireProviseur() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Session expirée.' as const }
+
+  const ctx = await getUserSchoolContext(user.id)
+  if (!ctx?.school_id) return { error: 'Aucun établissement associé.' as const }
+  if (!canAccessProviseurAdmissionValidation(ctx.role_code)) {
+    return { error: 'Accès réservé à la direction.' as const }
+  }
+
+  return { supabase, user, schoolId: ctx.school_id, role: ctx.role_code }
+}
+
+async function getRequest(requestId: string, schoolId: string) {
+  const db = getDb() ?? await createClient()
+  const { data } = await db
+    .from('student_registration_requests')
+    .select('id, student_id, status, metadata')
+    .eq('id', requestId)
+    .eq('school_id', schoolId)
+    .limit(1)
+
+  return (data as Array<{
+    id: string
+    student_id: string | null
+    status: string
+    metadata: Record<string, unknown> | null
+  }> | null)?.[0] ?? null
 }
 
 async function updateRequestWorkflow(
@@ -39,15 +78,7 @@ async function updateRequestWorkflow(
   extraMetadata?: Record<string, unknown>
 ) {
   const supabase = getDb() ?? await createClient()
-
-  const { data: raw } = await supabase
-    .from('student_registration_requests')
-    .select('metadata')
-    .eq('id', requestId)
-    .eq('school_id', schoolId)
-    .limit(1)
-
-  const current = (raw as Array<{ metadata: Record<string, unknown> | null }> | null)?.[0]
+  const current = await getRequest(requestId, schoolId)
   if (!current) return { error: 'Dossier introuvable.' }
 
   const metadata = {
@@ -64,7 +95,7 @@ async function updateRequestWorkflow(
     .eq('school_id', schoolId)
 
   if (error) return { error: error.message }
-  return { success: true as const }
+  return { success: true as const, metadata: parseDossierMetadata(metadata) }
 }
 
 function revalidateAdmissionPaths() {
@@ -72,106 +103,175 @@ function revalidateAdmissionPaths() {
   revalidatePath('/dashboard/admissions/to-process')
   revalidatePath('/dashboard/admissions/to-validate')
   revalidatePath('/dashboard/admissions/admitted')
-  revalidatePath('/dashboard/students/pending')
   revalidatePath('/dashboard/students')
+}
+
+async function generateIun(birthDate: string) {
+  const birthYear = new Date(birthDate).getFullYear()
+  const db = getDb() ?? await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (db as any).rpc('generate_iun', { p_birth_year: birthYear })
+  if (error || !data) return { error: error?.message ?? 'Impossible de générer l\'IUN.' }
+  return { iun: data as string }
 }
 
 export async function createMinimalAdmissionRequest(input: {
   firstName: string
   lastName: string
   birthDate: string
-  classId?: string
+  classId: string
   parentPhone?: string
   parentFirstName?: string
   parentLastName?: string
 }) {
-  const access = await requireRole(['students:validate'])
+  const access = await requireProviseur()
   if ('error' in access) return access
 
-  const result = await enrollStudentPublic(
-    {
-      schoolId: access.schoolId,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      birthDate: input.birthDate,
-      birthPlace: 'À compléter',
-      gender: 'M',
-      classId: input.classId,
-      parentPhone: input.parentPhone,
-      parentFirstName: input.parentFirstName,
-      parentLastName: input.parentLastName,
-      hasStudentPhone: false,
-    },
-    { mode: 'public' }
-  )
+  if (!input.classId?.trim()) {
+    return { error: 'Classe requise pour créer une demande.' }
+  }
 
-  if ('error' in result && result.error) return result
-  if (!('success' in result) || !result.success) return { error: 'Erreur lors de la création.' }
+  const capacity = await checkClassCapacity(access.schoolId, input.classId)
+  if (!capacity.ok) return { error: capacity.message }
 
   const db = getDb() ?? access.supabase
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+  const { data, error } = await (db as any)
     .from('student_registration_requests')
-    .update({
+    .insert({
+      school_id: access.schoolId,
+      student_id: null,
       channel: 'secretariat',
+      status: 'pending',
+      parent_phone: input.parentPhone?.trim() || null,
       metadata: {
         workflow_status: 'A_COMPLETER',
         created_by_role: 'PROVISEUR',
-        class_id: input.classId ?? null,
+        first_name: input.firstName.trim(),
+        last_name: input.lastName.trim().toUpperCase(),
+        birth_date: input.birthDate,
+        class_id: input.classId,
+        class_name: capacity.className ?? null,
+        parent_first_name: input.parentFirstName?.trim() || null,
+        parent_last_name: input.parentLastName?.trim() || null,
+        parent_phone: input.parentPhone?.trim() || null,
+        documents: getDefaultDocuments(),
       },
     })
-    .eq('student_id', result.studentId)
-    .eq('school_id', access.schoolId)
+    .select('id')
+    .single()
+
+  if (error || !data) return { error: error?.message ?? 'Erreur lors de la création.' }
 
   revalidateAdmissionPaths()
-  return result
+  return { success: true as const, requestId: data.id as string }
 }
 
-export async function updateAdmissionWorkflowStatus(
+export async function completeAdmissionDossier(
   requestId: string,
-  workflowStatus: AdmissionWorkflowStatus
+  input: {
+    firstName: string
+    lastName: string
+    birthDate: string
+    birthPlace: string
+    gender: 'M' | 'F'
+    nationality?: string
+    address?: string
+    classId: string
+    parentFirstName?: string
+    parentLastName?: string
+    parentPhone?: string
+    documents: Partial<Record<DocumentKey, DocumentStatus>>
+  }
 ) {
-  const access = await requireRole(['students:update'])
+  const access = await requireSecretary()
   if ('error' in access) return access
 
-  if (requestId.startsWith('orphan-')) {
-    return { success: true as const }
+  const current = await getRequest(requestId, access.schoolId)
+  if (!current || current.status !== 'pending') return { error: 'Dossier introuvable.' }
+
+  const meta = parseDossierMetadata(current.metadata)
+  if (meta.workflow_status === 'EN_ATTENTE_PROVISEUR') {
+    return { error: 'Ce dossier est déjà chez le proviseur.' }
   }
 
-  const result = await updateRequestWorkflow(requestId, access.schoolId, workflowStatus, {
-    updated_by: access.user.id,
-    updated_at: new Date().toISOString(),
-  })
+  const { data: classRaw } = await access.supabase
+    .from('classes')
+    .select('name')
+    .eq('id', input.classId)
+    .eq('school_id', access.schoolId)
+    .limit(1)
 
+  const className = (classRaw as Array<{ name: string }> | null)?.[0]?.name ?? null
+
+  const nextMeta = {
+    ...meta,
+    first_name: input.firstName.trim(),
+    last_name: input.lastName.trim().toUpperCase(),
+    birth_date: input.birthDate,
+    birth_place: input.birthPlace.trim(),
+    gender: input.gender,
+    nationality: input.nationality?.trim() || 'Burkinabè',
+    address: input.address?.trim() || null,
+    class_id: input.classId,
+    class_name: className,
+    parent_first_name: input.parentFirstName?.trim() || null,
+    parent_last_name: input.parentLastName?.trim() || null,
+    parent_phone: input.parentPhone?.trim() || null,
+    documents: { ...getDefaultDocuments(), ...input.documents },
+    workflow_status: 'EN_COMPLETION' as const,
+  }
+
+  const db = getDb() ?? access.supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('student_registration_requests')
+    .update({
+      parent_phone: input.parentPhone?.trim() || null,
+      metadata: nextMeta,
+    })
+    .eq('id', requestId)
+    .eq('school_id', access.schoolId)
+
+  if (error) return { error: error.message }
+
+  revalidateAdmissionPaths()
+  revalidatePath(`/dashboard/admissions/${requestId}`)
+  return { success: true as const }
+}
+
+export async function markAdmissionReady(requestId: string) {
+  const access = await requireSecretary()
+  if ('error' in access) return access
+
+  const current = await getRequest(requestId, access.schoolId)
+  if (!current) return { error: 'Dossier introuvable.' }
+
+  const meta = parseDossierMetadata(current.metadata)
+  if (!canSubmitToProviseur(meta)) {
+    return { error: 'Complétez l\'identité et validez toutes les pièces obligatoires.' }
+  }
+
+  const result = await updateRequestWorkflow(requestId, access.schoolId, 'PRET_VALIDATION')
   if ('error' in result) return result
+
   revalidateAdmissionPaths()
   return { success: true as const }
 }
 
 export async function submitAdmissionForValidation(requestId: string) {
-  const access = await requireRole(['students:update'])
+  const access = await requireSecretary()
   if ('error' in access) return access
 
-  if (requestId.startsWith('orphan-')) {
-    const studentId = requestId.replace('orphan-', '')
-    const db = getDb() ?? access.supabase
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
-      .from('student_registration_requests')
-      .insert({
-        school_id: access.schoolId,
-        student_id: studentId,
-        channel: 'secretariat',
-        status: 'pending',
-        metadata: {
-          workflow_status: 'EN_ATTENTE_PROVISEUR',
-          submitted_by: access.user.id,
-          submitted_at: new Date().toISOString(),
-        },
-      })
-    if (error) return { error: error.message }
-    revalidateAdmissionPaths()
-    return { success: true as const }
+  const current = await getRequest(requestId, access.schoolId)
+  if (!current) return { error: 'Dossier introuvable.' }
+
+  const meta = parseDossierMetadata(current.metadata)
+  if (meta.workflow_status !== 'PRET_VALIDATION') {
+    return { error: 'Marquez d\'abord le dossier comme prêt.' }
+  }
+  if (!canSubmitToProviseur(meta)) {
+    return { error: 'Dossier incomplet.' }
   }
 
   const result = await updateRequestWorkflow(requestId, access.schoolId, 'EN_ATTENTE_PROVISEUR', {
@@ -185,15 +285,9 @@ export async function submitAdmissionForValidation(requestId: string) {
 }
 
 export async function returnAdmissionForCorrection(requestId: string, comment: string) {
-  const access = await requireRole(['students:validate'])
+  const access = await requireProviseur()
   if ('error' in access) return access
-
   if (!comment.trim()) return { error: 'Commentaire requis.' }
-
-  if (requestId.startsWith('orphan-')) {
-    revalidateAdmissionPaths()
-    return { success: true as const }
-  }
 
   const result = await updateRequestWorkflow(requestId, access.schoolId, 'EN_COMPLETION', {
     returned_by: access.user.id,
@@ -206,79 +300,152 @@ export async function returnAdmissionForCorrection(requestId: string, comment: s
   return { success: true as const }
 }
 
-export async function decideAdmission(
-  requestId: string,
-  studentId: string,
-  decision: 'active' | 'rejected'
-) {
-  const access = await requireRole(['students:validate'])
+export async function decideAdmission(requestId: string, decision: 'active' | 'rejected') {
+  const access = await requireProviseur()
   if ('error' in access) return access
 
-  const supabase = getDb() ?? access.supabase
-  const effectiveRequestId = requestId.startsWith('orphan-') ? null : requestId
+  const db = getDb() ?? access.supabase
+  const current = await getRequest(requestId, access.schoolId)
+  if (!current || current.status !== 'pending') return { error: 'Dossier introuvable.' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: studentError } = await (supabase as any)
-    .from('students')
-    .update({ status: decision === 'active' ? 'active' : 'rejected' })
-    .eq('id', studentId)
-    .eq('school_id', access.schoolId)
-
-  if (studentError) return { error: studentError.message }
-
-  if (decision === 'active') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from('student_enrollments')
-      .update({ status: 'active' })
-      .eq('student_id', studentId)
-      .eq('school_id', access.schoolId)
+  const meta = parseDossierMetadata(current.metadata)
+  if (meta.workflow_status !== 'EN_ATTENTE_PROVISEUR') {
+    return { error: 'Ce dossier n\'est pas en attente de décision.' }
   }
 
-  if (effectiveRequestId) {
-    const { data: requestRaw } = await supabase
-      .from('student_registration_requests')
-      .select('metadata')
-      .eq('id', effectiveRequestId)
-      .eq('school_id', access.schoolId)
-      .limit(1)
-
-    const existingMeta = (requestRaw as Array<{ metadata: Record<string, unknown> | null }> | null)?.[0]?.metadata ?? {}
-
+  if (decision === 'rejected') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: requestError } = await (supabase as any)
+    const { error } = await (db as any)
       .from('student_registration_requests')
       .update({
-        status: decision === 'active' ? 'approved' : 'rejected',
+        status: 'rejected',
         metadata: {
-          ...existingMeta,
-          workflow_status: decision === 'active' ? 'VALIDE' : 'REFUSE',
+          ...current.metadata,
+          workflow_status: 'REFUSE',
           decided_by: access.user.id,
           decided_at: new Date().toISOString(),
         },
       })
-      .eq('id', effectiveRequestId)
-      .eq('school_id', access.schoolId)
+      .eq('id', requestId)
 
-    if (requestError) return { error: requestError.message }
-  } else {
+    if (error) return { error: error.message }
+    revalidateAdmissionPaths()
+    return { success: true as const }
+  }
+
+  if (!meta.class_id || !meta.birth_date || !meta.first_name || !meta.last_name) {
+    return { error: 'Dossier incomplet.' }
+  }
+
+  const capacity = await checkClassCapacity(access.schoolId, meta.class_id)
+  if (!capacity.ok) return { error: capacity.message }
+
+  let generatedIun: string | undefined
+
+  if (current.student_id) {
+    // Legacy : élève déjà créé
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from('student_registration_requests')
+    const { error: studentError } = await (db as any)
+      .from('students')
+      .update({ status: 'active' })
+      .eq('id', current.student_id)
+
+    if (studentError) return { error: studentError.message }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from('student_enrollments')
+      .update({ status: 'active' })
+      .eq('student_id', current.student_id)
+  } else {
+    const iunResult = await generateIun(meta.birth_date)
+    if ('error' in iunResult) return iunResult
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: studentRaw, error: studentError } = await (db as any)
+      .from('students')
       .insert({
         school_id: access.schoolId,
-        student_id: studentId,
-        channel: 'secretariat',
-        status: decision === 'active' ? 'approved' : 'rejected',
-        metadata: {
-          workflow_status: decision === 'active' ? 'VALIDE' : 'REFUSE',
-          decided_by: access.user.id,
-          decided_at: new Date().toISOString(),
-        },
+        iun: iunResult.iun,
+        first_name: meta.first_name,
+        last_name: meta.last_name,
+        birth_date: meta.birth_date,
+        birth_place: meta.birth_place ?? '',
+        gender: meta.gender ?? 'M',
+        nationality: meta.nationality ?? 'Burkinabè',
+        address: meta.address ?? null,
+        status: 'active',
       })
+      .select('id, iun')
+      .single()
+
+    if (studentError || !studentRaw) {
+      return { error: studentError?.message ?? 'Erreur création élève.' }
+    }
+
+    const { data: classRaw } = await db
+      .from('classes')
+      .select('school_year_id')
+      .eq('id', meta.class_id)
+      .limit(1)
+
+    const schoolYearId = (classRaw as Array<{ school_year_id: string }> | null)?.[0]?.school_year_id
+    if (!schoolYearId) return { error: 'Année scolaire introuvable.' }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: enrollmentError } = await (db as any)
+      .from('student_enrollments')
+      .insert({
+        school_id: access.schoolId,
+        student_id: studentRaw.id,
+        class_id: meta.class_id,
+        school_year_id: schoolYearId,
+        status: 'active',
+      })
+
+    if (enrollmentError) return { error: enrollmentError.message }
+
+    if (meta.parent_first_name && meta.parent_last_name) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).from('parent_pre_registrations').insert({
+        school_id: access.schoolId,
+        first_name: meta.parent_first_name,
+        last_name: meta.parent_last_name,
+        phone: meta.parent_phone ?? null,
+        has_phone: !!meta.parent_phone,
+        linked_student_id: studentRaw.id,
+        status: 'validated',
+      })
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from('student_registration_requests')
+      .update({ student_id: studentRaw.id })
+      .eq('id', requestId)
+
+    generatedIun = iunResult.iun
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: requestError } = await (db as any)
+    .from('student_registration_requests')
+    .update({
+      status: 'approved',
+      metadata: {
+        ...current.metadata,
+        workflow_status: 'VALIDE',
+        decided_by: access.user.id,
+        decided_at: new Date().toISOString(),
+        generated_iun: generatedIun,
+      },
+    })
+    .eq('id', requestId)
+
+  if (requestError) return { error: requestError.message }
 
   revalidateAdmissionPaths()
   revalidatePath('/dashboard/finance')
-  return { success: true as const }
+  revalidatePath(`/dashboard/classes/${meta.class_id}`)
+  return { success: true as const, iun: generatedIun }
 }

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { hasPermission } from '@/types/permissions'
+import { canAccessProviseurAdmissionValidation } from '@/lib/admissions/access'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { MinimalAdmissionRequestForm } from '@/features/admissions/minimal-admission-request-form'
 import type { Metadata } from 'next'
@@ -17,7 +17,7 @@ export default async function NewAdmissionRequestPage() {
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx?.school_id) redirect('/dashboard')
-  if (!hasPermission(ctx.role_code, 'students:validate')) redirect('/dashboard')
+  if (!canAccessProviseurAdmissionValidation(ctx.role_code)) redirect('/dashboard')
 
   const { data: yearRaw } = await supabase
     .from('school_years')

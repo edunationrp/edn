@@ -5,26 +5,22 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { FileEdit, Send } from 'lucide-react'
-import {
-  submitAdmissionForValidation,
-  updateAdmissionWorkflowStatus,
-} from '@/lib/actions/admissions'
+import { markAdmissionReady, submitAdmissionForValidation } from '@/lib/actions/admissions'
 import type { AdmissionWorkflowStatus } from '@/lib/admissions/workflow'
 import { notify } from '@/lib/feedback/toast'
 
 type Props = {
   requestId: string
-  studentId: string
   workflowStatus: AdmissionWorkflowStatus
 }
 
-export function AdmissionSecretaryActions({ requestId, studentId, workflowStatus }: Props) {
+export function AdmissionSecretaryActions({ requestId, workflowStatus }: Props) {
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
   function markReady() {
     startTransition(async () => {
-      const result = await updateAdmissionWorkflowStatus(requestId, 'PRET_VALIDATION')
+      const result = await markAdmissionReady(requestId)
       if ('error' in result && result.error) {
         notify.error(result.error)
         return
@@ -49,9 +45,9 @@ export function AdmissionSecretaryActions({ requestId, studentId, workflowStatus
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
       <Button asChild size="sm" variant="outline">
-        <Link href={`/dashboard/students/${studentId}`}>
+        <Link href={`/dashboard/admissions/${requestId}`}>
           <FileEdit className="h-4 w-4" />
-          Compléter
+          Compléter le dossier
         </Link>
       </Button>
       {workflowStatus !== 'PRET_VALIDATION' && workflowStatus !== 'EN_ATTENTE_PROVISEUR' && (
@@ -62,7 +58,7 @@ export function AdmissionSecretaryActions({ requestId, studentId, workflowStatus
       {workflowStatus === 'PRET_VALIDATION' && (
         <Button size="sm" disabled={isPending} onClick={submit}>
           <Send className="h-4 w-4" />
-          Soumettre
+          Soumettre au proviseur
         </Button>
       )}
     </div>

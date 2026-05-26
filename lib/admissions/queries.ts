@@ -1,10 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { getWorkflowStatus, type AdmissionWorkflowStatus } from '@/lib/admissions/workflow'
+import { parseDossierMetadata } from '@/lib/admissions/dossier-metadata'
 
 export type AdmissionDossierRow = {
   requestId: string
-  studentId: string
-  iun: string
+  studentId: string | null
+  iun: string | null
   firstName: string
   lastName: string
   birthDate: string
@@ -27,10 +28,47 @@ type RawRequest = {
     first_name: string
     last_name: string
     birth_date: string
-    birth_place: string | null
     status: string
     student_enrollments: Array<{ classes: { name: string } | null }> | null
   } | null
+}
+
+function mapRequestRow(row: RawRequest): AdmissionDossierRow | null {
+  const meta = parseDossierMetadata(row.metadata)
+  const workflowStatus = getWorkflowStatus(row.metadata)
+
+  if (row.student_id && row.students) {
+    if (row.students.status !== 'pending' && row.status !== 'pending') return null
+    const enrollment = row.students.student_enrollments?.[0]
+    return {
+      requestId: row.id,
+      studentId: row.students.id,
+      iun: row.students.iun,
+      firstName: row.students.first_name,
+      lastName: row.students.last_name,
+      birthDate: row.students.birth_date,
+      createdAt: row.created_at,
+      workflowStatus,
+      className: enrollment?.classes?.name ?? meta.class_name ?? null,
+      channel: row.channel,
+    }
+  }
+
+  if (row.status !== 'pending') return null
+  if (!meta.first_name || !meta.last_name) return null
+
+  return {
+    requestId: row.id,
+    studentId: null,
+    iun: null,
+    firstName: meta.first_name,
+    lastName: meta.last_name,
+    birthDate: meta.birth_date ?? '',
+    createdAt: row.created_at,
+    workflowStatus,
+    className: meta.class_name ?? null,
+    channel: row.channel,
+  }
 }
 
 async function fetchOpenRequests(schoolId: string) {
@@ -51,7 +89,6 @@ async function fetchOpenRequests(schoolId: string) {
         first_name,
         last_name,
         birth_date,
-        birth_place,
         status,
         student_enrollments(classes(name))
       )
@@ -60,66 +97,40 @@ async function fetchOpenRequests(schoolId: string) {
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
 
-  const fromRequests = ((data ?? []) as RawRequest[])
-    .filter(row => row.students?.status === 'pending')
-    .map(row => {
-      const student = row.students!
-      const enrollment = student.student_enrollments?.[0]
-      return {
-        requestId: row.id,
-        studentId: student.id,
-        iun: student.iun,
-        firstName: student.first_name,
-        lastName: student.last_name,
-        birthDate: student.birth_date,
-        createdAt: row.created_at,
-        workflowStatus: getWorkflowStatus(row.metadata),
-        className: enrollment?.classes?.name ?? null,
-        channel: row.channel,
-      } satisfies AdmissionDossierRow
-    })
+  return ((data ?? []) as RawRequest[])
+    .map(mapRequestRow)
+    .filter(Boolean) as AdmissionDossierRow[]
+}
 
-  const linkedStudentIds = new Set(fromRequests.map(d => d.studentId))
+export async function getAdmissionRequest(schoolId: string, requestId: string) {
+  const supabase = await createClient()
 
-  const { data: orphanStudentsRaw } = await supabase
-    .from('students')
+  const { data } = await supabase
+    .from('student_registration_requests')
     .select(`
       id,
-      iun,
-      first_name,
-      last_name,
-      birth_date,
+      student_id,
+      channel,
+      status,
+      metadata,
       created_at,
-      student_enrollments(classes(name))
+      students(
+        id,
+        iun,
+        first_name,
+        last_name,
+        birth_date,
+        status,
+        student_enrollments(classes(name))
+      )
     `)
     .eq('school_id', schoolId)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true })
+    .eq('id', requestId)
+    .limit(1)
 
-  const orphans = ((orphanStudentsRaw ?? []) as Array<{
-    id: string
-    iun: string
-    first_name: string
-    last_name: string
-    birth_date: string
-    created_at: string
-    student_enrollments: Array<{ classes: { name: string } | null }> | null
-  }>)
-    .filter(s => !linkedStudentIds.has(s.id))
-    .map(student => ({
-      requestId: `orphan-${student.id}`,
-      studentId: student.id,
-      iun: student.iun,
-      firstName: student.first_name,
-      lastName: student.last_name,
-      birthDate: student.birth_date,
-      createdAt: student.created_at,
-      workflowStatus: 'A_COMPLETER' as const,
-      className: student.student_enrollments?.[0]?.classes?.name ?? null,
-      channel: 'legacy',
-    }))
-
-  return [...fromRequests, ...orphans]
+  const row = (data as RawRequest[] | null)?.[0]
+  if (!row) return null
+  return mapRequestRow(row)
 }
 
 export async function getAdmissionStats(schoolId: string) {

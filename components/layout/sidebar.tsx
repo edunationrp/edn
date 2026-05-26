@@ -199,7 +199,6 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Admissions & dossiers', items: [
         { id: 'to-process', label: 'Dossiers à traiter', icon: 'clock', href: '/dashboard/admissions/to-process' },
-        { id: 'inscription-guichet', label: 'Inscription guichet', icon: 'userPlus', href: '/dashboard/students/new' },
         { id: 'registre', label: 'Registre élèves', icon: 'users', href: '/dashboard/students' },
         { id: 'suivi-finance', label: 'Suivi admissions validées', icon: 'wallet', href: '/dashboard/admissions/admitted' },
       ]},

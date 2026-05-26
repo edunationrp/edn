@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { hasPermission } from '@/types/permissions'
+import { canAccessSecretaryAdmissionQueue } from '@/lib/admissions/access'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { getSecretaryQueue } from '@/lib/admissions/queries'
 import { AdmissionQueueTable } from '@/features/admissions/admission-queue-table'
@@ -18,7 +18,7 @@ export default async function AdmissionsToProcessPage() {
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx?.school_id) redirect('/dashboard')
-  if (!hasPermission(ctx.role_code, 'students:update')) redirect('/dashboard')
+  if (!canAccessSecretaryAdmissionQueue(ctx.role_code)) redirect('/dashboard')
 
   const dossiers = await getSecretaryQueue(ctx.school_id)
 
