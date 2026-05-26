@@ -24,6 +24,18 @@ export async function updateStudentStatus(
     return { error: error.message }
   }
 
+  if (status === 'active') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: enrollmentError } = await (supabase as any)
+      .from('student_enrollments')
+      .update({ status: 'active' })
+      .eq('student_id', studentId)
+
+    if (enrollmentError) {
+      return { error: enrollmentError.message }
+    }
+  }
+
   revalidatePath('/dashboard/students/pending')
   revalidatePath('/dashboard/students')
   revalidatePath('/dashboard')

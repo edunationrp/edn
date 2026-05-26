@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { NotificationsTable } from '@/features/notifications/notifications-table'
+import { isMessagingNotificationType } from '@/lib/notifications/categories'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -20,9 +21,16 @@ export default async function NotificationsPage() {
     .order('created_at', { ascending: false })
     .limit(50)
 
-  const notifications = (notificationsRaw as Array<{
-    id: string; title: string; body: string; type: string; is_read: boolean; created_at: string
-  }> | null) ?? []
+  const notifications = (
+    (notificationsRaw as Array<{
+      id: string
+      title: string
+      body: string
+      type: string
+      is_read: boolean
+      created_at: string
+    }> | null) ?? []
+  ).filter(n => !isMessagingNotificationType(n.type))
 
   const unreadCount = notifications.filter(n => !n.is_read).length
 

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
+import { excludeMessagingNotificationTypes } from '@/lib/notifications/categories'
 
 export default async function DashboardLayout({
   children,
@@ -82,11 +83,13 @@ export default async function DashboardLayout({
             .is('read_at', null)
         ).count ?? 0
 
-  const { count: unreadNotifications } = await supabase
-    .from('notifications')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('is_read', false)
+  const { count: unreadNotifications } = await excludeMessagingNotificationTypes(
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+  )
 
   const fullName = profile.full_name ?? user.email ?? 'Utilisateur'
   const initials = fullName
@@ -111,6 +114,7 @@ export default async function DashboardLayout({
         userTitle: currentRole.replace(/_/g, ' '),
         userRole: currentRole,
         userInitials: initials,
+        userId: user.id,
         schoolName: activeSchool?.name ?? 'EduNation',
         schoolYear: schoolYear?.name ?? '2025-2026',
         unreadMessages: unreadMessages ?? 0,

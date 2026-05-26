@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Topbar } from '@/components/layout/topbar'
+import { useTopbarUnreadCounts } from '@/components/layout/use-topbar-unread'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_COLLAPSED_KEY = 'edunation-sidebar-collapsed'
@@ -10,12 +11,22 @@ const SIDEBAR_COLLAPSED_KEY = 'edunation-sidebar-collapsed'
 type ShellProps = {
   children: React.ReactNode
   sidebar: Omit<React.ComponentProps<typeof Sidebar>, 'collapsed' | 'mobileOpen' | 'onNavigate'>
-  topbar: Omit<React.ComponentProps<typeof Topbar>, 'collapsed' | 'onMenuClick' | 'onToggleSidebar'>
+  topbar: Omit<React.ComponentProps<typeof Topbar>, 'collapsed' | 'onMenuClick' | 'onToggleSidebar'> & {
+    userId?: string
+  }
 }
 
 export function DashboardShell({ children, sidebar, topbar }: ShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const { userId, unreadMessages, unreadNotifications, ...topbarProps } = topbar
+  const liveUnread = useTopbarUnreadCounts(
+    {
+      messages: unreadMessages ?? 0,
+      notifications: unreadNotifications ?? 0,
+    },
+    userId ?? ''
+  )
 
   useEffect(() => {
     try {
@@ -62,7 +73,9 @@ export function DashboardShell({ children, sidebar, topbar }: ShellProps) {
         )}
       >
         <Topbar
-          {...topbar}
+          {...topbarProps}
+          unreadMessages={liveUnread.messages}
+          unreadNotifications={liveUnread.notifications}
           collapsed={sidebarCollapsed}
           onMenuClick={() => setMobileNavOpen(true)}
           onToggleSidebar={toggleSidebarCollapsed}

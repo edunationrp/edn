@@ -12,16 +12,25 @@ export default async function NewStudentPage() {
   if (!ctx) redirect('/dashboard')
 
   // Charger classes et niveaux pour le formulaire
-  const [classesResult, levelsResult, yearsResult] = await Promise.all([
-    supabase.from('classes').select('id, name').eq('school_id', ctx.school_id).order('name'),
+  const [levelsResult, yearsResult] = await Promise.all([
     supabase.from('class_levels').select('id, name, order_num').eq('school_id', ctx.school_id).order('order_num'),
     supabase.from('school_years').select('id, name').eq('school_id', ctx.school_id).eq('is_active', true).limit(1),
   ])
 
-  const classes = (classesResult.data as Array<{ id: string; name: string }> | null) ?? []
-  const levels = (levelsResult.data as Array<{ id: string; name: string; order_num: number | null }> | null) ?? []
   const years = (yearsResult.data as Array<{ id: string; name: string }> | null) ?? []
   const currentYear = years[0] ?? null
+
+  const classesResult = currentYear
+    ? await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('school_id', ctx.school_id)
+        .eq('school_year_id', currentYear.id)
+        .order('name')
+    : { data: [] }
+
+  const classes = (classesResult.data as Array<{ id: string; name: string }> | null) ?? []
+  const levels = (levelsResult.data as Array<{ id: string; name: string; order_num: number | null }> | null) ?? []
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">

@@ -8,6 +8,7 @@ import type { UserRole } from '@/types/roles'
 import type { Metadata } from 'next'
 import { getVisibleSections } from '@/lib/settings/permissions'
 import { mergeUserPreferences } from '@/lib/settings/defaults'
+import { excludeMessagingNotificationTypes } from '@/lib/notifications/categories'
 import type {
   OrganizationRow,
   SchoolSettingsData,
@@ -98,11 +99,13 @@ export default async function SettingsPage() {
       .eq('school_id', schoolId)
       .eq('is_active', true),
     supabase.from('classes').select('id', { count: 'exact', head: true }).eq('school_id', schoolId),
-    supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('is_read', false),
+    excludeMessagingNotificationTypes(
+      supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+    ),
   ])
 
   const profile = (profileResult.data as Array<{

@@ -97,24 +97,33 @@ export async function enrollStudentPublic(
     return { error: studentError?.message ?? 'Erreur lors de l\'inscription.' }
   }
 
-  const { data: yearRaw } = await db
-    .from('school_years')
-    .select('id')
-    .eq('school_id', input.schoolId)
-    .eq('is_active', true)
-    .limit(1)
+  if (input.classId) {
+    const { data: classRaw, error: classError } = await db
+      .from('classes')
+      .select('id, school_year_id')
+      .eq('id', input.classId)
+      .eq('school_id', input.schoolId)
+      .limit(1)
 
-  const schoolYearId = (yearRaw as Array<{ id: string }> | null)?.[0]?.id
+    const cls = (classRaw as Array<{ id: string; school_year_id: string }> | null)?.[0]
+    if (classError || !cls) {
+      return { error: classError?.message ?? 'Classe introuvable pour cet établissement.' }
+    }
 
-  if (schoolYearId && input.classId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('student_enrollments').insert({
+    const { error: enrollmentError } = await (db as any).from('student_enrollments').insert({
       school_id: input.schoolId,
       student_id: studentRaw.id,
       class_id: input.classId,
-      school_year_id: schoolYearId,
+      school_year_id: cls.school_year_id,
       status: enrollmentStatus,
     })
+
+    if (enrollmentError) {
+      return { error: enrollmentError.message }
+    }
+  } else if (mode === 'staff') {
+    return { error: 'Classe requise pour inscrire un élève.' }
   }
 
   if (input.parentFirstName?.trim() && input.parentLastName?.trim()) {
@@ -145,6 +154,10 @@ export async function enrollStudentPublic(
 
   revalidatePath('/dashboard/students/pending')
   revalidatePath('/dashboard/students')
+  if (input.classId) {
+    revalidatePath(`/dashboard/classes/${input.classId}`)
+    revalidatePath('/dashboard/classes')
+  }
 
   return {
     success: true as const,

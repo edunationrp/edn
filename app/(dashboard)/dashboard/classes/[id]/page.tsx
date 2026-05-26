@@ -43,7 +43,7 @@ export default async function ClassDetailPage({
 
   const { data: classRaw } = await supabase
     .from('classes')
-    .select('id, name, capacity, class_levels(name), school_years(name)')
+    .select('id, name, capacity, school_year_id, class_levels(name), school_years(name)')
     .eq('id', id)
     .eq('school_id', ctx.school_id)
     .limit(1)
@@ -53,6 +53,7 @@ export default async function ClassDetailPage({
       id: string
       name: string
       capacity: number | null
+      school_year_id: string
       class_levels: { name: string } | null
       school_years: { name: string } | null
     }> | null
@@ -63,22 +64,11 @@ export default async function ClassDetailPage({
   const hasAccess = await teacherCanAccessClass(supabase, user.id, ctx.school_id, id, role)
   if (!hasAccess) redirect('/dashboard/classes')
 
-  const { data: yearRaw } = await supabase
-    .from('school_years')
-    .select('id')
-    .eq('school_id', ctx.school_id)
-    .eq('is_active', true)
-    .limit(1)
-
-  const yearId = (yearRaw as Array<{ id: string }> | null)?.[0]?.id
-
-  const { data: enrollmentsRaw } = yearId
-    ? await supabase
-        .from('student_enrollments')
-        .select('students(id, first_name, last_name, iun, status)')
-        .eq('class_id', id)
-        .eq('school_year_id', yearId)
-    : { data: [] }
+  const { data: enrollmentsRaw } = await supabase
+    .from('student_enrollments')
+    .select('students(id, first_name, last_name, iun, status)')
+    .eq('class_id', id)
+    .eq('school_year_id', cls.school_year_id)
 
   const students = (
     (enrollmentsRaw ?? []) as Array<{

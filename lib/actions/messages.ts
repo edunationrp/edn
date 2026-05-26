@@ -8,7 +8,6 @@ import {
   isMessagingStaffRole,
   orderConversationParticipants,
 } from '@/lib/messaging/staff-eligible'
-import { dispatchNotification } from '@/lib/notifications/dispatch'
 
 export type ChatConversationSummary = {
   id: string
@@ -293,51 +292,6 @@ export async function sendChatMessage(input: {
     return { error: insertError?.message ?? 'Envoi impossible.' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: convRaw } = await (supabase as any)
-    .from('chat_conversations')
-    .select('participant_one, participant_two')
-    .eq('id', input.conversationId)
-    .single()
-
-  const conv = convRaw as { participant_one: string; participant_two: string } | null
-  const recipientId =
-    conv?.participant_one === user.id ? conv.participant_two : conv?.participant_one
-
-  if (recipientId) {
-    const preview =
-      input.messageType === 'text'
-        ? (input.body?.trim().slice(0, 80) ?? 'Nouveau message')
-        : input.messageType === 'audio'
-          ? 'Message vocal'
-          : input.messageType === 'image'
-            ? 'Photo'
-            : 'Fichier joint'
-
-    const { data: senderProfile } = await supabase
-      .from('profiles')
-      .select('full_name, first_name, last_name')
-      .eq('id', user.id)
-      .single()
-
-    const senderName = resolveProfileName({
-      id: user.id,
-      full_name: (senderProfile as { full_name?: string | null } | null)?.full_name ?? null,
-      first_name: (senderProfile as { first_name?: string | null } | null)?.first_name ?? null,
-      last_name: (senderProfile as { last_name?: string | null } | null)?.last_name ?? null,
-    }).display_name
-
-    await dispatchNotification({
-      userId: recipientId,
-      schoolId: input.schoolId,
-      title: `Message de ${senderName}`,
-      body: preview,
-      type: 'message',
-      actionPath: `/dashboard/messages?c=${input.conversationId}`,
-      sendEmail: false,
-    })
-  }
-
   revalidatePath('/dashboard/messages')
   return { message: messageRaw as ChatMessageRow }
 }
@@ -357,6 +311,7 @@ export async function markConversationRead(conversationId: string) {
 
   if (upsertError) return { error: upsertError.message }
   revalidatePath('/dashboard/messages')
+  revalidatePath('/dashboard', 'layout')
   return { success: true }
 }
 

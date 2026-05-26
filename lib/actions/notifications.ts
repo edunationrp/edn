@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { excludeMessagingNotificationTypes } from '@/lib/notifications/categories'
 
 export async function markAllNotificationsRead() {
   const supabase = await createClient()
@@ -9,11 +10,13 @@ export async function markAllNotificationsRead() {
   if (!user) return { error: 'Session expirée.' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
-    .from('notifications')
-    .update({ is_read: true })
-    .eq('user_id', user.id)
-    .eq('is_read', false)
+  const { error } = await excludeMessagingNotificationTypes(
+    (supabase as any)
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+  )
 
   if (error) return { error: error.message }
   revalidatePath('/dashboard/notifications')
