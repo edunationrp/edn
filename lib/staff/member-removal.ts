@@ -14,14 +14,9 @@ export function isRemovableStaffRole(roleCode: string) {
 
 export function canRemoveStaffMember(params: {
   canRemove: boolean
-  isCurrentUser: boolean
   roleCode: string
 }) {
-  return (
-    params.canRemove &&
-    !params.isCurrentUser &&
-    isRemovableStaffRole(params.roleCode)
-  )
+  return params.canRemove && isRemovableStaffRole(params.roleCode)
 }
 
 export async function cleanupTeacherSchoolMembership(

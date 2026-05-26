@@ -252,7 +252,6 @@ function MemberIdentity({
 function canRemoveMember(member: StaffMemberRow, canRemove: boolean) {
   return canRemoveStaffMember({
     canRemove,
-    isCurrentUser: member.isCurrentUser,
     roleCode: member.roleCode,
   })
 }

@@ -410,12 +410,24 @@ export async function removeStaffMemberFromSchool(memberRoleId: string) {
   const member = (memberRaw as Array<{ id: string; user_id: string; role_code: string }> | null)?.[0]
   if (!member) return { error: 'Membre introuvable.' }
 
-  if (member.user_id === base.user.id) {
-    return { error: 'Vous ne pouvez pas retirer votre propre accès.' }
-  }
-
   if (!isRemovableStaffRole(member.role_code)) {
     return { error: 'Impossible de retirer un directeur ou fondateur.' }
+  }
+
+  if (member.user_id === base.user.id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: otherRolesRaw } = await (db as any)
+      .from('user_school_roles')
+      .select('id')
+      .eq('user_id', base.user.id)
+      .eq('school_id', base.schoolId)
+      .neq('id', memberRoleId)
+      .eq('is_active', true)
+
+    const otherRoles = (otherRolesRaw as Array<{ id: string }> | null) ?? []
+    if (otherRoles.length === 0) {
+      return { error: 'Vous ne pouvez pas retirer votre seul accès à l\'établissement.' }
+    }
   }
 
   if (normalizeRole(member.role_code) === 'PROFESSEUR') {

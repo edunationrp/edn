@@ -41,7 +41,6 @@ type StaffDirectoryTableProps = {
 function canRemoveMember(member: StaffDirectoryRow, canRemove: boolean) {
   return canRemoveStaffMember({
     canRemove,
-    isCurrentUser: member.isCurrentUser,
     roleCode: member.roleCode,
   })
 }
