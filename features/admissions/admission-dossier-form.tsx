@@ -11,14 +11,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
-import {
-  DOCUMENT_LABELS,
-  REQUIRED_DOCUMENTS,
-  getDefaultDocuments,
-  type DocumentKey,
-  type DocumentStatus,
-} from '@/lib/admissions/dossier-metadata'
-import type { AdmissionDossierMetadata } from '@/lib/admissions/dossier-metadata'
+import { getDefaultDocuments, type AdmissionDossierMetadata } from '@/lib/admissions/dossier-metadata'
+import { AdmissionDocumentsSection } from '@/features/admissions/admission-documents-section'
 import { notify } from '@/lib/feedback/toast'
 
 const schema = z.object({
@@ -38,19 +32,24 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 type Props = {
+  schoolId: string
   requestId: string
   initial: AdmissionDossierMetadata
   classes: Array<{ id: string; name: string }>
   readOnly?: boolean
+  documentsReadOnly?: boolean
 }
 
-export function AdmissionDossierForm({ requestId, initial, classes, readOnly }: Props) {
+export function AdmissionDossierForm({
+  schoolId,
+  requestId,
+  initial,
+  classes,
+  readOnly,
+  documentsReadOnly,
+}: Props) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [documents, setDocuments] = useState<Record<DocumentKey, DocumentStatus>>({
-    ...getDefaultDocuments(),
-    ...initial.documents,
-  })
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -69,15 +68,6 @@ export function AdmissionDossierForm({ requestId, initial, classes, readOnly }: 
     },
   })
 
-  function cycleDocument(key: DocumentKey) {
-    if (readOnly) return
-    setDocuments(prev => {
-      const order: DocumentStatus[] = ['missing', 'deposed', 'validated']
-      const next = order[(order.indexOf(prev[key]) + 1) % order.length]
-      return { ...prev, [key]: next }
-    })
-  }
-
   async function onSubmit(values: FormValues) {
     setIsSubmitting(true)
     try {
@@ -93,7 +83,7 @@ export function AdmissionDossierForm({ requestId, initial, classes, readOnly }: 
         parentFirstName: values.parent_first_name,
         parentLastName: values.parent_last_name,
         parentPhone: values.parent_phone,
-        documents,
+        documents: { ...getDefaultDocuments(), ...initial.documents },
       })
       if ('error' in result && result.error) throw new Error(result.error)
       notify.success('Dossier enregistré')
@@ -166,32 +156,19 @@ export function AdmissionDossierForm({ requestId, initial, classes, readOnly }: 
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Pièces obligatoires</CardTitle>
+          <CardTitle className="text-base">Pièces obligatoires (PDF)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {REQUIRED_DOCUMENTS.map(key => (
-            <button
-              key={key}
-              type="button"
-              disabled={readOnly}
-              onClick={() => cycleDocument(key)}
-              className="flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left text-sm disabled:opacity-70"
-            >
-              <span>{DOCUMENT_LABELS[key]}</span>
-              <span className={
-                documents[key] === 'validated'
-                  ? 'text-green-600 font-semibold'
-                  : documents[key] === 'deposed'
-                    ? 'text-amber-600'
-                    : 'text-slate-500'
-              }>
-                {documents[key] === 'validated' ? 'Validé' : documents[key] === 'deposed' ? 'Déposé' : 'Manquant'}
-              </span>
-            </button>
-          ))}
-          {!readOnly && (
-            <p className="text-xs text-muted-foreground">
-              Cliquez sur chaque pièce pour changer le statut : Manquant → Déposé → Validé.
+        <CardContent>
+          <AdmissionDocumentsSection
+            schoolId={schoolId}
+            requestId={requestId}
+            meta={initial}
+            readOnly={documentsReadOnly ?? readOnly}
+            allowValidate={!documentsReadOnly && !readOnly}
+          />
+          {!readOnly && !documentsReadOnly && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Téléversez chaque document au format PDF, puis validez-le après vérification.
             </p>
           )}
         </CardContent>

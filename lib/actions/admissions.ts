@@ -14,6 +14,7 @@ import {
   canSubmitToProviseur,
   getDefaultDocuments,
   parseDossierMetadata,
+  type AdmissionDocumentFile,
   type DocumentKey,
   type DocumentStatus,
 } from '@/lib/admissions/dossier-metadata'
@@ -167,6 +168,77 @@ export async function createMinimalAdmissionRequest(input: {
   return { success: true as const, requestId: data.id as string }
 }
 
+export async function registerAdmissionDocument(
+  requestId: string,
+  documentKey: DocumentKey,
+  file: AdmissionDocumentFile
+) {
+  const access = await requireSecretary()
+  if ('error' in access) return access
+
+  const current = await getRequest(requestId, access.schoolId)
+  if (!current || current.status !== 'pending') return { error: 'Dossier introuvable.' }
+
+  const meta = parseDossierMetadata(current.metadata)
+  if (meta.workflow_status === 'EN_ATTENTE_PROVISEUR') {
+    return { error: 'Dossier déjà soumis au proviseur.' }
+  }
+
+  const documents = { ...getDefaultDocuments(), ...meta.documents, [documentKey]: 'deposed' as const }
+  const document_files = { ...meta.document_files, [documentKey]: file }
+
+  const db = getDb() ?? access.supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('student_registration_requests')
+    .update({
+      metadata: {
+        ...meta,
+        documents,
+        document_files,
+        workflow_status: 'EN_COMPLETION',
+      },
+    })
+    .eq('id', requestId)
+    .eq('school_id', access.schoolId)
+
+  if (error) return { error: error.message }
+
+  revalidateAdmissionPaths()
+  revalidatePath(`/dashboard/admissions/${requestId}`)
+  return { success: true as const }
+}
+
+export async function validateAdmissionDocument(requestId: string, documentKey: DocumentKey) {
+  const access = await requireSecretary()
+  if ('error' in access) return access
+
+  const current = await getRequest(requestId, access.schoolId)
+  if (!current) return { error: 'Dossier introuvable.' }
+
+  const meta = parseDossierMetadata(current.metadata)
+  if (!meta.document_files?.[documentKey]?.url) {
+    return { error: 'Téléversez d\'abord le PDF de cette pièce.' }
+  }
+
+  const documents = { ...getDefaultDocuments(), ...meta.documents, [documentKey]: 'validated' as const }
+  const db = getDb() ?? access.supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('student_registration_requests')
+    .update({
+      metadata: { ...meta, documents },
+    })
+    .eq('id', requestId)
+    .eq('school_id', access.schoolId)
+
+  if (error) return { error: error.message }
+
+  revalidateAdmissionPaths()
+  revalidatePath(`/dashboard/admissions/${requestId}`)
+  return { success: true as const }
+}
+
 export async function completeAdmissionDossier(
   requestId: string,
   input: {
@@ -218,7 +290,8 @@ export async function completeAdmissionDossier(
     parent_first_name: input.parentFirstName?.trim() || null,
     parent_last_name: input.parentLastName?.trim() || null,
     parent_phone: input.parentPhone?.trim() || null,
-    documents: { ...getDefaultDocuments(), ...input.documents },
+    documents: { ...getDefaultDocuments(), ...meta.documents, ...input.documents },
+    document_files: meta.document_files,
     workflow_status: 'EN_COMPLETION' as const,
   }
 

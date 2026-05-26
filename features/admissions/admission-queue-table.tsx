@@ -1,14 +1,15 @@
 'use client'
 
+import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { UserCheck } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Eye, UserCheck } from 'lucide-react'
 import {
   DashboardDataTable,
   DashboardTableCell,
   DashboardTableRow,
   formatListFooter,
 } from '@/components/dashboard/data-table'
-import { AdmissionDecisionActions } from '@/features/admissions/admission-decision-actions'
 import { AdmissionSecretaryActions } from '@/features/admissions/admission-secretary-actions'
 import { WORKFLOW_STATUS_LABELS, type AdmissionWorkflowStatus } from '@/lib/admissions/workflow'
 import { formatDate, getInitials } from '@/lib/utils'
@@ -42,7 +43,7 @@ const COLUMNS_PROVISEUR = [
   { id: 'student', label: 'Élève' },
   { id: 'class', label: 'Classe' },
   { id: 'status', label: 'Statut' },
-  { id: 'actions', label: 'Décision', align: 'center' as const },
+  { id: 'actions', label: 'Actions', align: 'center' as const },
 ]
 
 export function AdmissionQueueTable({ dossiers, mode }: AdmissionQueueTableProps) {
@@ -87,7 +88,12 @@ export function AdmissionQueueTable({ dossiers, mode }: AdmissionQueueTableProps
               workflowStatus={dossier.workflowStatus}
             />
           ) : (
-            <AdmissionDecisionActions requestId={dossier.requestId} />
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/dashboard/admissions/${dossier.requestId}`}>
+                <Eye className="h-4 w-4" />
+                Consulter le dossier
+              </Link>
+            </Button>
           )}
         </div>
       )}
@@ -119,7 +125,12 @@ export function AdmissionQueueTable({ dossiers, mode }: AdmissionQueueTableProps
                 workflowStatus={dossier.workflowStatus}
               />
             ) : (
-              <AdmissionDecisionActions requestId={dossier.requestId} />
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/dashboard/admissions/${dossier.requestId}`}>
+                  <Eye className="h-4 w-4" />
+                  Consulter le dossier
+                </Link>
+              </Button>
             )}
           </DashboardTableCell>
         </DashboardTableRow>

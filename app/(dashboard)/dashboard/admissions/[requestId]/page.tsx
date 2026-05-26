@@ -8,18 +8,15 @@ import {
 import { getAdmissionRequest } from '@/lib/admissions/queries'
 import { parseDossierMetadata } from '@/lib/admissions/dossier-metadata'
 import { PageHeader } from '@/components/dashboard/page-header'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AdmissionDossierForm } from '@/features/admissions/admission-dossier-form'
 import { AdmissionSecretaryActions } from '@/features/admissions/admission-secretary-actions'
+import { AdmissionDecisionActions } from '@/features/admissions/admission-decision-actions'
 import { WORKFLOW_STATUS_LABELS } from '@/lib/admissions/workflow'
 import type { Metadata } from 'next'
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ requestId: string }>
-}): Promise<Metadata> {
-  const { requestId } = await params
-  return { title: `Dossier admission` }
+export const metadata: Metadata = {
+  title: 'Dossier admission',
 }
 
 export default async function AdmissionDossierPage({
@@ -66,7 +63,10 @@ export default async function AdmissionDossierPage({
     : { data: [] }
 
   const classes = (classesRaw as Array<{ id: string; name: string }> | null) ?? []
-  const readOnly = !isSecretary || dossier.workflowStatus === 'EN_ATTENTE_PROVISEUR'
+
+  const isAwaitingProviseur = dossier.workflowStatus === 'EN_ATTENTE_PROVISEUR'
+  const secretaryCanEdit = isSecretary && !isAwaitingProviseur
+  const proviseurCanReview = isProviseur && isAwaitingProviseur
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 animate-fade-in sm:space-y-6">
@@ -74,17 +74,43 @@ export default async function AdmissionDossierPage({
         title={`${dossier.lastName} ${dossier.firstName}`}
         description={`${WORKFLOW_STATUS_LABELS[dossier.workflowStatus]} · ${dossier.className ?? 'Classe à définir'} · ${dossier.iun ?? 'IUN non encore généré'}`}
       />
+
+      {proviseurCanReview && (
+        <Card className="border-amber-200 bg-amber-50/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-amber-900">Revue proviseur</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-amber-900/90">
+            Consultez l&apos;identité, le parent et chaque PDF téléversé par le secrétariat avant de valider ou refuser l&apos;admission.
+          </CardContent>
+        </Card>
+      )}
+
       <AdmissionDossierForm
+        schoolId={ctx.school_id}
         requestId={requestId}
         initial={meta}
         classes={classes}
-        readOnly={readOnly}
+        readOnly={!secretaryCanEdit}
+        documentsReadOnly={!secretaryCanEdit}
       />
-      {isSecretary && !readOnly && (
+
+      {secretaryCanEdit && (
         <AdmissionSecretaryActions
           requestId={requestId}
           workflowStatus={dossier.workflowStatus}
         />
+      )}
+
+      {proviseurCanReview && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Décision d&apos;admission</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AdmissionDecisionActions requestId={requestId} />
+          </CardContent>
+        </Card>
       )}
     </div>
   )
