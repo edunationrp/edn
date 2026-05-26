@@ -9,6 +9,15 @@ export const REQUIRED_DOCUMENTS = [
 export type DocumentKey = (typeof REQUIRED_DOCUMENTS)[number]
 export type DocumentStatus = 'missing' | 'deposed' | 'validated'
 
+export type AdmissionDocumentFile = {
+  path: string
+  url: string
+  name: string
+  mime: string
+  size: number
+  uploaded_at: string
+}
+
 export type AdmissionDossierMetadata = {
   workflow_status?: AdmissionWorkflowStatus
   created_by_role?: string
@@ -25,15 +34,16 @@ export type AdmissionDossierMetadata = {
   parent_last_name?: string
   parent_phone?: string
   documents?: Partial<Record<DocumentKey, DocumentStatus>>
+  document_files?: Partial<Record<DocumentKey, AdmissionDocumentFile>>
   submitted_by?: string
   submitted_at?: string
   return_comment?: string
 }
 
 export const DOCUMENT_LABELS: Record<DocumentKey, string> = {
-  birth_certificate: 'Acte de naissance',
-  student_photo: 'Photo d\'identité',
-  parent_id: 'Pièce d\'identité du parent',
+  birth_certificate: 'Acte de naissance (PDF)',
+  student_photo: 'Photo d\'identité (PDF)',
+  parent_id: 'Pièce d\'identité du parent (PDF)',
 }
 
 export function getDefaultDocuments(): Record<DocumentKey, DocumentStatus> {
@@ -60,9 +70,16 @@ export function isDossierIdentityComplete(meta: AdmissionDossierMetadata) {
   )
 }
 
+export function hasPdfDocument(meta: AdmissionDossierMetadata, key: DocumentKey) {
+  const file = meta.document_files?.[key]
+  return Boolean(file?.url && (file.mime === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')))
+}
+
 export function areDocumentsComplete(meta: AdmissionDossierMetadata) {
   const docs = { ...getDefaultDocuments(), ...meta.documents }
-  return REQUIRED_DOCUMENTS.every(key => docs[key] === 'validated')
+  return REQUIRED_DOCUMENTS.every(
+    key => hasPdfDocument(meta, key) && docs[key] === 'validated'
+  )
 }
 
 export function canSubmitToProviseur(meta: AdmissionDossierMetadata) {
