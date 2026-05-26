@@ -38,6 +38,11 @@ export type AdmissionDossierMetadata = {
   submitted_by?: string
   submitted_at?: string
   return_comment?: string
+  returned_at?: string
+  rejection_reason?: string
+  rejected_at?: string
+  decided_at?: string
+  tracking_ref?: string
 }
 
 export const DOCUMENT_LABELS: Record<DocumentKey, string> = {
@@ -84,4 +89,19 @@ export function areDocumentsComplete(meta: AdmissionDossierMetadata) {
 
 export function canSubmitToProviseur(meta: AdmissionDossierMetadata) {
   return isDossierIdentityComplete(meta) && areDocumentsComplete(meta)
+}
+
+/** Après renvoi proviseur : les pièces validées doivent être revérifiées si modifiées. */
+export function resetDocumentsAfterReturn(meta: AdmissionDossierMetadata) {
+  const docs = { ...getDefaultDocuments(), ...meta.documents }
+  for (const key of REQUIRED_DOCUMENTS) {
+    if (docs[key] === 'validated') {
+      docs[key] = 'deposed'
+    }
+  }
+  return docs
+}
+
+export function isReturnedForCorrection(meta: AdmissionDossierMetadata) {
+  return Boolean(meta.return_comment?.trim())
 }

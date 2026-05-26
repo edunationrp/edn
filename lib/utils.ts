@@ -37,7 +37,11 @@ export function formatRelativeDateCompact(date: string | Date) {
 }
 
 export function formatCurrency(amount: number, currency = 'FCFA') {
-  return `${new Intl.NumberFormat('fr-FR').format(amount)} ${currency}`
+  const whole = Math.round(Number(amount) || 0)
+  return `${new Intl.NumberFormat('fr-FR', {
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+  }).format(whole)} ${currency}`
 }
 
 export function formatGrade(grade: number) {

@@ -1,6 +1,12 @@
 'use client'
 
-import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
+import {
+  cloneElement,
+  isValidElement,
+  type HTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
 import { cn } from '@/lib/utils'
 import { dashboard } from '@/lib/dashboard/ui-classes'
 import { DataTableShell, FilterBar, FilterSearch, FilterSelect } from '@/components/dashboard/filter-bar'

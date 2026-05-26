@@ -281,7 +281,6 @@ export function SettingsClient({ data }: SettingsClientProps) {
       SECRETAIRE: [
         { href: '/dashboard/students/new', label: 'Nouvelle inscription' },
         { href: '/dashboard/students', label: 'Liste des élèves' },
-        { href: '/dashboard/staff/roles-permissions?tab=invitations', label: 'Invitations (consultation)' },
       ],
       PROFESSEUR: [
         { href: '/dashboard/grades/entry', label: 'Saisie des notes' },

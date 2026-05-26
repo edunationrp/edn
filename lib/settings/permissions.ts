@@ -41,7 +41,6 @@ export function getSectionAccess(role: UserRole, section: SettingsSectionId): Se
 
     case 'school-identity':
       if (isFullSchoolAdmin(role)) return 'edit'
-      if (['CENSEUR', 'INTENDANT', 'SECRETAIRE'].includes(role)) return 'view'
       return 'none'
 
     case 'school-academic':
@@ -56,8 +55,6 @@ export function getSectionAccess(role: UserRole, section: SettingsSectionId): Se
 
     case 'school-finance':
       if (isFullSchoolAdmin(role)) return 'edit'
-      if (role === 'INTENDANT') return 'edit'
-      if (role === 'SECRETAIRE') return 'view'
       return 'none'
 
     case 'organization':
@@ -66,7 +63,6 @@ export function getSectionAccess(role: UserRole, section: SettingsSectionId): Se
 
     case 'access-management':
       if (isFullSchoolAdmin(role)) return 'edit'
-      if (role === 'SECRETAIRE') return 'view'
       return 'none'
 
     case 'parent-space':

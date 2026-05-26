@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { toMoney } from '@/lib/finance/money'
 
 export async function createFeeStructure(
   schoolId: string,
@@ -22,7 +23,7 @@ export async function createFeeStructure(
     school_id: schoolId,
     school_year_id: data.schoolYearId,
     name: data.name,
-    amount: data.amount,
+    amount: toMoney(data.amount),
     is_mandatory: data.isMandatory,
     due_date: data.dueDate ?? null,
   })

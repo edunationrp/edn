@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getWorkflowStatus, type AdmissionWorkflowStatus } from '@/lib/admissions/workflow'
 import { parseDossierMetadata } from '@/lib/admissions/dossier-metadata'
+import { formatAdmissionTrackingRef } from '@/lib/admissions/format'
 
 export type AdmissionDossierRow = {
   requestId: string
@@ -13,6 +14,18 @@ export type AdmissionDossierRow = {
   workflowStatus: AdmissionWorkflowStatus
   className: string | null
   channel: string
+  requestStatus: 'pending' | 'approved' | 'rejected'
+}
+
+export type ArchivedAdmissionRow = {
+  requestId: string
+  firstName: string
+  lastName: string
+  className: string | null
+  createdAt: string
+  rejectedAt: string | null
+  rejectionReason: string
+  trackingRef: string
 }
 
 type RawRequest = {
@@ -33,12 +46,19 @@ type RawRequest = {
   } | null
 }
 
-function mapRequestRow(row: RawRequest): AdmissionDossierRow | null {
+function mapRequestRow(
+  row: RawRequest,
+  options?: { includeClosed?: boolean }
+): AdmissionDossierRow | null {
   const meta = parseDossierMetadata(row.metadata)
   const workflowStatus = getWorkflowStatus(row.metadata)
+  const isOpen = row.status === 'pending'
+  const requestStatus = row.status as AdmissionDossierRow['requestStatus']
+
+  if (!options?.includeClosed && !isOpen) return null
 
   if (row.student_id && row.students) {
-    if (row.students.status !== 'pending' && row.status !== 'pending') return null
+    if (!options?.includeClosed && row.students.status !== 'pending' && !isOpen) return null
     const enrollment = row.students.student_enrollments?.[0]
     return {
       requestId: row.id,
@@ -51,10 +71,11 @@ function mapRequestRow(row: RawRequest): AdmissionDossierRow | null {
       workflowStatus,
       className: enrollment?.classes?.name ?? meta.class_name ?? null,
       channel: row.channel,
+      requestStatus,
     }
   }
 
-  if (row.status !== 'pending') return null
+  if (!options?.includeClosed && !isOpen) return null
   if (!meta.first_name || !meta.last_name) return null
 
   return {
@@ -68,6 +89,7 @@ function mapRequestRow(row: RawRequest): AdmissionDossierRow | null {
     workflowStatus,
     className: meta.class_name ?? null,
     channel: row.channel,
+    requestStatus,
   }
 }
 
@@ -98,7 +120,7 @@ async function fetchOpenRequests(schoolId: string) {
     .order('created_at', { ascending: true })
 
   return ((data ?? []) as RawRequest[])
-    .map(mapRequestRow)
+    .map(row => mapRequestRow(row))
     .filter(Boolean) as AdmissionDossierRow[]
 }
 
@@ -130,7 +152,54 @@ export async function getAdmissionRequest(schoolId: string, requestId: string) {
 
   const row = (data as RawRequest[] | null)?.[0]
   if (!row) return null
-  return mapRequestRow(row)
+  return mapRequestRow(row, { includeClosed: true })
+}
+
+export async function getRefusedAdmissions(schoolId: string): Promise<ArchivedAdmissionRow[]> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('student_registration_requests')
+    .select(`
+      id,
+      student_id,
+      channel,
+      status,
+      metadata,
+      created_at,
+      students(
+        id,
+        iun,
+        first_name,
+        last_name,
+        birth_date,
+        status,
+        student_enrollments(classes(name))
+      )
+    `)
+    .eq('school_id', schoolId)
+    .eq('status', 'rejected')
+    .order('created_at', { ascending: false })
+
+  return ((data ?? []) as RawRequest[])
+    .map(row => {
+      const meta = parseDossierMetadata(row.metadata)
+      const mapped = mapRequestRow(row, { includeClosed: true })
+      if (!mapped) return null
+      const reason = meta.rejection_reason?.trim()
+      if (!reason) return null
+      return {
+        requestId: row.id,
+        firstName: mapped.firstName,
+        lastName: mapped.lastName,
+        className: mapped.className,
+        createdAt: row.created_at,
+        rejectedAt: meta.rejected_at ?? null,
+        rejectionReason: reason,
+        trackingRef: meta.tracking_ref ?? formatAdmissionTrackingRef(row.id),
+      }
+    })
+    .filter(Boolean) as ArchivedAdmissionRow[]
 }
 
 export async function getAdmissionStats(schoolId: string) {
@@ -152,29 +221,7 @@ export async function getAdmissionStats(schoolId: string) {
     .eq('school_id', schoolId)
     .gte('created_at', since.toISOString())
 
-  const { data: activeStudentsRaw } = await supabase
-    .from('students')
-    .select('id')
-    .eq('school_id', schoolId)
-    .eq('status', 'active')
-
-  const activeStudentIds = ((activeStudentsRaw ?? []) as Array<{ id: string }>).map(s => s.id)
-
-  let admittedAwaitingPayment = 0
-  if (activeStudentIds.length > 0) {
-    const { data: paymentsRaw } = await supabase
-      .from('payments')
-      .select('student_id, status')
-      .eq('school_id', schoolId)
-      .in('student_id', activeStudentIds)
-
-    const paidStudentIds = new Set(
-      ((paymentsRaw ?? []) as Array<{ student_id: string; status: string }>)
-        .filter(p => p.status === 'paid')
-        .map(p => p.student_id)
-    )
-    admittedAwaitingPayment = activeStudentIds.filter(id => !paidStudentIds.has(id)).length
-  }
+  const admittedAwaitingPayment = (await getAdmittedAwaitingPayment(schoolId)).length
 
   return {
     totalOpen: dossiers.length,
@@ -202,53 +249,84 @@ export async function getProviseurQueue(schoolId: string) {
 export async function getAdmittedAwaitingPayment(schoolId: string) {
   const supabase = await createClient()
 
-  const { data: studentsRaw } = await supabase
-    .from('students')
+  const { data: requestsRaw } = await supabase
+    .from('student_registration_requests')
     .select(`
       id,
-      iun,
-      first_name,
-      last_name,
+      student_id,
       created_at,
-      student_enrollments(classes(name))
+      metadata,
+      students(
+        id,
+        iun,
+        first_name,
+        last_name,
+        created_at,
+        student_enrollments(classes(name))
+      )
     `)
     .eq('school_id', schoolId)
-    .eq('status', 'active')
+    .eq('status', 'approved')
+    .not('student_id', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(100)
 
-  const students = (studentsRaw ?? []) as Array<{
+  type ApprovedRequest = {
     id: string
-    iun: string
-    first_name: string
-    last_name: string
+    student_id: string
     created_at: string
-    student_enrollments: Array<{ classes: { name: string } | null }> | null
-  }>
+    metadata: Record<string, unknown> | null
+    students: {
+      id: string
+      iun: string
+      first_name: string
+      last_name: string
+      created_at: string
+      student_enrollments: Array<{ classes: { name: string } | null }> | null
+    } | null
+  }
 
-  if (students.length === 0) return []
+  const requests = (requestsRaw as ApprovedRequest[] | null) ?? []
+  if (requests.length === 0) return []
 
-  const studentIds = students.map(s => s.id)
+  const studentIds = [
+    ...new Set(requests.map(r => r.student_id).filter(Boolean)),
+  ]
+
   const { data: paymentsRaw } = await supabase
     .from('payments')
-    .select('student_id, status')
+    .select('student_id')
     .eq('school_id', schoolId)
     .in('student_id', studentIds)
+    .in('status', ['paid', 'partial'])
 
-  const paidStudentIds = new Set(
-    ((paymentsRaw ?? []) as Array<{ student_id: string; status: string }>)
-      .filter(p => p.status === 'paid')
-      .map(p => p.student_id)
+  const encashedStudentIds = new Set(
+    ((paymentsRaw ?? []) as Array<{ student_id: string }>).map(p => p.student_id)
   )
 
-  return students
-    .filter(s => !paidStudentIds.has(s.id))
-    .map(s => ({
-      studentId: s.id,
-      iun: s.iun,
-      firstName: s.first_name,
-      lastName: s.last_name,
-      createdAt: s.created_at,
-      className: s.student_enrollments?.[0]?.classes?.name ?? null,
-    }))
+  const seen = new Set<string>()
+
+  return requests
+    .filter(r => {
+      if (!r.student_id || !r.students) return false
+      if (encashedStudentIds.has(r.student_id)) return false
+      if (seen.has(r.student_id)) return false
+      seen.add(r.student_id)
+      return true
+    })
+    .map(r => {
+      const s = r.students!
+      const meta = r.metadata ?? {}
+      const admittedAt =
+        (typeof meta.decided_at === 'string' && meta.decided_at) ||
+        r.created_at
+      return {
+        requestId: r.id,
+        studentId: s.id,
+        iun: s.iun,
+        firstName: s.first_name,
+        lastName: s.last_name,
+        createdAt: admittedAt,
+        className: s.student_enrollments?.[0]?.classes?.name ?? null,
+      }
+    })
 }

@@ -36,8 +36,8 @@ export default async function AdmissionsAdmittedPage() {
         title={isFinance ? 'Admis — paiement à ouvrir' : 'Suivi des admissions validées'}
         description={
           isFinance
-            ? `${students.length} élève${students.length > 1 ? 's' : ''} admis sans paiement enregistré`
-            : 'Consultation du passage vers la caisse (lecture seule)'
+            ? `${students.length} nouvel${students.length > 1 ? 's' : ''} admis en attente du premier encaissement`
+            : 'Consultation des nouveaux admis en attente de premier encaissement (lecture seule)'
         }
         actions={
           isFinance ? (

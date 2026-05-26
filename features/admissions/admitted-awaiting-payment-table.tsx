@@ -43,8 +43,8 @@ export function AdmittedAwaitingPaymentTable({
       footer={formatListFooter(students.length, students.length, false)}
       emptyState={{
         icon: <Wallet className="h-6 w-6" />,
-        title: 'Aucun dossier en attente de paiement',
-        description: 'Les élèves admis sans règlement apparaîtront ici.',
+        title: 'Aucun nouveau admis à encaisser',
+        description: 'Les élèves fraîchement validés par le proviseur apparaîtront ici jusqu\'au premier encaissement.',
       }}
       renderMobileRow={student => (
         <div className="space-y-3 px-4 py-4">

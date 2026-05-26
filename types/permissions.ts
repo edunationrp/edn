@@ -121,7 +121,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   FONDATEUR: [...ALL_SCHOOL_PERMISSIONS],
   DIRECTEUR_ADJOINT: [
     'schools:read',
-    'staff:read', 'staff:invite', 'staff:activate', 'staff:deactivate',
+    'staff:read', 'staff:activate', 'staff:deactivate',
     'students:read', 'students:create', 'students:update', 'students:validate',
     'parents:read', 'parents:validate',
     'classes:read', 'classes:manage',
@@ -176,7 +176,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   SECRETAIRE: [
     'students:read', 'students:create', 'students:update', 'students:validate',
     'parents:read', 'parents:validate', 'parents:link_student',
-    'staff:read', 'staff:invite',
+    'staff:read',
     'classes:read',
     'finance:read', 'finance:receipts',
     'report_cards:read', 'report_cards:generate',
