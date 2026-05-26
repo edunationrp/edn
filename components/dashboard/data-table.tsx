@@ -1,6 +1,6 @@
 'use client'
 
-import type { HTMLAttributes, ReactNode } from 'react'
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { dashboard } from '@/lib/dashboard/ui-classes'
 import { DataTableShell, FilterBar, FilterSearch, FilterSelect } from '@/components/dashboard/filter-bar'
@@ -145,7 +145,16 @@ export function DashboardDataTable<T>({
                   ))}
                 </tr>
               </thead>
-              <tbody>{data.map(item => renderDesktopRow(item))}</tbody>
+              <tbody>
+                {data.map(item => {
+                  const row = renderDesktopRow(item)
+                  const key = keyExtractor(item)
+                  if (isValidElement(row)) {
+                    return cloneElement(row as ReactElement<{ key?: string }>, { key })
+                  }
+                  return row
+                })}
+              </tbody>
             </table>
           </div>
         </>

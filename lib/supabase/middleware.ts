@@ -37,6 +37,7 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute = publicRoutes.includes(pathname)
   const isRegisterRoute = pathname.startsWith('/register')
   const isJoinRoute = pathname.startsWith('/join')
+  const isSuperAdminSetupRoute = pathname === '/superadmin'
   const isParentSimpleRoute = pathname.startsWith('/parent-simple')
   const isApiRoute = pathname.startsWith('/api')
   const isDashboardRoute = pathname.startsWith('/dashboard')

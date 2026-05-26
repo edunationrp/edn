@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { SuperAdminDashboard } from '@/features/dashboard/super-admin-dashboard'
+import { isPlatformAdmin, getEffectiveUserRole } from '@/lib/platform/access'
 import { DirecteurDashboard } from '@/features/dashboard/directeur-dashboard'
 import { SecretaireDashboard } from '@/features/dashboard/secretaire-dashboard'
 import { ProfesseurDashboard } from '@/features/dashboard/professeur-dashboard'
@@ -31,6 +33,7 @@ export default async function DashboardPage() {
   if (!profile) redirect('/login')
 
   const schoolContext = await getUserSchoolContext(user.id)
+  const effectiveRole = await getEffectiveUserRole(user.id)
   const currentRole = schoolContext?.role_code ?? profile.default_role ?? 'ELEVE'
   const schoolId = schoolContext?.school_id
   const firstName = profile.full_name?.split(' ')[0] ?? 'là'
@@ -39,6 +42,10 @@ export default async function DashboardPage() {
     ? profile.full_name?.split(' ').slice(0, 2).join(' ') ?? firstName
     : firstName
 
+  if (isPlatformAdmin(effectiveRole)) {
+    return <SuperAdminDashboard userName={greetingName} />
+  }
+
   switch (currentRole) {
     case 'PROVISEUR':
     case 'DIRECTEUR_ADJOINT':
@@ -46,7 +53,6 @@ export default async function DashboardPage() {
     case 'CENSEUR':
     case 'CONSEILLER_EDUCATION':
     case 'SURVEILLANT_GENERAL':
-    case 'SUPER_ADMIN_EDUNATION':
       return (
         <DirecteurDashboard
           schoolId={schoolId}

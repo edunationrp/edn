@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { excludeMessagingNotificationTypes } from '@/lib/notifications/categories'
+import { getEffectiveUserRole, isPlatformAdmin } from '@/lib/platform/access'
+import { ROLE_LABELS } from '@/types/roles'
+import type { UserRole } from '@/types/roles'
 
 export default async function DashboardLayout({
   children,
@@ -57,9 +60,20 @@ export default async function DashboardLayout({
   }>
 
   const activeSchool = schools[0] ?? null
-  const currentRole = schoolRoles?.[0]?.role_code ?? profile.default_role ?? 'ELEVE'
+  const effectiveRole = await getEffectiveUserRole(user.id)
+  const isPlatformOwner = isPlatformAdmin(effectiveRole)
+  const currentRole = (effectiveRole ?? profile.default_role ?? 'ELEVE') as UserRole
+  const roleLabel = ROLE_LABELS[currentRole] ?? currentRole
 
-  const { data: schoolYearRaw } = activeSchool
+  const displaySchoolName = isPlatformOwner
+    ? 'EduNation — Administration plateforme'
+    : (activeSchool?.name ?? 'Mon établissement')
+
+  const displaySchoolYear = isPlatformOwner
+    ? 'SaaS multi-établissements'
+    : undefined
+
+  const { data: schoolYearRaw } = activeSchool && !isPlatformOwner
     ? await supabase
         .from('school_years')
         .select('id, name')
@@ -69,6 +83,7 @@ export default async function DashboardLayout({
     : { data: [] }
 
   const schoolYear = (schoolYearRaw as Array<{ id: string; name: string }> | null)?.[0]
+  const schoolYearLabel = displaySchoolYear ?? schoolYear?.name ?? '2025 — 2026'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: chatUnreadRaw } = await (supabase as any).rpc('get_my_unread_chat_count')
@@ -103,20 +118,20 @@ export default async function DashboardLayout({
     <DashboardShell
       sidebar={{
         userRole: currentRole,
-        schoolName: activeSchool?.name ?? 'Mon établissement',
-        schoolYear: schoolYear?.name ?? '2025 — 2026',
+        schoolName: displaySchoolName,
+        schoolYear: schoolYearLabel,
         userName: fullName,
         userInitials: initials,
-        userTitle: currentRole.toLowerCase().replace(/_/g, ' '),
+        userTitle: roleLabel,
       }}
       topbar={{
         userName: fullName,
-        userTitle: currentRole.replace(/_/g, ' '),
+        userTitle: roleLabel,
         userRole: currentRole,
         userInitials: initials,
         userId: user.id,
-        schoolName: activeSchool?.name ?? 'EduNation',
-        schoolYear: schoolYear?.name ?? '2025-2026',
+        schoolName: displaySchoolName,
+        schoolYear: schoolYearLabel,
         unreadMessages: unreadMessages ?? 0,
         unreadNotifications: unreadNotifications ?? 0,
       }}

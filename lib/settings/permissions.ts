@@ -19,7 +19,7 @@ const SECTION_LABELS: Record<SettingsSectionId, string> = {
   session: 'Session',
 }
 
-const FULL_SCHOOL_ROLES: UserRole[] = ['PROVISEUR', 'FONDATEUR', 'SUPER_ADMIN_EDUNATION']
+const FULL_SCHOOL_ROLES: UserRole[] = ['PROVISEUR', 'FONDATEUR']
 
 function isFullSchoolAdmin(role: UserRole) {
   return FULL_SCHOOL_ROLES.includes(role)

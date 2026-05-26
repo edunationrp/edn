@@ -27,7 +27,7 @@ export function normalizeRole(role: string): UserRole {
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  SUPER_ADMIN_EDUNATION: 'Super Admin EduNation',
+  SUPER_ADMIN_EDUNATION: 'Super Admin EduNation (propriétaire SaaS)',
   FONDATEUR: 'Fondateur',
   PROVISEUR: 'Proviseur / Directeur',
   DIRECTEUR_ADJOINT: 'Directeur adjoint',

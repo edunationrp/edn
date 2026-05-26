@@ -51,19 +51,21 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 // Configurations des rôles (identiques au HTML)
 const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; items: Array<{ id: string; label: string; icon: string; href: string; badge?: string; badgeColor?: string }> }> }> = {
   SUPER_ADMIN_EDUNATION: {
-    label: 'Super Admin',
+    label: 'Plateforme SaaS',
     nav: [
       { group: 'Pilotage', items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'rapports', label: 'Rapports globaux', icon: 'chart', href: '/dashboard/finance' },
+        { id: 'platform', label: 'Vue plateforme', icon: 'shield', href: '/dashboard/platform' },
+        { id: 'rapports', label: 'Rapports globaux', icon: 'chart', href: '/dashboard/platform/reports' },
       ]},
       { group: 'Établissements', items: [
-        { id: 'schools', label: 'Établissements', icon: 'school', href: '/dashboard/staff' },
-        { id: 'personnel', label: 'Utilisateurs', icon: 'users', href: '/dashboard/staff' },
+        { id: 'schools', label: 'Établissements', icon: 'school', href: '/dashboard/platform/schools' },
+        { id: 'organizations', label: 'Organisations', icon: 'grid', href: '/dashboard/platform/organizations' },
+        { id: 'users', label: 'Utilisateurs', icon: 'users', href: '/dashboard/platform/users' },
       ]},
       { group: 'Système', items: [
-        { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/audit-logs' },
-        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
+        { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/platform/audit-logs' },
+        { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/platform/settings' },
       ]},
     ],
   },
