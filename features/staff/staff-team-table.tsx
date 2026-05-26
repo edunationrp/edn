@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Search, Users } from 'lucide-react'
+import { Search, Trash2, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -23,6 +23,7 @@ type StaffTeamTableProps = {
   members: StaffMemberRow[]
   canActivate: boolean
   canDeactivate: boolean
+  canRemove: boolean
   isPending: boolean
   pendingKey: string | null
   onRoleChange: (payload: {
@@ -32,6 +33,7 @@ type StaffTeamTableProps = {
     newRole: UserRole
   }) => void
   onRequestDeactivate: (memberId: string, memberName: string) => void
+  onRequestRemove: (memberId: string, memberName: string) => void
   onActivate: (memberId: string) => void
 }
 
@@ -60,10 +62,12 @@ export function StaffTeamTable({
   members,
   canActivate,
   canDeactivate,
+  canRemove,
   isPending,
   pendingKey,
   onRoleChange,
   onRequestDeactivate,
+  onRequestRemove,
   onActivate,
 }: StaffTeamTableProps) {
   const [filter, setFilter] = useState<TeamFilter>('all')
@@ -148,7 +152,7 @@ export function StaffTeamTable({
                     <th className={cn(dashboard.label, 'px-4 py-3 text-left')}>Rôle</th>
                     <th className={cn(dashboard.label, 'px-4 py-3 text-left')}>Statut</th>
                     <th className={cn(dashboard.label, 'px-4 py-3 text-left')}>Inscription</th>
-                    {(canActivate || canDeactivate) && (
+                    {(canActivate || canDeactivate || canRemove) && (
                       <th className={cn(dashboard.label, 'px-5 py-3 text-right')}>Actions</th>
                     )}
                   </tr>
@@ -160,10 +164,12 @@ export function StaffTeamTable({
                       member={member}
                       canActivate={canActivate}
                       canDeactivate={canDeactivate}
+                      canRemove={canRemove}
                       isPending={isPending}
                       pendingKey={pendingKey}
                       onRoleChange={onRoleChange}
                       onRequestDeactivate={onRequestDeactivate}
+                      onRequestRemove={onRequestRemove}
                       onActivate={onActivate}
                     />
                   ))}
@@ -179,10 +185,12 @@ export function StaffTeamTable({
                 member={member}
                 canActivate={canActivate}
                 canDeactivate={canDeactivate}
+                canRemove={canRemove}
                 isPending={isPending}
                 pendingKey={pendingKey}
                 onRoleChange={onRoleChange}
                 onRequestDeactivate={onRequestDeactivate}
+                onRequestRemove={onRequestRemove}
                 onActivate={onActivate}
               />
             ))}
@@ -240,84 +248,115 @@ function MemberIdentity({
   )
 }
 
+function canRemoveMember(member: StaffMemberRow, canRemove: boolean) {
+  return canRemove &&
+    !member.isCurrentUser &&
+    member.roleCode !== 'PROVISEUR' &&
+    member.roleCode !== 'FONDATEUR'
+}
+
 function MemberActions({
   member,
   canActivate,
   canDeactivate,
+  canRemove,
   isPending,
   pendingKey,
   onRoleChange,
   onRequestDeactivate,
+  onRequestRemove,
   onActivate,
   layout,
 }: {
   member: StaffMemberRow
   canActivate: boolean
   canDeactivate: boolean
+  canRemove: boolean
   isPending: boolean
   pendingKey: string | null
   onRoleChange: StaffTeamTableProps['onRoleChange']
   onRequestDeactivate: StaffTeamTableProps['onRequestDeactivate']
+  onRequestRemove: StaffTeamTableProps['onRequestRemove']
   onActivate: StaffTeamTableProps['onActivate']
   layout: 'desktop' | 'mobile'
 }) {
   const editable = canEditMember(member, canActivate, canDeactivate)
-  if (!editable) return null
+  const removable = canRemoveMember(member, canRemove)
+  if (!editable && !removable) return null
 
   return (
     <div
       className={cn(
         'flex items-center gap-2',
         layout === 'desktop' && 'justify-end',
-        layout === 'mobile' && 'w-full rounded-xl border border-slate-200 bg-slate-50/80 p-3'
+        layout === 'mobile' && 'w-full flex-wrap rounded-xl border border-slate-200 bg-slate-50/80 p-3'
       )}
     >
-      <Select
-        key={`${member.id}-${member.roleCode}-${layout}`}
-        value={member.roleCode}
-        onValueChange={newRole => {
-          if (newRole === member.roleCode) return
-          onRoleChange({
-            memberId: member.id,
-            memberName: member.fullName,
-            oldRole: member.roleCode,
-            newRole: newRole as UserRole,
-          })
-        }}
-        disabled={isPending}
-      >
-        <SelectTrigger className={cn(
-          'h-9 rounded-lg border-slate-200 bg-white text-xs',
-          layout === 'desktop' ? 'w-[160px]' : 'min-w-0 flex-1'
-        )}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {INVITABLE_ROLES.map(role => (
-            <SelectItem key={role} value={role}>
-              {ROLE_LABELS[role]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {editable && (
+        <>
+          <Select
+            key={`${member.id}-${member.roleCode}-${layout}`}
+            value={member.roleCode}
+            onValueChange={newRole => {
+              if (newRole === member.roleCode) return
+              onRoleChange({
+                memberId: member.id,
+                memberName: member.fullName,
+                oldRole: member.roleCode,
+                newRole: newRole as UserRole,
+              })
+            }}
+            disabled={isPending}
+          >
+            <SelectTrigger className={cn(
+              'h-9 rounded-lg border-slate-200 bg-white text-xs',
+              layout === 'desktop' ? 'w-[160px]' : 'min-w-0 flex-1'
+            )}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {INVITABLE_ROLES.map(role => (
+                <SelectItem key={role} value={role}>
+                  {ROLE_LABELS[role]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-      <div className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5">
-        <Label htmlFor={`active-${member.id}-${layout}`} className="text-xs text-slate-600">
-          Actif
-        </Label>
-        <Switch
-          id={`active-${member.id}-${layout}`}
-          checked={member.isActive}
-          disabled={isPending || pendingKey === `active-${member.id}`}
-          onCheckedChange={v => {
-            if (v) {
-              onActivate(member.id)
-              return
-            }
-            onRequestDeactivate(member.id, member.fullName)
-          }}
-        />
-      </div>
+          <div className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5">
+            <Label htmlFor={`active-${member.id}-${layout}`} className="text-xs text-slate-600">
+              Actif
+            </Label>
+            <Switch
+              id={`active-${member.id}-${layout}`}
+              checked={member.isActive}
+              disabled={isPending || pendingKey === `active-${member.id}`}
+              onCheckedChange={v => {
+                if (v) {
+                  onActivate(member.id)
+                  return
+                }
+                onRequestDeactivate(member.id, member.fullName)
+              }}
+            />
+          </div>
+        </>
+      )}
+
+      {removable && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          title="Retirer de l'établissement"
+          className="h-9 shrink-0 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+          disabled={isPending || pendingKey === `remove-${member.id}`}
+          onClick={() => onRequestRemove(member.id, member.fullName)}
+        >
+          <Trash2 className="h-4 w-4" />
+          {layout === 'mobile' && <span>Retirer</span>}
+        </Button>
+      )}
     </div>
   )
 }
@@ -326,21 +365,28 @@ function DesktopMemberRow({
   member,
   canActivate,
   canDeactivate,
+  canRemove,
   isPending,
   pendingKey,
   onRoleChange,
   onRequestDeactivate,
+  onRequestRemove,
   onActivate,
 }: {
   member: StaffMemberRow
   canActivate: boolean
   canDeactivate: boolean
+  canRemove: boolean
   isPending: boolean
   pendingKey: string | null
   onRoleChange: StaffTeamTableProps['onRoleChange']
   onRequestDeactivate: StaffTeamTableProps['onRequestDeactivate']
+  onRequestRemove: StaffTeamTableProps['onRequestRemove']
   onActivate: StaffTeamTableProps['onActivate']
 }) {
+  const showActions =
+    canActivate || canDeactivate || canRemove
+
   return (
     <tr className={cn(dashboard.tableRow, !member.isActive && 'opacity-75')}>
       <td className="px-5 py-3.5">
@@ -362,16 +408,18 @@ function DesktopMemberRow({
       <td className="px-4 py-3.5 text-slate-500">
         {formatDate(member.createdAt)}
       </td>
-      {(canActivate || canDeactivate) && (
+      {showActions && (
         <td className="px-5 py-3.5">
           <MemberActions
             member={member}
             canActivate={canActivate}
             canDeactivate={canDeactivate}
+            canRemove={canRemove}
             isPending={isPending}
             pendingKey={pendingKey}
             onRoleChange={onRoleChange}
             onRequestDeactivate={onRequestDeactivate}
+            onRequestRemove={onRequestRemove}
             onActivate={onActivate}
             layout="desktop"
           />
@@ -385,22 +433,27 @@ function MobileMemberRow({
   member,
   canActivate,
   canDeactivate,
+  canRemove,
   isPending,
   pendingKey,
   onRoleChange,
   onRequestDeactivate,
+  onRequestRemove,
   onActivate,
 }: {
   member: StaffMemberRow
   canActivate: boolean
   canDeactivate: boolean
+  canRemove: boolean
   isPending: boolean
   pendingKey: string | null
   onRoleChange: StaffTeamTableProps['onRoleChange']
   onRequestDeactivate: StaffTeamTableProps['onRequestDeactivate']
+  onRequestRemove: StaffTeamTableProps['onRequestRemove']
   onActivate: StaffTeamTableProps['onActivate']
 }) {
   const editable = canEditMember(member, canActivate, canDeactivate)
+  const removable = canRemoveMember(member, canRemove)
 
   return (
     <div className={cn('px-4 py-4', !member.isActive && 'opacity-75')}>
@@ -422,16 +475,18 @@ function MobileMemberRow({
         </div>
       </div>
 
-      {editable && (
+      {(editable || removable) && (
         <div className="mt-3">
           <MemberActions
             member={member}
             canActivate={canActivate}
             canDeactivate={canDeactivate}
+            canRemove={canRemove}
             isPending={isPending}
             pendingKey={pendingKey}
             onRoleChange={onRoleChange}
             onRequestDeactivate={onRequestDeactivate}
+            onRequestRemove={onRequestRemove}
             onActivate={onActivate}
             layout="mobile"
           />

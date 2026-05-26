@@ -88,11 +88,6 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'roles', label: 'Rôles & permissions', icon: 'shield', href: '/dashboard/staff/roles-permissions' },
         { id: 'classes', label: 'Classes & matières', icon: 'grid', href: '/dashboard/classes' },
       ]},
-      { group: 'Pédagogie', items: [
-        { id: 'notes', label: 'Validation des notes', icon: 'fileCheck', href: '/dashboard/grades/validate' },
-        { id: 'bulletins', label: 'Bulletins & attestations', icon: 'award', href: '/dashboard/report-cards' },
-        { id: 'absences', label: 'Présences & absences', icon: 'userX', href: '/dashboard/attendance' },
-      ]},
       { group: 'Finances', items: [
         { id: 'budget', label: 'Synthèse finance', icon: 'wallet', href: '/dashboard/finance' },
         { id: 'tuition-official', label: 'Tarifs officiels', icon: 'fileText', href: '/dashboard/finance/tuition' },

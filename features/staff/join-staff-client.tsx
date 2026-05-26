@@ -27,6 +27,12 @@ type JoinStaffClientProps = {
     invitedEmail: string | null
     isExpired: boolean
     isValid: boolean
+    teacherAssignments: Array<{
+      classId: string
+      subjectId: string
+      className: string
+      subjectName: string
+    }>
   } | null
   error?: string
 }
@@ -91,6 +97,26 @@ export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaff
             Expire le {formatDate(preview.expiresAt)}
           </p>
         </div>
+
+        {preview.teacherAssignments.length > 0 && (
+          <div className="rounded-xl border bg-white p-4">
+            <p className="text-sm font-semibold text-slate-900">Vos affectations</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Définies par la direction — vous complétez ensuite votre profil.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {preview.teacherAssignments.map(item => (
+                <li
+                  key={`${item.classId}-${item.subjectId}`}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                >
+                  <span className="font-medium text-slate-900">{item.className}</span>
+                  <span className="text-slate-500"> · {item.subjectName}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {invalid ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-center text-sm text-amber-900">

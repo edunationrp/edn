@@ -20,6 +20,12 @@ type JoinStaffSignupClientProps = {
     isValid: boolean
     isExpired: boolean
     status: string
+    teacherAssignments: Array<{
+      classId: string
+      subjectId: string
+      className: string
+      subjectName: string
+    }>
   } | null
   error?: string
 }
@@ -54,7 +60,23 @@ export function JoinStaffSignupClient({ token, preview, error }: JoinStaffSignup
           {preview.roleLabel}
         </Badge>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {preview.teacherAssignments.length > 0 && (
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Affectations
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {preview.teacherAssignments.map(item => (
+                <li key={`${item.classId}-${item.subjectId}`} className="text-sm">
+                  <span className="font-medium">{item.className}</span>
+                  <span className="text-muted-foreground"> · {item.subjectName}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <StaffInvitationSignupForm
           token={token}
           invitedName={preview.invitedName}

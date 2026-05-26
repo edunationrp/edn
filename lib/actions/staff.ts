@@ -7,10 +7,18 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { resolveAppUrl } from '@/lib/env/public'
 import { sendStaffInviteEmail, type SendEmailResult } from '@/lib/email/send'
-import { hasPermission } from '@/types/permissions'
+import { hasPermission, isSchoolFullAuthority } from '@/types/permissions'
 import { ROLE_LABELS, STAFF_ROLES } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 import { INVITABLE_ROLES } from '@/lib/permissions/catalog'
+import {
+  applyTeacherAssignmentsFromInvitation,
+  buildInvitationMetadata,
+  enrichTeacherAssignments,
+  parseTeacherAssignmentsFromMetadata,
+  validateTeacherInviteAssignments,
+  type TeacherInviteAssignmentInput,
+} from '@/lib/staff/invitation-assignments'
 
 export type StaffInviteActionResult =
   | {
@@ -117,6 +125,7 @@ export async function createStaffInvitation(data: {
   invitedEmail?: string
   invitedName?: string
   sendEmail?: boolean
+  teacherAssignments?: TeacherInviteAssignmentInput[]
 }): Promise<StaffInviteActionResult> {
   const base = await requireStaffAccess('staff:invite')
   if ('error' in base) return { error: base.error }
@@ -125,12 +134,26 @@ export async function createStaffInvitation(data: {
     return { error: 'Rôle non invitable.' }
   }
 
+  if (data.roleCode === 'PROFESSEUR') {
+    const validation = await validateTeacherInviteAssignments(
+      base.supabase,
+      base.schoolId,
+      data.teacherAssignments ?? []
+    )
+    if (validation.error) return { error: validation.error }
+  } else if (data.teacherAssignments?.length) {
+    return { error: 'Les affectations ne s\'appliquent qu\'aux invitations professeur.' }
+  }
+
   const adminResult = requireAdminDb()
   if ('error' in adminResult) return { error: adminResult.error }
   const db = adminResult.admin
 
   const invitedEmail = data.invitedEmail?.trim().toLowerCase() || null
   const invitedName = data.invitedName?.trim() || null
+  const metadata = data.roleCode === 'PROFESSEUR'
+    ? buildInvitationMetadata(data.teacherAssignments)
+    : {}
 
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + 7)
@@ -163,6 +186,7 @@ export async function createStaffInvitation(data: {
           invited_name: invitedName,
           expires_at: expiresAt.toISOString(),
           invited_by: base.user.id,
+          metadata,
         })
         .eq('id', existing.id)
 
@@ -206,6 +230,7 @@ export async function createStaffInvitation(data: {
       invited_name: invitedName,
       expires_at: expiresAt.toISOString(),
       status: 'pending',
+      metadata,
     })
     .select('id, token')
     .single()
@@ -360,6 +385,59 @@ export async function setStaffMemberActive(memberRoleId: string, isActive: boole
   return { success: true }
 }
 
+export async function removeStaffMemberFromSchool(memberRoleId: string) {
+  const base = await requireStaffAccess('staff:deactivate')
+  if ('error' in base) return base
+
+  if (!isSchoolFullAuthority(base.role)) {
+    return { error: 'Seul le proviseur peut retirer un membre de l\'établissement.' as const }
+  }
+
+  const db = getWritableDb(base)
+
+  const { data: memberRaw } = await db
+    .from('user_school_roles')
+    .select('id, user_id, role_code, school_id')
+    .eq('id', memberRoleId)
+    .eq('school_id', base.schoolId)
+    .limit(1)
+
+  const member = (memberRaw as Array<{ id: string; user_id: string; role_code: string }> | null)?.[0]
+  if (!member) return { error: 'Membre introuvable.' }
+
+  if (member.user_id === base.user.id) {
+    return { error: 'Vous ne pouvez pas retirer votre propre accès.' }
+  }
+
+  if (member.role_code === 'PROVISEUR' || member.role_code === 'FONDATEUR') {
+    return { error: 'Impossible de retirer un directeur ou fondateur.' }
+  }
+
+  if (!STAFF_ROLES.includes(member.role_code as UserRole) && member.role_code !== 'PROVISEUR') {
+    return { error: 'Ce membre ne peut pas être retiré ici.' }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .from('teacher_assignments')
+    .update({ is_active: false })
+    .eq('school_id', base.schoolId)
+    .eq('teacher_id', member.user_id)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('user_school_roles')
+    .delete()
+    .eq('id', memberRoleId)
+    .eq('school_id', base.schoolId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/staff/roles-permissions')
+  revalidatePath('/dashboard/staff')
+  return { success: true }
+}
+
 export async function updateStaffMemberRole(memberRoleId: string, newRoleCode: string) {
   const base = await requireStaffAccess('staff:activate')
   if ('error' in base) return base
@@ -419,7 +497,7 @@ export async function acceptStaffInvitation(token: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: inviteRaw } = await (admin as any)
     .from('staff_invitations')
-    .select('id, school_id, role_code, status, expires_at, used_at, invited_email')
+    .select('id, school_id, role_code, status, expires_at, used_at, invited_email, metadata')
     .eq('token', token)
     .limit(1)
 
@@ -431,6 +509,7 @@ export async function acceptStaffInvitation(token: string) {
     expires_at: string
     used_at: string | null
     invited_email: string | null
+    metadata: unknown
   }> | null)?.[0]
 
   if (!invitation) return { error: 'Invitation introuvable ou invalide.' }
@@ -475,6 +554,16 @@ export async function acceptStaffInvitation(token: string) {
 
   if (roleError) return { error: roleError.message }
 
+  if (invitation.role_code === 'PROFESSEUR') {
+    const assignments = parseTeacherAssignmentsFromMetadata(invitation.metadata)
+    const applied = await applyTeacherAssignmentsFromInvitation(admin, {
+      schoolId: invitation.school_id,
+      teacherId: user.id,
+      assignments,
+    })
+    if (applied.error) return { error: applied.error }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (admin as any)
     .from('staff_invitations')
@@ -512,7 +601,8 @@ export async function getInvitationPreview(token: string) {
   const { data: inviteRaw } = await (admin as any)
     .from('staff_invitations')
     .select(`
-      id, role_code, status, expires_at, invited_name, invited_email,
+      id, role_code, status, expires_at, invited_name, invited_email, metadata,
+      school_id,
       schools ( name )
     `)
     .eq('token', token)
@@ -525,10 +615,20 @@ export async function getInvitationPreview(token: string) {
     expires_at: string
     invited_name: string | null
     invited_email: string | null
+    metadata: unknown
+    school_id: string
     schools: { name: string } | null
   }> | null)?.[0]
 
   if (!row) return { error: 'Invitation introuvable.' }
+
+  const teacherAssignments = row.role_code === 'PROFESSEUR'
+    ? await enrichTeacherAssignments(
+        admin,
+        row.school_id,
+        parseTeacherAssignmentsFromMetadata(row.metadata)
+      )
+    : []
 
   return {
     success: true as const,
@@ -541,6 +641,7 @@ export async function getInvitationPreview(token: string) {
       invitedName: row.invited_name,
       invitedEmail: row.invited_email,
       isExpired: new Date(row.expires_at) < new Date(),
+      teacherAssignments,
     },
   }
 }
@@ -568,7 +669,7 @@ export async function registerStaffFromInvitation(input: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: inviteRaw } = await (admin as any)
     .from('staff_invitations')
-    .select('id, school_id, role_code, status, expires_at, invited_email')
+    .select('id, school_id, role_code, status, expires_at, invited_email, metadata')
     .eq('token', input.token)
     .limit(1)
 
@@ -579,6 +680,7 @@ export async function registerStaffFromInvitation(input: {
     status: string
     expires_at: string
     invited_email: string | null
+    metadata: unknown
   }> | null)?.[0]
 
   if (!invitation) return { error: 'Invitation invalide.' }
@@ -639,6 +741,16 @@ export async function registerStaffFromInvitation(input: {
     })
 
     if (roleError) throw new Error(roleError.message)
+
+    if (invitation.role_code === 'PROFESSEUR') {
+      const assignments = parseTeacherAssignmentsFromMetadata(invitation.metadata)
+      const applied = await applyTeacherAssignmentsFromInvitation(admin, {
+        schoolId: invitation.school_id,
+        teacherId: userId,
+        assignments,
+      })
+      if (applied.error) throw new Error(applied.error)
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: inviteError } = await (admin as any)

@@ -41,6 +41,7 @@ import { StaffTeamTable } from '@/features/staff/staff-team-table'
 import {
   cancelStaffInvitation,
   createStaffInvitation,
+  removeStaffMemberFromSchool,
   resendStaffInvitationEmail,
   setStaffMemberActive,
   updateStaffMemberRole,
@@ -51,6 +52,7 @@ type TabId = 'overview' | 'matrix' | 'team' | 'invitations' | 'compare'
 
 type ConfirmState =
   | { type: 'deactivate'; memberId: string; memberName: string }
+  | { type: 'remove'; memberId: string; memberName: string }
   | { type: 'cancel-invite'; inviteId: string; label: string }
   | { type: 'change-role'; memberId: string; memberName: string; newRole: UserRole; oldRole: UserRole }
   | null
@@ -272,6 +274,16 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
         `deactivate-${confirmState.memberId}`,
         () => setStaffMemberActive(confirmState.memberId, false),
         'Membre désactivé',
+        () => setConfirmState(null)
+      )
+      return
+    }
+
+    if (confirmState.type === 'remove') {
+      runAction(
+        `remove-${confirmState.memberId}`,
+        () => removeStaffMemberFromSchool(confirmState.memberId),
+        'Membre retiré de l\'établissement',
         () => setConfirmState(null)
       )
       return
@@ -587,6 +599,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
             members={data.members}
             canActivate={data.canActivate}
             canDeactivate={data.canDeactivate}
+            canRemove={data.canRemove}
             isPending={isPending}
             pendingKey={pendingKey}
             onRoleChange={payload =>
@@ -600,6 +613,9 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
             }
             onRequestDeactivate={(memberId, memberName) =>
               setConfirmState({ type: 'deactivate', memberId, memberName })
+            }
+            onRequestRemove={(memberId, memberName) =>
+              setConfirmState({ type: 'remove', memberId, memberName })
             }
             onActivate={memberId =>
               runAction(
@@ -619,6 +635,8 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
             schoolName={data.schoolName}
             appUrl={data.appUrl}
             invitations={data.invitations}
+            inviteClasses={data.inviteClasses}
+            inviteSubjects={data.inviteSubjects}
             isPending={isPending}
             pendingKey={pendingKey}
             lastInviteUrl={lastInviteUrl}
@@ -775,14 +793,18 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
         open={!!confirmState}
         onOpenChange={open => { if (!open) setConfirmState(null) }}
         title={
-          confirmState?.type === 'deactivate'
+          confirmState?.type === 'remove'
+            ? 'Retirer ce membre ?'
+            : confirmState?.type === 'deactivate'
             ? 'Désactiver ce membre ?'
             : confirmState?.type === 'cancel-invite'
               ? 'Annuler l\'invitation ?'
               : 'Changer le rôle ?'
         }
         description={
-          confirmState?.type === 'deactivate'
+          confirmState?.type === 'remove'
+            ? `${confirmState.memberName} sera définitivement retiré(e) de l'établissement et n'apparaîtra plus dans la liste du personnel. Son compte EduNation est conservé.`
+            : confirmState?.type === 'deactivate'
             ? `${confirmState.memberName} ne pourra plus accéder à l'établissement tant que son compte est inactif.`
             : confirmState?.type === 'cancel-invite'
               ? `Le lien d'invitation pour ${confirmState.label} ne sera plus utilisable.`
@@ -791,13 +813,15 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                 : ''
         }
         confirmLabel={
-          confirmState?.type === 'deactivate'
+          confirmState?.type === 'remove'
+            ? 'Retirer de l\'établissement'
+            : confirmState?.type === 'deactivate'
             ? 'Désactiver'
             : confirmState?.type === 'cancel-invite'
               ? 'Annuler l\'invitation'
               : 'Confirmer le changement'
         }
-        variant={confirmState?.type === 'deactivate' || confirmState?.type === 'cancel-invite' ? 'destructive' : 'default'}
+        variant={confirmState?.type === 'deactivate' || confirmState?.type === 'remove' || confirmState?.type === 'cancel-invite' ? 'destructive' : 'default'}
         loading={!!pendingKey && !!confirmState}
         onConfirm={handleConfirmAction}
       />

@@ -9,7 +9,6 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { UserCheck, UserX, Clock, AlertTriangle, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { AttendanceRecordsTable } from '@/features/attendance/attendance-records-table'
-import { isSchoolFullAuthority } from '@/types/permissions'
 
 export default async function AttendancePage() {
   const supabase = await createClient()
@@ -58,8 +57,7 @@ export default async function AttendancePage() {
   const totalRecords = records.length
 
   const isSurveillant = ctx?.role_code === 'SURVEILLANT_GENERAL'
-  const isAdmin = isSchoolFullAuthority(ctx?.role_code ?? '') ||
-    ['DIRECTEUR_ADJOINT', 'CENSEUR'].includes(ctx?.role_code ?? '')
+  const isAdmin = ['DIRECTEUR_ADJOINT', 'CENSEUR'].includes(ctx?.role_code ?? '')
   const canTakeAttendance = isTeacher || isSurveillant || isAdmin
 
   const recentRows = records.slice(0, 20).map(r => ({

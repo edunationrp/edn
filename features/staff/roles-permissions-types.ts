@@ -1,4 +1,5 @@
 import type { UserRole } from '@/types/roles'
+import type { TeacherInviteAssignmentPreview } from '@/lib/staff/invitation-assignments'
 
 export type StaffMemberRow = {
   id: string
@@ -20,7 +21,11 @@ export type InvitationRow = {
   expiresAt: string
   invitedEmail: string | null
   invitedName: string | null
+  teacherAssignments: TeacherInviteAssignmentPreview[]
 }
+
+export type InviteClassOption = { id: string; name: string }
+export type InviteSubjectOption = { id: string; name: string }
 
 export type RolesPermissionsPayload = {
   schoolId: string
@@ -32,7 +37,10 @@ export type RolesPermissionsPayload = {
   canInvite: boolean
   canActivate: boolean
   canDeactivate: boolean
+  canRemove: boolean
   members: StaffMemberRow[]
   roleCounts: Record<string, number>
   invitations: InvitationRow[]
+  inviteClasses: InviteClassOption[]
+  inviteSubjects: InviteSubjectOption[]
 }
