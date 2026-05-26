@@ -343,6 +343,12 @@ function getWritableDb(base: { supabase: Awaited<ReturnType<typeof createClient>
   return getAdminOrClient() ?? base.supabase
 }
 
+const NON_REMOVABLE_STAFF_ROLES: UserRole[] = ['PROVISEUR', 'FONDATEUR', 'SUPER_ADMIN_EDUNATION']
+
+function isRemovableStaffRole(roleCode: string) {
+  return !NON_REMOVABLE_STAFF_ROLES.includes(roleCode as UserRole)
+}
+
 export async function setStaffMemberActive(memberRoleId: string, isActive: boolean) {
   const base = await requireStaffAccess(isActive ? 'staff:activate' : 'staff:deactivate')
   if ('error' in base) return base
@@ -393,7 +399,8 @@ export async function removeStaffMemberFromSchool(memberRoleId: string) {
     return { error: 'Seul le proviseur peut retirer un membre de l\'établissement.' as const }
   }
 
-  const db = getWritableDb(base)
+  const admin = getAdminOrClient()
+  const db = admin ?? base.supabase
 
   const { data: memberRaw } = await db
     .from('user_school_roles')
@@ -409,12 +416,8 @@ export async function removeStaffMemberFromSchool(memberRoleId: string) {
     return { error: 'Vous ne pouvez pas retirer votre propre accès.' }
   }
 
-  if (member.role_code === 'PROVISEUR' || member.role_code === 'FONDATEUR') {
+  if (!isRemovableStaffRole(member.role_code)) {
     return { error: 'Impossible de retirer un directeur ou fondateur.' }
-  }
-
-  if (!STAFF_ROLES.includes(member.role_code as UserRole) && member.role_code !== 'PROVISEUR') {
-    return { error: 'Ce membre ne peut pas être retiré ici.' }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -425,13 +428,32 @@ export async function removeStaffMemberFromSchool(memberRoleId: string) {
     .eq('teacher_id', member.user_id)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  await (db as any)
+    .from('classes')
+    .update({ main_teacher_id: null })
+    .eq('school_id', base.schoolId)
+    .eq('main_teacher_id', member.user_id)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error, count } = await (db as any)
     .from('user_school_roles')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('id', memberRoleId)
     .eq('school_id', base.schoolId)
 
-  if (error) return { error: error.message }
+  if (error) {
+    if (!admin && /policy|permission|42501|row-level security/i.test(error.message)) {
+      return {
+        error:
+          'Suppression refusée par la base de données. Appliquez la migration Supabase 018_staff_remove_rls.sql (ou configurez SUPABASE_SERVICE_ROLE_KEY).',
+      }
+    }
+    return { error: error.message }
+  }
+
+  if (count === 0) {
+    return { error: 'Membre introuvable ou déjà retiré.' }
+  }
 
   revalidatePath('/dashboard/staff/roles-permissions')
   revalidatePath('/dashboard/staff')

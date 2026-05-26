@@ -7,7 +7,7 @@ import type { StaffDirectoryRow } from '@/features/staff/staff-directory-table'
 import { UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { hasPermission } from '@/types/permissions'
+import { hasPermission, isSchoolFullAuthority } from '@/types/permissions'
 import { ROLE_LABELS, STAFF_ROLES, type UserRole } from '@/types/roles'
 import type { Metadata } from 'next'
 import { cn } from '@/lib/utils'
@@ -24,14 +24,14 @@ export default async function StaffPage() {
   if (!user) redirect('/login')
 
   const schoolRole = await getUserSchoolContext(user.id)
-  const canInvite = schoolRole?.role_code
-    ? hasPermission(schoolRole.role_code as UserRole, 'staff:invite')
-    : false
+  const role = schoolRole?.role_code as UserRole | undefined
+  const canInvite = role ? hasPermission(role, 'staff:invite') : false
+  const canRemove = role ? isSchoolFullAuthority(role) : false
 
   const { data: staffMembersRaw, count } = await supabase
     .from('user_school_roles')
     .select(`
-      id, role_code, is_active, created_at,
+      id, user_id, role_code, is_active, created_at,
       profiles (id, full_name, email, phone, avatar_url, is_active)
     `, { count: 'exact' })
     .eq('school_id', schoolRole?.school_id ?? '')
@@ -40,6 +40,7 @@ export default async function StaffPage() {
 
   const staffMembers = staffMembersRaw as Array<{
     id: string
+    user_id: string
     role_code: string
     is_active: boolean
     created_at: string
@@ -60,12 +61,14 @@ export default async function StaffPage() {
 
   const rows: StaffDirectoryRow[] = (staffMembers ?? []).map(member => ({
     id: member.id,
+    userId: member.user_id,
     roleCode: member.role_code as UserRole,
     isActive: member.is_active,
     createdAt: member.created_at,
     fullName: member.profiles?.full_name?.trim() || '—',
     email: member.profiles?.email ?? null,
     phone: member.profiles?.phone ?? null,
+    isCurrentUser: member.user_id === user.id,
   }))
 
   return (
@@ -109,7 +112,7 @@ export default async function StaffPage() {
         ))}
       </div>
 
-      <StaffDirectoryTable members={rows} />
+      <StaffDirectoryTable members={rows} canRemove={canRemove} />
     </div>
   )
 }
