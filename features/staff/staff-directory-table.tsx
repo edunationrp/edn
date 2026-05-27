@@ -259,7 +259,11 @@ export function StaffDirectoryTable({ members, canRemove }: StaffDirectoryTableP
           notify.error(result.error)
           return
         }
-        notify.success('Membre retiré de l\'établissement')
+        notify.success(
+          result.accountDeleted
+            ? 'Membre supprimé de cet établissement'
+            : 'Membre retiré de cet établissement',
+        )
         setRemoveTarget(null)
         router.refresh()
       } finally {
@@ -394,8 +398,8 @@ export function StaffDirectoryTable({ members, canRemove }: StaffDirectoryTableP
         description={
           removeTarget
             ? members.find(m => m.id === removeTarget.id)?.roleCode === 'PROFESSEUR'
-              ? `${removeTarget.name} sera retiré(e) de l'établissement. Ses affectations classes/matières seront supprimées. Son compte EduNation est conservé.`
-              : `${removeTarget.name} sera définitivement retiré(e) de l'établissement. Son compte EduNation est conservé.`
+              ? `${removeTarget.name} sera retiré(e) de cet établissement uniquement. Ses affectations seront supprimées ici ; son compte dans les autres établissements reste intact.`
+              : `${removeTarget.name} sera supprimé(e) de cet établissement uniquement. Les autres établissements ne sont pas affectés.`
             : ''
         }
         confirmLabel="Retirer de l'établissement"

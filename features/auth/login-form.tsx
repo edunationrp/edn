@@ -1,21 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createClient } from '@/lib/supabase/client'
+import { loginStaffMember, lookupStaffLoginSchools } from '@/lib/actions/auth-login'
+import type { StaffSchoolOption } from '@/lib/staff/membership-auth'
 import { notify } from '@/lib/feedback/toast'
 import { TOAST_SUCCESS } from '@/lib/feedback/messages'
 
 const loginSchema = z.object({
   email: z.string().email('Email invalide'),
   password: z.string().min(6, 'Mot de passe requis'),
+  schoolId: z.string().optional(),
 })
 
 type LoginData = z.infer<typeof loginSchema>
@@ -25,28 +26,68 @@ export function LoginForm() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect')
   const prefilledEmail = searchParams.get('email')?.trim() ?? ''
-  const supabase = createClient()
+  const prefilledSchoolId = searchParams.get('school')?.trim() ?? ''
+
   const [showPassword, setShowPassword] = useState(false)
+  const [schools, setSchools] = useState<StaffSchoolOption[]>([])
+  const [loadingSchools, setLoadingSchools] = useState(false)
 
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: prefilledEmail,
+      schoolId: prefilledSchoolId || undefined,
     },
   })
 
+  const emailValue = watch('email')
+  const schoolIdValue = watch('schoolId')
+
+  useEffect(() => {
+    if (!prefilledEmail) return
+    void loadSchools(prefilledEmail)
+  }, [prefilledEmail])
+
+  async function loadSchools(email: string) {
+    const trimmed = email.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setSchools([])
+      return
+    }
+
+    setLoadingSchools(true)
+    try {
+      const result = await lookupStaffLoginSchools(trimmed)
+      if ('schools' in result) {
+        setSchools(result.schools)
+        if (result.schools.length === 1) {
+          setValue('schoolId', result.schools[0].schoolId)
+        } else if (prefilledSchoolId && result.schools.some(s => s.schoolId === prefilledSchoolId)) {
+          setValue('schoolId', prefilledSchoolId)
+        }
+      } else {
+        setSchools([])
+      }
+    } finally {
+      setLoadingSchools(false)
+    }
+  }
+
   async function onSubmit(data: LoginData) {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
+    const result = await loginStaffMember({
+      contactEmail: data.email,
       password: data.password,
+      schoolId: data.schoolId || (schools.length === 1 ? schools[0].schoolId : undefined),
     })
 
-    if (error) {
-      notify.error(error, 'auth_login')
+    if ('error' in result && result.error) {
+      notify.error(result.error, 'auth_login')
       return
     }
 
@@ -60,6 +101,8 @@ export function LoginForm() {
     router.refresh()
   }
 
+  const needsSchoolPicker = schools.length > 1
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2.5">
       <div className="space-y-1.5">
@@ -72,13 +115,54 @@ export function LoginForm() {
             placeholder="votre@email.com"
             autoComplete="email"
             className="flex h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            {...register('email')}
+            {...register('email', {
+              onBlur: () => {
+                void loadSchools(emailValue)
+              },
+            })}
           />
         </div>
         {errors.email && (
           <p className="text-xs text-destructive">{errors.email.message}</p>
         )}
       </div>
+
+      {loadingSchools && (
+        <p className="text-xs text-muted-foreground">Recherche de vos établissements…</p>
+      )}
+
+      {needsSchoolPicker && (
+        <div className="space-y-1.5">
+          <Label htmlFor="schoolId">Établissement</Label>
+          <div className="relative">
+            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <select
+              id="schoolId"
+              className="flex h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm"
+              {...register('schoolId', { required: needsSchoolPicker })}
+            >
+              <option value="">Choisir votre établissement</option>
+              {schools.map(school => (
+                <option key={school.schoolId} value={school.schoolId}>
+                  {school.schoolName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Même email, mot de passe différent par établissement.
+          </p>
+          {!schoolIdValue && needsSchoolPicker && (
+            <p className="text-xs text-destructive">Sélectionnez l&apos;établissement pour continuer.</p>
+          )}
+        </div>
+      )}
+
+      {schools.length === 1 && (
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+          <span className="font-medium">Établissement :</span> {schools[0].schoolName}
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <Label htmlFor="password">Mot de passe</Label>

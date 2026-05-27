@@ -23,8 +23,10 @@ function emailsMatch(a: string | null | undefined, b: string | null | undefined)
 type JoinStaffClientProps = {
   token: string
   isLoggedIn: boolean
-  loggedInEmail?: string | null
+  loggedInContactEmail?: string | null
+  isMemberOfInvitationSchool?: boolean
   preview: {
+    schoolId: string
     schoolName: string
     roleCode: string
     roleLabel: string
@@ -47,7 +49,8 @@ type JoinStaffClientProps = {
 export function JoinStaffClient({
   token,
   isLoggedIn,
-  loggedInEmail,
+  loggedInContactEmail,
+  isMemberOfInvitationSchool = false,
   preview,
   error,
 }: JoinStaffClientProps) {
@@ -75,10 +78,15 @@ export function JoinStaffClient({
   const invalid = !preview.isValid || preview.isExpired || preview.status !== 'pending'
   const invitedEmail = preview.invitedEmail?.trim() ?? null
   const emailMismatch =
-    isLoggedIn && !!invitedEmail && !emailsMatch(loggedInEmail, invitedEmail)
+    isLoggedIn && !!invitedEmail && !emailsMatch(loggedInContactEmail, invitedEmail)
+  const wrongSchoolSession = isLoggedIn && !isMemberOfInvitationSchool
+  const canAcceptLoggedIn =
+    isLoggedIn &&
+    isMemberOfInvitationSchool &&
+    (!invitedEmail || emailsMatch(loggedInContactEmail, invitedEmail))
 
   const loginHref = invitedEmail
-    ? `/login?email=${encodeURIComponent(invitedEmail)}&redirect=${encodeURIComponent(`/join/staff/${token}`)}`
+    ? `/login?email=${encodeURIComponent(invitedEmail)}&school=${encodeURIComponent(preview.schoolId)}&redirect=${encodeURIComponent(`/join/staff/${token}`)}`
     : `/login?redirect=${encodeURIComponent(`/join/staff/${token}`)}`
 
   function handleSignOutAndContinue(mode: 'signup' | 'login') {
@@ -161,12 +169,8 @@ export function JoinStaffClient({
           <div className="space-y-4">
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
               <p>
-                Vous êtes connecté avec <strong>{loggedInEmail}</strong>, mais cette invitation
+                Vous êtes connecté avec <strong>{loggedInContactEmail}</strong>, mais cette invitation
                 est adressée à <strong>{invitedEmail}</strong>.
-              </p>
-              <p className="mt-2 text-xs text-amber-900/90">
-                Utilisez le compte invité pour accepter — pas besoin d&apos;être connecté sur Gmail
-                dans le navigateur, seulement sur EduNation.
               </p>
             </div>
             <div className="space-y-2">
@@ -198,15 +202,33 @@ export function JoinStaffClient({
               </Button>
             </div>
           </div>
-        ) : !isLoggedIn || !invitedEmail ? (
+        ) : wrongSchoolSession ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-950">
+              <p>
+                Vous êtes connecté à un autre établissement. Pour rejoindre{' '}
+                <strong>{preview.schoolName}</strong> avec le même email, créez un compte dédié
+                avec un <strong>mot de passe propre à cet établissement</strong>.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={isSigningOut}
+              onClick={() => handleSignOutAndContinue('signup')}
+            >
+              <LogOut className="h-4 w-4" />
+              Me déconnecter et créer mon compte {preview.schoolName}
+            </Button>
+          </div>
+        ) : !canAcceptLoggedIn ? (
           <div className="space-y-4">
             <div className="border-t pt-4">
               <h3 className="mb-1 text-center text-sm font-semibold text-foreground">
                 Finalisez votre compte
               </h3>
               <p className="mb-4 text-center text-xs text-muted-foreground">
-                Complétez vos informations pour rejoindre {preview.schoolName}.
-                Aucune connexion préalable requise — le lien d&apos;invitation suffit.
+                Chaque établissement a son propre mot de passe, même si vous réutilisez le même email.
               </p>
               <StaffInvitationSignupForm
                 token={token}
@@ -219,8 +241,9 @@ export function JoinStaffClient({
         ) : (
           <div className="space-y-3">
             <p className="text-center text-sm text-muted-foreground">
-              Connecté en tant que <strong>{loggedInEmail}</strong>. Confirmez pour accéder à
-              votre espace <strong>{preview.roleLabel}</strong>.
+              Connecté en tant que <strong>{loggedInContactEmail}</strong> à{' '}
+              <strong>{preview.schoolName}</strong>. Confirmez pour accéder à votre espace{' '}
+              <strong>{preview.roleLabel}</strong>.
             </p>
             <Button
               className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"

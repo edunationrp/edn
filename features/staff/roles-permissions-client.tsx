@@ -201,6 +201,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
     action: () => Promise<{
       error?: string
       success?: boolean
+      successMessage?: string
       inviteUrl?: string
       emailSent?: boolean
       emailWarning?: string
@@ -227,7 +228,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
               : 'Le lien existant a été prolongé — copiez-le si besoin.',
           })
         } else {
-          notify.success(successMsg)
+          notify.success(result.successMessage ?? successMsg)
         }
 
         if (result.inviteUrl) setLastInviteUrl(result.inviteUrl)
@@ -282,7 +283,16 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
     if (confirmState.type === 'remove') {
       runAction(
         `remove-${confirmState.memberId}`,
-        () => removeStaffMemberFromSchool(confirmState.memberId),
+        async () => {
+          const result = await removeStaffMemberFromSchool(confirmState.memberId)
+          if ('error' in result && result.error) return { error: result.error }
+          return {
+            success: true,
+            successMessage: result.accountDeleted
+              ? 'Membre supprimé de cet établissement'
+              : 'Membre retiré de cet établissement',
+          }
+        },
         'Membre retiré de l\'établissement',
         () => setConfirmState(null)
       )
@@ -804,8 +814,8 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
         description={
           confirmState?.type === 'remove'
             ? confirmState.memberName && data.members.find(m => m.id === confirmState.memberId)?.roleCode === 'PROFESSEUR'
-              ? `${confirmState.memberName} sera retiré(e) de l'établissement. Ses affectations classes/matières seront supprimées. Son compte EduNation est conservé.`
-              : `${confirmState.memberName} sera définitivement retiré(e) de l'établissement et n'apparaîtra plus dans la liste du personnel. Son compte EduNation est conservé.`
+              ? `${confirmState.memberName} sera retiré(e) de cet établissement uniquement. Ses affectations seront supprimées ici ; son accès aux autres établissements reste intact.`
+              : `${confirmState.memberName} sera supprimé(e) de cet établissement uniquement. Les autres établissements ne sont pas affectés.`
             : confirmState?.type === 'deactivate'
             ? `${confirmState.memberName} ne pourra plus accéder à l'établissement tant que son compte est inactif.`
             : confirmState?.type === 'cancel-invite'

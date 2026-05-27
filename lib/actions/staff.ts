@@ -23,6 +23,11 @@ import {
   cleanupTeacherSchoolMembership,
   isRemovableStaffRole,
 } from '@/lib/staff/member-removal'
+import { buildStaffMembershipAuthEmail } from '@/lib/auth/staff-membership-email'
+import {
+  deleteStaffSchoolAccountIfEmpty,
+  isStaffContactEmailUsedAtSchool,
+} from '@/lib/staff/membership-auth'
 
 export type StaffInviteActionResult =
   | {
@@ -414,6 +419,24 @@ export async function removeStaffMemberFromSchool(memberRoleId: string) {
     return { error: 'Impossible de retirer un directeur ou fondateur.' }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: userRolesRaw } = await (db as any)
+    .from('user_school_roles')
+    .select('id')
+    .eq('user_id', member.user_id)
+
+  const userRoleIds = ((userRolesRaw ?? []) as Array<{ id: string }>).map(row => row.id)
+  const isLastRoleAtSchool =
+    userRoleIds.filter(id => id === memberRoleId).length === 1 &&
+    userRoleIds.length === 1
+
+  if (isLastRoleAtSchool && !admin) {
+    return {
+      error:
+        'La suppression définitive du compte dans cet établissement nécessite SUPABASE_SERVICE_ROLE_KEY (clé service Supabase).',
+    }
+  }
+
   if (member.user_id === base.user.id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: otherRolesRaw } = await (db as any)
@@ -478,9 +501,18 @@ export async function removeStaffMemberFromSchool(memberRoleId: string) {
     return { error: 'Membre introuvable ou déjà retiré.' }
   }
 
+  let accountDeleted = false
+  if (admin) {
+    const purge = await deleteStaffSchoolAccountIfEmpty(admin, member.user_id, base.schoolId)
+    if (purge.error) {
+      return { error: purge.error }
+    }
+    accountDeleted = purge.deleted
+  }
+
   revalidatePath('/dashboard/staff/roles-permissions')
   revalidatePath('/dashboard/staff')
-  return { success: true }
+  return { success: true as const, accountDeleted }
 }
 
 export async function updateStaffMemberRole(memberRoleId: string, newRoleCode: string) {
@@ -565,13 +597,37 @@ export async function acceptStaffInvitation(token: string) {
     return { error: 'Invitation expirée. Demandez un nouveau lien au directeur.' }
   }
 
+  const { data: profileRaw } = await admin
+    .from('profiles')
+    .select('email')
+    .eq('id', user.id)
+    .limit(1)
+
+  const contactEmail = (
+    profileRaw as Array<{ email: string | null }> | null
+  )?.[0]?.email?.toLowerCase()
+
   if (
     invitation.invited_email &&
-    user.email &&
-    invitation.invited_email.toLowerCase() !== user.email.toLowerCase()
+    contactEmail &&
+    invitation.invited_email.toLowerCase() !== contactEmail
   ) {
     return {
-      error: `Cette invitation est réservée à ${invitation.invited_email}. Déconnectez-vous puis reconnectez-vous avec cette adresse, ou créez un compte depuis le lien d'invitation.`,
+      error: `Cette invitation est réservée à ${invitation.invited_email}. Créez un compte dédié à cet établissement via le formulaire d'inscription.`,
+    }
+  }
+
+  const { data: membershipAtSchoolRaw } = await admin
+    .from('user_school_roles')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('school_id', invitation.school_id)
+    .limit(1)
+
+  if (!(membershipAtSchoolRaw as unknown[] | null)?.length) {
+    return {
+      error:
+        'Pour rejoindre un nouvel établissement avec le même email, créez un compte dédié (mot de passe propre à cet établissement) via le formulaire ci-dessous.',
     }
   }
 
@@ -678,6 +734,7 @@ export async function getInvitationPreview(token: string) {
   return {
     success: true as const,
     preview: {
+      schoolId: row.school_id,
       schoolName: row.schools?.name ?? 'Établissement',
       roleCode: row.role_code,
       roleLabel: ROLE_LABELS[row.role_code as UserRole] ?? row.role_code,
@@ -739,8 +796,14 @@ export async function registerStaffFromInvitation(input: {
     return { error: 'Cette invitation est réservée à une autre adresse email.' }
   }
 
+  if (await isStaffContactEmailUsedAtSchool(admin, invitation.school_id, email)) {
+    return { error: 'Cet email est déjà utilisé dans cet établissement.' }
+  }
+
+  const authEmail = buildStaffMembershipAuthEmail(email, invitation.school_id)
+
   const { data: authData, error: signUpError } = await admin.auth.admin.createUser({
-    email,
+    email: authEmail,
     password: input.password,
     email_confirm: true,
     user_metadata: {
@@ -749,6 +812,7 @@ export async function registerStaffFromInvitation(input: {
       last_name: lastName,
       phone: input.phone?.trim(),
       default_role: invitation.role_code,
+      contact_email: email,
     },
   })
 
@@ -756,7 +820,7 @@ export async function registerStaffFromInvitation(input: {
     const msg = signUpError?.message ?? 'Création du compte impossible.'
     if (/already|registered|exists|duplicate/i.test(msg)) {
       return {
-        error: 'Un compte existe déjà avec cet email. Connectez-vous puis acceptez l\'invitation.',
+        error: 'Un compte existe déjà pour cet établissement avec cet email. Connectez-vous avec le mot de passe de cet établissement.',
       }
     }
     return { error: msg }
@@ -810,5 +874,5 @@ export async function registerStaffFromInvitation(input: {
   }
 
   revalidatePath('/dashboard')
-  return { success: true as const, email, roleCode: invitation.role_code }
+  return { success: true as const, email, schoolId: invitation.school_id, roleCode: invitation.role_code }
 }
