@@ -3,7 +3,8 @@
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Shield, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Shield, CheckCircle, XCircle, Loader2, LogOut, LogIn } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,9 +15,15 @@ import { ROLE_COLORS } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 import { formatDate } from '@/lib/utils'
 
+function emailsMatch(a: string | null | undefined, b: string | null | undefined) {
+  if (!a || !b) return true
+  return a.trim().toLowerCase() === b.trim().toLowerCase()
+}
+
 type JoinStaffClientProps = {
   token: string
   isLoggedIn: boolean
+  loggedInEmail?: string | null
   preview: {
     schoolName: string
     roleCode: string
@@ -37,9 +44,16 @@ type JoinStaffClientProps = {
   error?: string
 }
 
-export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaffClientProps) {
+export function JoinStaffClient({
+  token,
+  isLoggedIn,
+  loggedInEmail,
+  preview,
+  error,
+}: JoinStaffClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [isSigningOut, startSignOut] = useTransition()
 
   if (error || !preview) {
     return (
@@ -59,6 +73,25 @@ export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaff
   }
 
   const invalid = !preview.isValid || preview.isExpired || preview.status !== 'pending'
+  const invitedEmail = preview.invitedEmail?.trim() ?? null
+  const emailMismatch =
+    isLoggedIn && !!invitedEmail && !emailsMatch(loggedInEmail, invitedEmail)
+
+  const loginHref = invitedEmail
+    ? `/login?email=${encodeURIComponent(invitedEmail)}&redirect=${encodeURIComponent(`/join/staff/${token}`)}`
+    : `/login?redirect=${encodeURIComponent(`/join/staff/${token}`)}`
+
+  function handleSignOutAndContinue(mode: 'signup' | 'login') {
+    startSignOut(async () => {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      if (mode === 'login') {
+        router.push(loginHref)
+      } else {
+        router.refresh()
+      }
+    })
+  }
 
   function handleAccept() {
     startTransition(async () => {
@@ -124,7 +157,48 @@ export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaff
               ? 'Cette invitation a expiré. Contactez le directeur pour un nouveau lien.'
               : 'Cette invitation n\'est plus disponible.'}
           </div>
-        ) : !isLoggedIn ? (
+        ) : emailMismatch ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+              <p>
+                Vous êtes connecté avec <strong>{loggedInEmail}</strong>, mais cette invitation
+                est adressée à <strong>{invitedEmail}</strong>.
+              </p>
+              <p className="mt-2 text-xs text-amber-900/90">
+                Utilisez le compte invité pour accepter — pas besoin d&apos;être connecté sur Gmail
+                dans le navigateur, seulement sur EduNation.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Button
+                className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"
+                disabled={isSigningOut}
+                onClick={() => handleSignOutAndContinue('login')}
+              >
+                {isSigningOut ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Redirection…
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="h-4 w-4" />
+                    Se connecter avec {invitedEmail}
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={isSigningOut}
+                onClick={() => handleSignOutAndContinue('signup')}
+              >
+                <LogOut className="h-4 w-4" />
+                Créer un compte avec {invitedEmail}
+              </Button>
+            </div>
+          </div>
+        ) : !isLoggedIn || !invitedEmail ? (
           <div className="space-y-4">
             <div className="border-t pt-4">
               <h3 className="mb-1 text-center text-sm font-semibold text-foreground">
@@ -132,19 +206,21 @@ export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaff
               </h3>
               <p className="mb-4 text-center text-xs text-muted-foreground">
                 Complétez vos informations pour rejoindre {preview.schoolName}.
+                Aucune connexion préalable requise — le lien d&apos;invitation suffit.
               </p>
               <StaffInvitationSignupForm
                 token={token}
                 invitedName={preview.invitedName}
                 invitedEmail={preview.invitedEmail}
+                loginHref={loginHref}
               />
             </div>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-center text-sm text-muted-foreground">
-              Vous êtes connecté. Confirmez pour accéder à votre espace{' '}
-              <strong>{preview.roleLabel}</strong>.
+              Connecté en tant que <strong>{loggedInEmail}</strong>. Confirmez pour accéder à
+              votre espace <strong>{preview.roleLabel}</strong>.
             </p>
             <Button
               className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"

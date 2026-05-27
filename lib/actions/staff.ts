@@ -571,7 +571,7 @@ export async function acceptStaffInvitation(token: string) {
     invitation.invited_email.toLowerCase() !== user.email.toLowerCase()
   ) {
     return {
-      error: `Cette invitation est réservée à ${invitation.invited_email}. Connectez-vous avec ce compte.`,
+      error: `Cette invitation est réservée à ${invitation.invited_email}. Déconnectez-vous puis reconnectez-vous avec cette adresse, ou créez un compte depuis le lien d'invitation.`,
     }
   }
 

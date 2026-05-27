@@ -42,6 +42,7 @@ type StaffInvitationSignupFormProps = {
   token: string
   invitedName?: string | null
   invitedEmail?: string | null
+  loginHref?: string
   submitLabel?: string
   showLoginLink?: boolean
 }
@@ -50,9 +51,15 @@ export function StaffInvitationSignupForm({
   token,
   invitedName,
   invitedEmail,
+  loginHref,
   submitLabel = 'Créer mon compte et rejoindre l\'équipe',
   showLoginLink = true,
 }: StaffInvitationSignupFormProps) {
+  const resolvedLoginHref =
+    loginHref ??
+    (invitedEmail
+      ? `/login?email=${encodeURIComponent(invitedEmail)}&redirect=${encodeURIComponent(`/join/staff/${token}`)}`
+      : `/login?redirect=${encodeURIComponent(`/join/staff/${token}`)}`)
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -188,10 +195,7 @@ export function StaffInvitationSignupForm({
       {showLoginLink && (
         <p className="text-center text-xs text-muted-foreground">
           Déjà un compte ?{' '}
-          <Link
-            href={`/login?redirect=${encodeURIComponent(`/join/staff/${token}`)}`}
-            className="font-medium text-[#1a4d2e] hover:underline"
-          >
+          <Link href={resolvedLoginHref} className="font-medium text-[#1a4d2e] hover:underline">
             Se connecter
           </Link>
         </p>

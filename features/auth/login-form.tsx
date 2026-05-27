@@ -24,6 +24,7 @@ export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect')
+  const prefilledEmail = searchParams.get('email')?.trim() ?? ''
   const supabase = createClient()
   const [showPassword, setShowPassword] = useState(false)
 
@@ -33,6 +34,9 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
   } = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: prefilledEmail,
+    },
   })
 
   async function onSubmit(data: LoginData) {

@@ -35,6 +35,7 @@ export default async function JoinStaffPage({ params }: PageProps) {
         <JoinStaffClient
           token={token}
           isLoggedIn={!!user}
+          loggedInEmail={user?.email ?? null}
           preview={preview}
           error={'error' in result ? result.error : undefined}
         />
