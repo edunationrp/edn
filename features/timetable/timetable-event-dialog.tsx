@@ -119,7 +119,7 @@ export function TimetableEventDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Modifier l\'événement' : 'Ajouter au calendrier'}</DialogTitle>
           <DialogDescription>

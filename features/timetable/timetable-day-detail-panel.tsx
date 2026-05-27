@@ -109,11 +109,11 @@ export function TimetableDayDetailPanel({
   const isHoliday = items.some(item => item.kind === 'holiday')
 
   return (
-    <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Détail du jour</p>
-          <h3 className="mt-1 text-lg font-black capitalize text-slate-950">{formatDisplayDate(dateKey)}</h3>
+          <h3 className="mt-1 text-base font-black capitalize leading-snug text-slate-950 sm:text-lg">{formatDisplayDate(dateKey)}</h3>
           {isHoliday && (
             <p className="mt-1 text-sm font-semibold text-slate-600">Jour férié ou sans cours</p>
           )}

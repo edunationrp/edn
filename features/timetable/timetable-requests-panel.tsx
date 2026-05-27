@@ -93,12 +93,12 @@ export function TimetableRequestsPanel({ requests, canManage }: TimetableRequest
             </div>
 
             {canManage && request.status === 'pending' && (
-              <div className="mt-4 flex justify-end gap-2 border-t border-slate-50 pt-3">
+              <div className="mt-4 flex flex-col gap-2 border-t border-slate-50 pt-3 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                  className="w-full text-rose-600 hover:bg-rose-50 hover:text-rose-700 sm:w-auto"
                   onClick={() => reviewRequest(request.id, 'rejected')}
                   disabled={isPending}
                 >
@@ -107,7 +107,7 @@ export function TimetableRequestsPanel({ requests, canManage }: TimetableRequest
                 <Button
                   type="button"
                   size="sm"
-                  className="bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
                   onClick={() => reviewRequest(request.id, 'approved')}
                   disabled={isPending}
                 >

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { TimetableBreaksDialog } from '@/features/timetable/timetable-breaks-dialog'
 import { TimetableCalendarView } from '@/features/timetable/timetable-calendar-view'
+import { TimetableMobileSchedule } from '@/features/timetable/timetable-mobile-schedule'
 import { TimetableRequestsPanel } from '@/features/timetable/timetable-requests-panel'
 import { TimetableSlotDialog, type SlotDialogMode } from '@/features/timetable/timetable-slot-dialog'
 import { DAY_LABELS, WEEKDAY_NUMBERS } from '@/lib/timetable/constants'
@@ -81,6 +82,11 @@ function uniqueLegend(slots: TimetableSlotView[]) {
   return items.length > 0 ? items : SUBJECT_STYLES.slice(0, 6)
 }
 
+function getTodayDayOfWeek(): number {
+  const jsDay = new Date().getDay()
+  return jsDay === 0 ? 7 : jsDay
+}
+
 type MainTab = 'schedule' | 'calendar' | 'secondary'
 type ScheduleView = 'class' | 'teacher'
 
@@ -128,6 +134,10 @@ export function TimetableWeekView({
   const [dialogMode, setDialogMode] = useState<SlotDialogMode>('add')
   const [dialogSlot, setDialogSlot] = useState<TimetableSlotView | null>(null)
   const [dialogDefaults, setDialogDefaults] = useState({ day: 1, start: '08:00', end: '09:00' })
+  const [mobileSelectedDay, setMobileSelectedDay] = useState<number>(() => {
+    const today = getTodayDayOfWeek()
+    return today >= 1 && today <= 6 ? today : 1
+  })
 
   const selectedClass = classes.find(item => item.id === selectedClassId)
   const selectedTeacher = teachers.find(item => item.id === selectedTeacherId)
@@ -174,6 +184,11 @@ export function TimetableWeekView({
     }
     return grouped
   }, [scheduleSlots])
+
+  const teacherSlotIds = useMemo(
+    () => new Set(teacherSlots.map(slot => slot.id)),
+    [teacherSlots],
+  )
 
   function openDialog(mode: SlotDialogMode, slot?: TimetableSlotView, defaults?: { day: number; start: string; end: string }) {
     setDialogMode(mode)
@@ -236,33 +251,33 @@ export function TimetableWeekView({
   const calendarFilterTeacherId = canManage && scheduleView === 'teacher' ? selectedTeacherId : undefined
 
   return (
-    <section ref={printRef} className="space-y-5 rounded-[2rem] border border-slate-100 bg-white p-4 shadow-sm sm:p-6 print:border-0 print:shadow-none">
-      <div className="flex flex-col gap-5 print:hidden">
+    <section ref={printRef} className="space-y-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:space-y-5 sm:rounded-[2rem] sm:p-4 md:p-6 print:border-0 print:p-0 print:shadow-none">
+      <div className="flex flex-col gap-4 sm:gap-5 print:hidden">
         <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
-          <div>
+          <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#1B3A6B]/10 bg-[#1B3A6B]/5 px-3 py-1 text-xs font-semibold text-[#1B3A6B]">
               <Calendar className="h-3.5 w-3.5" />
               {canManage ? 'Gestion du planning' : 'Planning officiel'}
             </div>
-            <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+            <h1 className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:mt-3 sm:text-2xl md:text-3xl">
               Emploi du temps
             </h1>
-            <p className="mt-1 text-sm text-slate-500">{pageSubtitle}</p>
+            <p className="mt-1 text-xs text-slate-500 sm:text-sm">{pageSubtitle}</p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <div className="flex rounded-2xl border border-slate-100 bg-slate-50 p-1 text-sm font-semibold">
+          <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+            <div className="flex min-w-min rounded-2xl border border-slate-100 bg-slate-50 p-1 text-xs font-semibold sm:text-sm">
               <button
                 type="button"
                 onClick={() => setMainTab('schedule')}
-                className={`rounded-xl px-4 py-2 transition ${mainTab === 'schedule' ? 'bg-white text-[#1B3A6B] shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                className={`shrink-0 rounded-xl px-3 py-2 transition sm:px-4 ${mainTab === 'schedule' ? 'bg-white text-[#1B3A6B] shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
               >
-                {canManage ? 'Grille' : 'Vue établissement'}
+                {canManage ? 'Grille' : 'Établissement'}
               </button>
               <button
                 type="button"
                 onClick={() => setMainTab('calendar')}
-                className={`rounded-xl px-4 py-2 transition ${mainTab === 'calendar' ? 'bg-white text-[#1B3A6B] shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                className={`shrink-0 rounded-xl px-3 py-2 transition sm:px-4 ${mainTab === 'calendar' ? 'bg-white text-[#1B3A6B] shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
               >
                 <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
                 Calendrier
@@ -270,9 +285,10 @@ export function TimetableWeekView({
               <button
                 type="button"
                 onClick={() => setMainTab('secondary')}
-                className={`relative rounded-xl px-4 py-2 transition ${mainTab === 'secondary' ? 'bg-white text-[#1B3A6B] shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                className={`relative shrink-0 rounded-xl px-3 py-2 transition sm:px-4 ${mainTab === 'secondary' ? 'bg-white text-[#1B3A6B] shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
               >
-                {secondaryTabLabel}
+                <span className="sm:hidden">{canManage ? 'Demandes' : 'Mon EDT'}</span>
+                <span className="hidden sm:inline">{secondaryTabLabel}</span>
                 {canManage && pendingRequests > 0 && (
                   <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-black text-white">
                     {pendingRequests}
@@ -285,7 +301,7 @@ export function TimetableWeekView({
 
         {(mainTab === 'schedule' || mainTab === 'calendar') && (
           <>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <div className="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Année scolaire</p>
                 <p className="mt-1 truncate text-sm font-bold text-slate-900">{meta.schoolYearName}</p>
@@ -378,6 +394,7 @@ export function TimetableWeekView({
                     type="button"
                     size="sm"
                     variant="navy"
+                    className="flex-1 sm:flex-none"
                     onClick={() => {
                       if (!selectedClassId) {
                         notify.error('Sélectionnez d\'abord une classe.')
@@ -387,26 +404,30 @@ export function TimetableWeekView({
                     }}
                   >
                     <Plus className="h-4 w-4" />
-                    Ajouter une matière
+                    <span className="hidden sm:inline">Ajouter une matière</span>
+                    <span className="sm:hidden">Ajouter</span>
                   </Button>
                 )}
-                <Button type="button" size="sm" variant="outline" onClick={() => setBreaksDialogOpen(true)}>
+                <Button type="button" size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={() => setBreaksDialogOpen(true)}>
                   <Settings2 className="h-4 w-4" />
-                  Configurer les pauses
+                  <span className="hidden sm:inline">Configurer les pauses</span>
+                  <span className="sm:hidden">Pauses</span>
                 </Button>
-                <Button type="button" size="sm" className="bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleAddDay}>
+                <Button type="button" size="sm" className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700 sm:flex-none" onClick={handleAddDay}>
                   <CalendarDays className="h-4 w-4" />
-                  Ajouter une journée
+                  <span className="hidden sm:inline">Ajouter une journée</span>
+                  <span className="sm:hidden">+ Jour</span>
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => notify.info('Cliquez sur un créneau pour le modifier ou ajouter une description.')}>
+                <Button type="button" size="sm" variant="outline" className="hidden sm:inline-flex" onClick={() => notify.info('Cliquez sur un créneau pour le modifier ou ajouter une description.')}>
                   <FilePenLine className="h-4 w-4" />
                   Modifier
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={handleExportPdf}>
+                <Button type="button" size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={handleExportPdf}>
                   <Download className="h-4 w-4" />
-                  Exporter PDF
+                  <span className="hidden sm:inline">Exporter PDF</span>
+                  <span className="sm:hidden">PDF</span>
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={handlePrint}>
+                <Button type="button" size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={handlePrint}>
                   <Printer className="h-4 w-4" />
                   Imprimer
                 </Button>
@@ -444,8 +465,26 @@ export function TimetableWeekView({
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
-          <div className="overflow-x-auto">
+        <>
+          <TimetableMobileSchedule
+            visibleDays={visibleDays}
+            selectedDay={mobileSelectedDay}
+            onSelectDay={setMobileSelectedDay}
+            displayTimeRows={displayTimeRows}
+            breaks={breaks}
+            slotsByCell={slotsByCell}
+            conflictSlotIds={conflictSlotIds}
+            scheduleView={scheduleView}
+            canManage={canManage}
+            canRequestChanges={canRequestChanges}
+            teacherSlotIds={teacherSlotIds}
+            getSubjectStyle={getSubjectStyle}
+            onSlotClick={handleSlotClick}
+            onAddSlot={(day, start, end) => openDialog('add', undefined, { day, start, end })}
+          />
+
+          <div className="hidden overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm lg:block print:block">
+          <div className="overflow-x-auto overscroll-x-contain">
             <div className="min-w-[980px]">
               <div
                 className="sticky top-0 z-20 grid bg-[#102E5C] text-white"
@@ -558,14 +597,15 @@ export function TimetableWeekView({
             </div>
           </div>
         </div>
+        </>
       )}
 
       {mainTab === 'schedule' && scheduleSlots.length > 0 && (
-        <div className="rounded-3xl border border-slate-100 bg-slate-50/60 p-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3 sm:rounded-3xl sm:p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-sm font-black text-slate-900">Légende des matières</p>
-              <div className="mt-3 flex flex-wrap gap-3">
+              <div className="mt-3 flex flex-wrap gap-2 sm:gap-3">
                 {legendItems.map(item => (
                   <div key={item.label} className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                     <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
@@ -575,34 +615,35 @@ export function TimetableWeekView({
               </div>
             </div>
 
-            <div className="grid gap-2 text-xs text-slate-500 sm:grid-cols-4 xl:min-w-[560px]">
+            <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 sm:grid-cols-4 lg:min-w-[560px]">
               <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
                 <p className="font-bold text-slate-900">{totalHours.toFixed(0)} h</p>
                 <p>Total heures</p>
               </div>
               <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                <p className="font-bold text-slate-900">{meta.lastModified}</p>
-                <p>Dernière modification</p>
+                <p className="truncate font-bold text-slate-900">{meta.lastModified}</p>
+                <p>Dernière modif.</p>
               </div>
               <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
                 <p className={`flex items-center gap-1 font-bold ${conflictsChecked && conflicts.length > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                   {conflictsChecked && conflicts.length > 0 ? (
                     <>
-                      <AlertTriangle className="h-3.5 w-3.5" />
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                       {conflicts.length} conflit(s)
                     </>
                   ) : (
                     <>
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      {conflictsChecked ? 'Aucun conflit' : 'Non vérifié'}
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                      {conflictsChecked ? 'OK' : '—'}
                     </>
                   )}
                 </p>
                 <p>Statut</p>
               </div>
-              <Button type="button" size="sm" variant="outline" className="h-full" onClick={handleCheckConflicts}>
+              <Button type="button" size="sm" variant="outline" className="col-span-2 h-full sm:col-span-1" onClick={handleCheckConflicts}>
                 <CheckCircle2 className="h-4 w-4" />
-                Vérifier les conflits
+                <span className="hidden sm:inline">Vérifier les conflits</span>
+                <span className="sm:hidden">Conflits</span>
               </Button>
             </div>
           </div>

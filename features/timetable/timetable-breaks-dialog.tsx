@@ -88,7 +88,7 @@ export function TimetableBreaksDialog({ open, breaks, onClose }: TimetableBreaks
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Configurer les pauses</DialogTitle>
           <DialogDescription>

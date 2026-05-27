@@ -326,7 +326,7 @@ export function TimetableSlotDialog({
 
   return (
     <Dialog open={open} onOpenChange={value => !value && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         {open && (
           <SlotDialogForm
             key={formKey}
