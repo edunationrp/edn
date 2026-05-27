@@ -16,7 +16,8 @@ import type { TuitionGridRow } from '@/lib/finance/tuition-grid'
 import { parseMoneyInput, toMoney } from '@/lib/finance/money'
 import { formatCurrency } from '@/lib/utils'
 import { notify } from '@/lib/feedback/toast'
-import { Lock, Plus, Trash2 } from 'lucide-react'
+import { Lock, Plus, Trash2, GraduationCap } from 'lucide-react'
+import Link from 'next/link'
 
 type ExtraTemplate = {
   id: string
@@ -113,6 +114,21 @@ export function TuitionConfigPanel({
             lors de l&apos;encaissement.
           </p>
           <div className="overflow-x-auto rounded-lg border">
+            {grid.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+                <GraduationCap className="h-10 w-10 text-slate-300" />
+                <div>
+                  <p className="font-medium text-slate-900">Aucun niveau scolaire configuré</p>
+                  <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                    Les tarifs sont définis par niveau (6ème, 2nde, Tle…). Ajoutez vos niveaux
+                    pour commencer à saisir les montants.
+                  </p>
+                </div>
+                <Button asChild size="sm">
+                  <Link href="/dashboard/classes/levels/new">Ajouter un niveau scolaire</Link>
+                </Button>
+              </div>
+            ) : (
             <table className="w-full min-w-[520px] text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
                 <tr>
@@ -133,6 +149,7 @@ export function TuitionConfigPanel({
                 ))}
               </tbody>
             </table>
+            )}
           </div>
         </CardContent>
       </Card>

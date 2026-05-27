@@ -6,6 +6,7 @@ import { TuitionConfigPanel } from '@/features/finance/tuition-config-panel'
 import { buildTuitionGrid } from '@/lib/finance/tuition-grid'
 import { canConfigureOfficialTuition } from '@/lib/finance/access'
 import { getExtraFeeTemplates } from '@/lib/actions/extra-fees'
+import { ensureDefaultClassLevels } from '@/lib/schools/seed-class-levels'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -39,12 +40,37 @@ export default async function OfficialTuitionPage() {
     )
   }
 
-  const [levelsResult, ratesResult, extraTemplates] = await Promise.all([
-    supabase
-      .from('class_levels')
-      .select('id, name')
-      .eq('school_id', ctx.school_id)
-      .order('order_num'),
+  const { data: schoolRaw } = await supabase
+    .from('schools')
+    .select('type')
+    .eq('id', ctx.school_id)
+    .limit(1)
+
+  const schoolType =
+    (schoolRaw as Array<{ type: string }> | null)?.[0]?.type ?? 'lycee'
+
+  let { data: levelsRaw } = await supabase
+    .from('class_levels')
+    .select('id, name')
+    .eq('school_id', ctx.school_id)
+    .order('order_num')
+
+  let levels = (levelsRaw as Array<{ id: string; name: string }> | null) ?? []
+
+  if (levels.length === 0) {
+    const seedResult = await ensureDefaultClassLevels(supabase, ctx.school_id, schoolType)
+    if (!('error' in seedResult && seedResult.error)) {
+      const refetch = await supabase
+        .from('class_levels')
+        .select('id, name')
+        .eq('school_id', ctx.school_id)
+        .order('order_num')
+      levelsRaw = refetch.data
+      levels = (levelsRaw as Array<{ id: string; name: string }> | null) ?? []
+    }
+  }
+
+  const [ratesResult, extraTemplates] = await Promise.all([
     supabase
       .from('official_tuition_rates')
       .select('id, class_level_id, series, amount')
@@ -54,7 +80,6 @@ export default async function OfficialTuitionPage() {
     getExtraFeeTemplates(ctx.school_id),
   ])
 
-  const levels = (levelsResult.data as Array<{ id: string; name: string }> | null) ?? []
   const rates =
     (ratesResult.data as Array<{
       id: string
