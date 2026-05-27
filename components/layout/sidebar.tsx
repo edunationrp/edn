@@ -86,6 +86,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       { group: 'Organisation', items: [
         { id: 'personnel', label: 'Personnel', icon: 'users', href: '/dashboard/staff' },
         { id: 'roles', label: 'Rôles & permissions', icon: 'shield', href: '/dashboard/staff/roles-permissions' },
+        { id: 'edt', label: 'Emplois du temps', icon: 'calendar', href: '/dashboard/timetable' },
         { id: 'classes', label: 'Classes & matières', icon: 'grid', href: '/dashboard/classes' },
       ]},
       { group: 'Finances', items: [
@@ -110,6 +111,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       { group: 'École', items: [
         { id: 'personnel', label: 'Personnel', icon: 'users', href: '/dashboard/staff' },
         { id: 'inscriptions', label: 'Inscriptions élèves', icon: 'userPlus', href: '/dashboard/students' },
+        { id: 'edt', label: 'Emplois du temps', icon: 'calendar', href: '/dashboard/timetable' },
         { id: 'classes', label: 'Classes & matières', icon: 'grid', href: '/dashboard/classes' },
       ]},
       { group: 'Pédagogie', items: [
@@ -129,7 +131,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
       ]},
       { group: 'Organisation', items: [
-        { id: 'edt', label: 'Emplois du temps', icon: 'grid', href: '/dashboard/classes' },
+        { id: 'edt', label: 'Emplois du temps', icon: 'calendar', href: '/dashboard/timetable' },
         { id: 'classes', label: 'Classes & affectations', icon: 'users', href: '/dashboard/classes' },
         { id: 'examens', label: 'Examens', icon: 'calendar', href: '/dashboard/grades' },
       ]},

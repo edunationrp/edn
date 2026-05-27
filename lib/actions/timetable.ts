@@ -1,0 +1,252 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import {
+  canRequestTimetableChange,
+  requireTimetableManage,
+  requireTimetableRead,
+} from '@/lib/timetable/access'
+import { getActiveSchoolYearId } from '@/lib/timetable/data'
+
+const TIMETABLE_PATH = '/dashboard/timetable'
+
+type SlotTimeInput = {
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  room?: string | null
+}
+
+function normalizeTime(value: string): string | null {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/)
+  if (!match) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
+}
+
+function validateSlotTime(input: SlotTimeInput): string | null {
+  if (input.dayOfWeek < 1 || input.dayOfWeek > 7) {
+    return 'Jour invalide.'
+  }
+  const start = normalizeTime(input.startTime)
+  const end = normalizeTime(input.endTime)
+  if (!start || !end) return 'Format horaire invalide (HH:MM).'
+  if (start >= end) return 'L\'heure de fin doit être après l\'heure de début.'
+  return null
+}
+
+export async function updateTimetableSlot(slotId: string, input: SlotTimeInput) {
+  const access = await requireTimetableManage()
+  if ('error' in access) return { error: access.error }
+
+  const validationError = validateSlotTime(input)
+  if (validationError) return { error: validationError }
+
+  const { supabase, schoolId } = access
+  const startTime = normalizeTime(input.startTime)!
+  const endTime = normalizeTime(input.endTime)!
+
+  const { data: slotRaw } = await supabase
+    .from('timetable_slots')
+    .select('id, school_id')
+    .eq('id', slotId)
+    .eq('school_id', schoolId)
+    .maybeSingle()
+
+  const slot = slotRaw as { id: string; school_id: string } | null
+  if (!slot) return { error: 'Créneau introuvable.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('timetable_slots')
+    .update({
+      day_of_week: input.dayOfWeek,
+      start_time: startTime,
+      end_time: endTime,
+      room: input.room?.trim() || null,
+    })
+    .eq('id', slotId)
+    .eq('school_id', schoolId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(TIMETABLE_PATH)
+  revalidatePath('/dashboard')
+  return { success: true }
+}
+
+export async function createTimetableSlot(input: {
+  classId: string
+  subjectId: string
+  teacherId: string
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  room?: string | null
+}) {
+  const access = await requireTimetableManage()
+  if ('error' in access) return { error: access.error }
+
+  const validationError = validateSlotTime(input)
+  if (validationError) return { error: validationError }
+
+  const { supabase, schoolId } = access
+  const schoolYearId = await getActiveSchoolYearId(supabase, schoolId)
+  if (!schoolYearId) return { error: 'Aucune année scolaire active.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).from('timetable_slots').insert({
+    school_id: schoolId,
+    school_year_id: schoolYearId,
+    class_id: input.classId,
+    subject_id: input.subjectId,
+    teacher_id: input.teacherId,
+    day_of_week: input.dayOfWeek,
+    start_time: normalizeTime(input.startTime)!,
+    end_time: normalizeTime(input.endTime)!,
+    room: input.room?.trim() || null,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath(TIMETABLE_PATH)
+  revalidatePath('/dashboard')
+  return { success: true }
+}
+
+export async function createTimetableChangeRequest(slotId: string, input: SlotTimeInput & { reason: string }) {
+  const access = await requireTimetableRead()
+  if ('error' in access) return { error: access.error }
+  if (!canRequestTimetableChange(access.role)) {
+    return { error: 'Seuls les professeurs peuvent demander une modification.' }
+  }
+
+  const reason = input.reason.trim()
+  if (reason.length < 8) {
+    return { error: 'Ajoutez un motif clair pour le censeur.' }
+  }
+
+  const validationError = validateSlotTime(input)
+  if (validationError) return { error: validationError }
+
+  const { supabase, userId, schoolId } = access
+  const { data: slotRaw } = await supabase
+    .from('timetable_slots')
+    .select('id, school_id, teacher_id')
+    .eq('id', slotId)
+    .eq('school_id', schoolId)
+    .eq('teacher_id', userId)
+    .maybeSingle()
+
+  const slot = slotRaw as { id: string; school_id: string; teacher_id: string | null } | null
+  if (!slot) return { error: 'Vous pouvez demander une modification uniquement sur vos créneaux.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).from('timetable_change_requests').insert({
+    school_id: schoolId,
+    timetable_slot_id: slotId,
+    teacher_id: userId,
+    requested_day_of_week: input.dayOfWeek,
+    requested_start_time: normalizeTime(input.startTime)!,
+    requested_end_time: normalizeTime(input.endTime)!,
+    requested_room: input.room?.trim() || null,
+    reason,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath(TIMETABLE_PATH)
+  revalidatePath('/dashboard')
+  return { success: true }
+}
+
+export async function deleteTimetableSlot(slotId: string) {
+  const access = await requireTimetableManage()
+  if ('error' in access) return { error: access.error }
+
+  const { supabase, schoolId } = access
+  const { error } = await supabase
+    .from('timetable_slots')
+    .delete()
+    .eq('id', slotId)
+    .eq('school_id', schoolId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(TIMETABLE_PATH)
+  return { success: true }
+}
+
+export async function reviewTimetableChangeRequest(
+  requestId: string,
+  decision: 'approved' | 'rejected',
+  reviewNote?: string,
+) {
+  const access = await requireTimetableManage()
+  if ('error' in access) return { error: access.error }
+
+  const { supabase, userId, schoolId } = access
+  const { data: requestRaw } = await supabase
+    .from('timetable_change_requests')
+    .select(`
+      id, school_id, timetable_slot_id, requested_day_of_week,
+      requested_start_time, requested_end_time, requested_room, status
+    `)
+    .eq('id', requestId)
+    .eq('school_id', schoolId)
+    .maybeSingle()
+
+  const request = requestRaw as {
+    id: string
+    timetable_slot_id: string | null
+    requested_day_of_week: number
+    requested_start_time: string
+    requested_end_time: string
+    requested_room: string | null
+    status: string
+  } | null
+
+  if (!request) return { error: 'Demande introuvable.' }
+  if (request.status !== 'pending') return { error: 'Cette demande a déjà été traitée.' }
+
+  if (decision === 'approved') {
+    if (!request.timetable_slot_id) return { error: 'Aucun créneau à modifier.' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: slotError } = await (supabase as any)
+      .from('timetable_slots')
+      .update({
+        day_of_week: request.requested_day_of_week,
+        start_time: request.requested_start_time,
+        end_time: request.requested_end_time,
+        room: request.requested_room,
+      })
+      .eq('id', request.timetable_slot_id)
+      .eq('school_id', schoolId)
+
+    if (slotError) return { error: slotError.message }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('timetable_change_requests')
+    .update({
+      status: decision,
+      reviewed_by: userId,
+      reviewed_at: new Date().toISOString(),
+      review_note: reviewNote?.trim() || null,
+    })
+    .eq('id', requestId)
+    .eq('school_id', schoolId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(TIMETABLE_PATH)
+  revalidatePath('/dashboard')
+  return { success: true }
+}
+
+export async function deleteOwnTimetableSlot(slotId: string) {
+  void slotId
+  return { error: 'Le professeur doit envoyer une demande au censeur.' }
+}

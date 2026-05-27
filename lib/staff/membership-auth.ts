@@ -4,29 +4,6 @@ import {
   normalizeContactEmail,
 } from '@/lib/auth/staff-membership-email'
 
-type AdminClient = {
-  from: (table: string) => {
-    select: (columns: string) => {
-      eq: (column: string, value: string) => {
-        eq: (column: string, value: boolean) => {
-          limit: (n: number) => Promise<{ data: unknown[] | null }>
-        }
-        limit: (n: number) => Promise<{ data: unknown[] | null }>
-      }
-    }
-  }
-  auth: {
-    admin: {
-      getUserById: (userId: string) => Promise<{ data: { user: { email?: string | null } | null } }>
-      deleteUser: (userId: string) => Promise<{ error: { message: string } | null }>
-    }
-  }
-  rpc: (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>
-}
-
 export type StaffSchoolOption = {
   schoolId: string
   schoolName: string
@@ -68,7 +45,8 @@ export async function isStaffContactEmailUsedAtSchool(
 }
 
 export async function resolveStaffLoginEmail(
-  admin: AdminClient,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
   userId: string,
   contactEmail: string,
   schoolId: string,

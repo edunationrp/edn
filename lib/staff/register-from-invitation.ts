@@ -224,6 +224,10 @@ export async function registerStaffFromInvitationCore(
     return { error: signUpError?.message ?? 'Création du compte impossible.' }
   }
 
+  if (!userId) {
+    return { error: 'Création du compte impossible.' }
+  }
+
   const finalized = await finalizeStaffSchoolMembership(admin, {
     userId,
     invitation,

@@ -676,13 +676,13 @@ export async function acceptStaffInvitation(token: string) {
     })
     .eq('id', invitation.id)
 
-  const { data: profileRaw } = await admin
+  const { data: roleProfileRaw } = await admin
     .from('profiles')
     .select('default_role')
     .eq('id', user.id)
     .limit(1)
 
-  const currentDefault = (profileRaw as Array<{ default_role: string | null }> | null)?.[0]?.default_role
+  const currentDefault = (roleProfileRaw as Array<{ default_role: string | null }> | null)?.[0]?.default_role
   if (!currentDefault || currentDefault === 'ELEVE' || currentDefault === 'PARENT') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (admin as any)
