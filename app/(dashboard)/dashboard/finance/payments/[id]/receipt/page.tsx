@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { PrintReceiptButton } from '@/features/finance/print-receipt-button'
+import { SchoolBrandHeader } from '@/components/schools/school-brand-header'
 import Link from 'next/link'
-import { Receipt, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '@/lib/utils'
 import { toMoney } from '@/lib/finance/money'
 import type { Metadata } from 'next'
@@ -32,7 +33,7 @@ export default async function PaymentReceiptPage({
 
   const { data: paymentRaw } = await supabase
     .from('payments')
-    .select('id, reference, amount, payment_method, status, created_at, paid_at, notes, metadata, student_id, students(first_name, last_name, iun), schools(name)')
+    .select('id, reference, amount, payment_method, status, created_at, paid_at, notes, metadata, student_id, students(first_name, last_name, iun), schools(name, logo_url, motto)')
     .eq('id', id)
     .eq('school_id', ctx.school_id)
     .limit(1)
@@ -52,7 +53,7 @@ export default async function PaymentReceiptPage({
       total_due?: number
     } | null
     students: { first_name: string; last_name: string; iun: string } | null
-    schools: { name: string } | null
+    schools: { name: string; logo_url: string | null; motto: string | null } | null
   }> | null)?.[0]
 
   if (!payment) notFound()
@@ -87,10 +88,16 @@ export default async function PaymentReceiptPage({
       />
 
       <Card className="border-primary/20">
-        <CardHeader className="pb-2 text-center">
-          <Receipt className="mx-auto h-10 w-10 text-primary" />
-          <CardTitle className="text-base">{payment.schools?.name ?? 'Établissement'}</CardTitle>
-          <p className="text-xs text-muted-foreground">Reçu officiel EduNation</p>
+        <CardHeader className="pb-2">
+          <SchoolBrandHeader
+            schoolName={payment.schools?.name ?? 'Établissement'}
+            logoUrl={payment.schools?.logo_url}
+            subtitle={
+              payment.schools?.motto
+                ? `${payment.schools.motto} · Reçu officiel EduNation`
+                : 'Reçu officiel EduNation'
+            }
+          />
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div className="flex justify-between gap-4">

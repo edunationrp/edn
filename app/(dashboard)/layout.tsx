@@ -48,7 +48,10 @@ export default async function DashboardLayout({
 
   const { data: schoolsRaw } =
     schoolIds.length > 0
-      ? await supabase.from('schools').select('id, name, type, city, is_active').in('id', schoolIds)
+      ? await supabase
+          .from('schools')
+          .select('id, name, type, city, is_active, logo_url, logo_watermark_opacity')
+          .in('id', schoolIds)
       : { data: [] }
 
   const schools = (schoolsRaw ?? []) as Array<{
@@ -57,6 +60,8 @@ export default async function DashboardLayout({
     type: string
     city: string | null
     is_active: boolean
+    logo_url: string | null
+    logo_watermark_opacity: number | null
   }>
 
   const activeSchool = schools[0] ?? null
@@ -114,8 +119,15 @@ export default async function DashboardLayout({
     .slice(0, 2)
     .toUpperCase()
 
+  const schoolLogoUrl = isPlatformOwner ? null : (activeSchool?.logo_url ?? null)
+  const schoolWatermarkOpacity = isPlatformOwner
+    ? null
+    : (activeSchool?.logo_watermark_opacity ?? null)
+
   return (
     <DashboardShell
+      schoolLogoUrl={schoolLogoUrl}
+      schoolWatermarkOpacity={schoolWatermarkOpacity}
       sidebar={{
         userRole: currentRole,
         schoolName: displaySchoolName,

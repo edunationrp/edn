@@ -28,6 +28,9 @@ import type {
   SettingsSectionId,
   TeachingPreferences,
 } from '@/lib/settings/types'
+import { uploadSchoolLogo, removeSchoolLogo, updateSchoolWatermarkOpacity } from '@/lib/actions/school-logo'
+import { SchoolLogoUpload } from '@/components/schools/school-logo-upload'
+import { WATERMARK_OPACITY_DEFAULT } from '@/lib/schools/branding'
 import {
   createSchoolYear,
   setActiveSchoolYear,
@@ -171,6 +174,7 @@ function ShortcutLink({ href, label, description }: { href: string; label: strin
 export function SettingsClient({ data }: SettingsClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [opacitySavePending, setOpacitySavePending] = useState(false)
   const defaultTab = data.sections[0]?.id ?? 'profile'
 
   const [profileForm, setProfileForm] = useState(data.profile)
@@ -200,6 +204,7 @@ export function SettingsClient({ data }: SettingsClientProps) {
     email: data.school?.email ?? '',
     motto: data.school?.motto ?? '',
     logoUrl: data.school?.logo_url ?? '',
+    watermarkOpacity: data.school?.logo_watermark_opacity ?? WATERMARK_OPACITY_DEFAULT,
     isActive: data.school?.is_active ?? true,
   })
 
@@ -682,12 +687,49 @@ export function SettingsClient({ data }: SettingsClientProps) {
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label>URL du logo</Label>
-                  <Input
-                    value={schoolIdentity.logoUrl}
-                    onChange={e => setSchoolIdentity(s => ({ ...s, logoUrl: e.target.value }))}
+                  <SchoolLogoUpload
+                    currentUrl={schoolIdentity.logoUrl || null}
+                    opacity={schoolIdentity.watermarkOpacity}
+                    schoolName={schoolIdentity.name || data.schoolName}
                     disabled={accessFor(data, 'school-identity') === 'view'}
-                    placeholder="https://..."
+                    hint="Affiché en filigrane sur le tableau de bord et sur les reçus de paiement."
+                    onOpacityChange={opacity =>
+                      setSchoolIdentity(s => ({ ...s, watermarkOpacity: opacity }))
+                    }
+                    onSaveOpacity={() => {
+                      if (accessFor(data, 'school-identity') !== 'edit') return
+                      setOpacitySavePending(true)
+                      startTransition(async () => {
+                        const result = await updateSchoolWatermarkOpacity(
+                          schoolIdentity.watermarkOpacity,
+                        )
+                        setOpacitySavePending(false)
+                        if (result.error) {
+                          notify.error(result.error)
+                          return
+                        }
+                        notify.success('Opacité du filigrane enregistrée')
+                        router.refresh()
+                      })
+                    }}
+                    opacitySavePending={opacitySavePending}
+                    onUpload={async file => {
+                      const fd = new FormData()
+                      fd.set('logo', file)
+                      return uploadSchoolLogo(fd)
+                    }}
+                    onRemove={async () => {
+                      const result = await removeSchoolLogo()
+                      if (result.error) return { error: result.error }
+                      setSchoolIdentity(s => ({ ...s, logoUrl: '' }))
+                      notify.success('Logo retiré')
+                      router.refresh()
+                    }}
+                    onUploadSuccess={logoUrl => {
+                      setSchoolIdentity(s => ({ ...s, logoUrl: logoUrl ?? '' }))
+                      notify.success('Logo enregistré')
+                      router.refresh()
+                    }}
                   />
                 </div>
               </div>

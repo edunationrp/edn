@@ -300,6 +300,7 @@ export async function completeFullRegistration(
     success: true as const,
     requiresEmailConfirmation: true as const,
     email: director.email,
+    schoolId: schoolResult.schoolId,
   }
 }
 

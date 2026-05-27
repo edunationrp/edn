@@ -31,10 +31,12 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { parseMoneyInput, toMoney, sumMoney } from '@/lib/finance/money'
 import { notify } from '@/lib/feedback/toast'
 import { TOAST_SUCCESS } from '@/lib/feedback/messages'
+import { SchoolBrandHeader } from '@/components/schools/school-brand-header'
 
 interface NewPaymentFormProps {
   schoolId: string
   schoolName: string
+  schoolLogoUrl?: string | null
   cassierId: string
   initialStudentId?: string | null
 }
@@ -71,6 +73,7 @@ function newExtraId() {
 export function NewPaymentForm({
   schoolId,
   schoolName,
+  schoolLogoUrl,
   cassierId,
   initialStudentId,
 }: NewPaymentFormProps) {
@@ -272,7 +275,11 @@ export function NewPaymentForm({
       <div className="encashment-receipt space-y-4">
         <Card className="border-green-200 bg-green-50">
           <CardContent className="space-y-4 p-8 text-center">
-            <Receipt className="mx-auto h-10 w-10 text-green-600" />
+            <SchoolBrandHeader
+              schoolName={schoolName}
+              logoUrl={schoolLogoUrl}
+              subtitle="Reçu de paiement"
+            />
             <h2 className="text-xl font-bold text-green-800">Paiement enregistré</h2>
             <p className="text-green-700">{receipt.studentName}</p>
             <div className="space-y-2 rounded-xl border border-green-200 bg-white p-4 text-left text-sm">

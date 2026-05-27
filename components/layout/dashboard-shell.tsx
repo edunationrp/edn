@@ -4,19 +4,28 @@ import { useEffect, useState } from 'react'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Topbar } from '@/components/layout/topbar'
 import { useTopbarUnreadCounts } from '@/components/layout/use-topbar-unread'
+import { WatermarkBackground } from '@/components/schools/watermark-background'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_COLLAPSED_KEY = 'edunation-sidebar-collapsed'
 
 type ShellProps = {
   children: React.ReactNode
+  schoolLogoUrl?: string | null
+  schoolWatermarkOpacity?: number | null
   sidebar: Omit<React.ComponentProps<typeof Sidebar>, 'collapsed' | 'mobileOpen' | 'onNavigate'>
   topbar: Omit<React.ComponentProps<typeof Topbar>, 'collapsed' | 'onMenuClick' | 'onToggleSidebar'> & {
     userId?: string
   }
 }
 
-export function DashboardShell({ children, sidebar, topbar }: ShellProps) {
+export function DashboardShell({
+  children,
+  schoolLogoUrl,
+  schoolWatermarkOpacity,
+  sidebar,
+  topbar,
+}: ShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const { userId, unreadMessages, unreadNotifications, ...topbarProps } = topbar
@@ -80,8 +89,9 @@ export function DashboardShell({ children, sidebar, topbar }: ShellProps) {
           onMenuClick={() => setMobileNavOpen(true)}
           onToggleSidebar={toggleSidebarCollapsed}
         />
-        <main className="mt-14 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:px-8 lg:py-7">
-          {children}
+        <main className="relative mt-14 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:px-8 lg:py-7">
+          <WatermarkBackground logoUrl={schoolLogoUrl} opacity={schoolWatermarkOpacity} />
+          <div className="relative z-[1]">{children}</div>
         </main>
       </div>
     </div>

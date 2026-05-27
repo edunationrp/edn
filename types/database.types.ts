@@ -55,6 +55,7 @@ export interface Database {
           phone: string | null
           email: string | null
           logo_url: string | null
+          logo_watermark_opacity: number
           motto: string | null
           is_active: boolean
           created_at: string
@@ -72,6 +73,7 @@ export interface Database {
           phone?: string | null
           email?: string | null
           logo_url?: string | null
+          logo_watermark_opacity?: number
           motto?: string | null
           is_active?: boolean
           created_at?: string
@@ -86,6 +88,7 @@ export interface Database {
           phone?: string | null
           email?: string | null
           logo_url?: string | null
+          logo_watermark_opacity?: number
           motto?: string | null
           is_active?: boolean
           updated_at?: string

@@ -24,11 +24,13 @@ export default async function NewPaymentPage({
 
   const { data: schoolRaw } = await supabase
     .from('schools')
-    .select('name')
+    .select('name, logo_url')
     .eq('id', ctx.school_id)
     .single()
 
-  const schoolName = (schoolRaw as { name: string } | null)?.name ?? 'Mon établissement'
+  const schoolRow = schoolRaw as { name: string; logo_url: string | null } | null
+  const schoolName = schoolRow?.name ?? 'Mon établissement'
+  const schoolLogoUrl = schoolRow?.logo_url ?? null
 
   return (
     <div className="mx-auto max-w-3xl animate-fade-in space-y-6">
@@ -49,6 +51,7 @@ export default async function NewPaymentPage({
         <NewPaymentForm
           schoolId={ctx.school_id}
           schoolName={schoolName}
+          schoolLogoUrl={schoolLogoUrl}
           cassierId={user.id}
           initialStudentId={studentId ?? null}
         />
