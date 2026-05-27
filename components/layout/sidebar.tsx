@@ -271,23 +271,6 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
     ],
   },
-<<<<<<< HEAD
-=======
-  ELEVE: {
-    label: 'Élève',
-    nav: [
-      { group: 'Mon espace', items: [
-        { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'edt-e', label: 'Emploi du temps', icon: 'calendar', href: '/dashboard/timetable' },
-      ]},
-      { group: 'Scolarité', items: [
-        { id: 'notes-e', label: 'Mes notes', icon: 'fileCheck', href: '/dashboard/grades' },
-        { id: 'absences-e', label: 'Mes absences', icon: 'userX', href: '/dashboard/attendance' },
-        { id: 'bulletins-e', label: 'Mes bulletins', icon: 'award', href: '/dashboard/report-cards' },
-      ]},
-    ],
-  },
->>>>>>> 86232464c73376de9f5a348331ee72cc9bb5eb60
 }
 
 interface SidebarProps {

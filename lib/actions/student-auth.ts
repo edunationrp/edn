@@ -16,7 +16,9 @@ export async function lookupStudentByIun(iun: string) {
   }
 
   const admin = createAdminClient()
-  const { data, error } = await admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any
+  const { data, error } = await db
     .from('students')
     .select('id, first_name, last_name, status, user_id, activation_code_expires_at')
     .eq('iun', normalized)
@@ -65,7 +67,9 @@ export async function generateStudentActivationCode(studentId: string) {
 
   // Vérification du rôle
   const admin = createAdminClient()
-  const { data: roleRow } = await admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any
+  const { data: roleRow } = await db
     .from('user_school_roles')
     .select('role_code')
     .eq('user_id', user.id)
@@ -87,7 +91,7 @@ export async function generateStudentActivationCode(studentId: string) {
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + 30)
 
-  const { error } = await admin
+  const { error } = await db
     .from('students')
     .update({
       activation_code_hash: codeHash,
@@ -127,9 +131,11 @@ export async function activateStudentAccount(formData: {
   const { iun, code, password } = parsed.data
 
   const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any
 
   // Récupérer l'élève
-  const { data: student, error: studentErr } = await admin
+  const { data: student, error: studentErr } = await db
     .from('students')
     .select('id, user_id, activation_code_hash, activation_code_expires_at, first_name, last_name, school_id')
     .eq('iun', iun)
@@ -180,7 +186,7 @@ export async function activateStudentAccount(formData: {
   }
 
   // Créer le profil
-  await admin.from('profiles').insert({
+  await db.from('profiles').insert({
     id: authData.user.id,
     full_name: `${student.first_name} ${student.last_name}`,
     email: syntheticEmail,
@@ -189,7 +195,7 @@ export async function activateStudentAccount(formData: {
   })
 
   // Lier le user_id à l'élève + effacer le code d'activation
-  const { error: updateErr } = await admin
+  const { error: updateErr } = await db
     .from('students')
     .update({
       user_id: authData.user.id,
@@ -205,7 +211,7 @@ export async function activateStudentAccount(formData: {
   }
 
   // Créer le rôle ELEVE dans user_school_roles
-  await admin.from('user_school_roles').insert({
+  await db.from('user_school_roles').insert({
     user_id: authData.user.id,
     school_id: student.school_id,
     role_code: 'ELEVE',

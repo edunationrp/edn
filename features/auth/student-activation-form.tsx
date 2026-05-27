@@ -50,7 +50,7 @@ export function StudentActivationForm() {
     })
 
     if (result.error) {
-      setServerError(result.error)
+      setServerError(result.error ?? 'Une erreur est survenue.')
       return
     }
 

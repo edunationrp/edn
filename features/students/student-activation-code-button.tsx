@@ -17,7 +17,7 @@ export function StudentActivationCodeButton({ studentId }: { studentId: string }
     const result = await generateStudentActivationCode(studentId)
     setLoading(false)
     if ('error' in result) {
-      setError(result.error)
+      setError(result.error ?? 'Impossible de générer le code.')
     } else {
       setCode(result.code)
     }

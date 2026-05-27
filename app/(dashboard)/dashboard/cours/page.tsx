@@ -33,7 +33,9 @@ export default async function CoursPage() {
     .select('id, name')
     .eq('school_id', ctx.school_id)
     .eq('is_active', true)
-    .single()
+    .maybeSingle()
+
+  const schoolYear = schoolYearRaw as { id: string; name: string } | null
 
   return (
     <div className="space-y-5">
@@ -43,7 +45,7 @@ export default async function CoursPage() {
         userId={user.id}
         classes={(classesRaw ?? []) as Array<{ id: string; name: string }>}
         subjects={(subjectsRaw ?? []) as Array<{ id: string; name: string }>}
-        schoolYearId={schoolYearRaw?.id ?? null}
+        schoolYearId={schoolYear?.id ?? null}
       />
     </div>
   )

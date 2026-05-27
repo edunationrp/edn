@@ -15,21 +15,29 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'Refusé',
 }
 
+const RELATION_LABELS: Record<string, string> = {
+  pere: 'Père',
+  mere: 'Mère',
+  tuteur_legal: 'Tuteur légal',
+  autre: 'Autre',
+  parent: 'Parent',
+  tuteur: 'Tuteur',
+}
+
 export default async function MesEnfantsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   // Enfants déjà liés
-  const { data: relationsRaw } = await supabase
+  const { data: relationsRaw } = await (supabase as any)
     .from('parent_student_relations')
-    .select('id, relationship, students(id, first_name, last_name, iun, student_enrollments(classes(name), school_years(name, is_active)))')
-    .eq('parent_id', user.id)
-    .eq('is_active', true)
+    .select('id, relation_type, students(id, first_name, last_name, iun, student_enrollments(classes(name), school_years(name, is_active)))')
+    .eq('parent_user_id', user.id)
 
   const relations = (relationsRaw ?? []) as Array<{
     id: string
-    relationship: string
+    relation_type: string
     students: {
       id: string
       first_name: string
@@ -69,7 +77,7 @@ export default async function MesEnfantsPage() {
                       {student.iun} · {activeEnroll?.classes?.name ?? '—'}
                     </p>
                   </div>
-                  <Badge variant="outline">{rel.relationship}</Badge>
+                  <Badge variant="outline">{RELATION_LABELS[rel.relation_type] ?? rel.relation_type}</Badge>
                 </div>
               )
             })}

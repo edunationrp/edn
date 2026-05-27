@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
+import type { InsertTables } from '@/types/database.types'
 
 const schema = z.object({
   title: z.string().min(1, 'Titre requis'),
@@ -88,7 +89,7 @@ export function CourseResourcesManager({ schoolId, userId, classes, subjects, sc
     const { data: urlData } = supabase.storage.from('course-resources').getPublicUrl(path)
     const fileUrl = urlData.publicUrl
 
-    const { error: insertErr } = await supabase.from('course_resources').insert({
+    const insertRow: InsertTables<'course_resources'> = {
       school_id: schoolId,
       class_id: data.classId,
       subject_id: data.subjectId || null,
@@ -101,7 +102,9 @@ export function CourseResourcesManager({ schoolId, userId, classes, subjects, sc
       file_size_bytes: file.size,
       type: data.type,
       is_published: false,
-    })
+    }
+
+    const { error: insertErr } = await (supabase as any).from('course_resources').insert(insertRow)
 
     if (insertErr) { setServerError(insertErr.message); return }
 
@@ -111,7 +114,7 @@ export function CourseResourcesManager({ schoolId, userId, classes, subjects, sc
   }
 
   async function togglePublish(id: string, current: boolean) {
-    await supabase
+    await (supabase as any)
       .from('course_resources')
       .update({ is_published: !current, published_at: !current ? new Date().toISOString() : null })
       .eq('id', id)
@@ -119,7 +122,7 @@ export function CourseResourcesManager({ schoolId, userId, classes, subjects, sc
   }
 
   async function deleteResource(id: string) {
-    await supabase.from('course_resources').delete().eq('id', id)
+    await (supabase as any).from('course_resources').delete().eq('id', id)
     setResources(prev => prev.filter(r => r.id !== id))
   }
 

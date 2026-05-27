@@ -17,6 +17,8 @@ export async function sendParentOtp(phone: string) {
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any
 
   // Utiliser Supabase Auth OTP (SMS)
   const { error } = await admin.auth.admin.generateLink({
@@ -37,14 +39,14 @@ export async function sendParentOtp(phone: string) {
   expiresAt.setMinutes(expiresAt.getMinutes() + 10)
 
   // Invalider les anciens codes pour ce numéro
-  await admin
+  await db
     .from('sms_verification_codes')
     .update({ verified_at: new Date().toISOString() })
     .eq('phone', phone)
     .eq('purpose', 'parent_registration')
     .is('verified_at', null)
 
-  const { error: insertErr } = await admin.from('sms_verification_codes').insert({
+  const { error: insertErr } = await db.from('sms_verification_codes').insert({
     phone: phone.trim(),
     code_hash: codeHash,
     purpose: 'parent_registration',
@@ -87,6 +89,8 @@ export async function verifyParentOtpAndRegister(formData: {
   const { phone, code, fullName, password } = parsed.data
 
   const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any
 
   // Vérifier le code
   const encoder = new TextEncoder()
@@ -95,7 +99,7 @@ export async function verifyParentOtpAndRegister(formData: {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('')
 
-  const { data: codeRecord, error: codeErr } = await admin
+  const { data: codeRecord, error: codeErr } = await db
     .from('sms_verification_codes')
     .select('id, attempts')
     .eq('phone', phone)
@@ -109,7 +113,7 @@ export async function verifyParentOtpAndRegister(formData: {
 
   if (codeErr || !codeRecord) {
     // Incrémenter les tentatives
-    await admin
+    await db
       .from('sms_verification_codes')
       .update({ attempts: (codeRecord?.attempts ?? 0) + 1 })
       .eq('phone', phone)
@@ -119,7 +123,7 @@ export async function verifyParentOtpAndRegister(formData: {
   }
 
   // Marquer le code comme vérifié
-  await admin
+  await db
     .from('sms_verification_codes')
     .update({ verified_at: new Date().toISOString() })
     .eq('id', codeRecord.id)
@@ -152,7 +156,7 @@ export async function verifyParentOtpAndRegister(formData: {
   }
 
   // Créer le profil
-  const { error: profileErr } = await admin.from('profiles').insert({
+  const { error: profileErr } = await db.from('profiles').insert({
     id: authData.user.id,
     full_name: fullName,
     email: syntheticEmail,

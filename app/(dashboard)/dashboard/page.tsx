@@ -21,6 +21,16 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const { data: linkedStudentRaw } = await supabase
+    .from('students')
+    .select('id')
+    .eq('user_id', user.id)
+    .limit(1)
+
+  if ((linkedStudentRaw as Array<{ id: string }> | null)?.[0]) {
+    redirect('/eleve')
+  }
+
   const { data: profileRaw } = await supabase
     .from('profiles')
     .select('id, full_name, default_role, is_active')

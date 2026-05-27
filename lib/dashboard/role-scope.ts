@@ -35,31 +35,14 @@ export async function getScopedStudentIds(
   }
 
   if (roleCode === 'ELEVE') {
-    const { data: profileRaw } = await supabase
-      .from('profiles')
-      .select('email, phone')
-      .eq('id', userId)
-      .limit(1)
-
-    const profile = (
-      profileRaw as Array<{ email: string | null; phone: string | null }> | null
-    )?.[0]
-
-    if (!profile) return []
-
-    const filters: string[] = []
-    if (profile.email) filters.push(`phone.eq.${profile.email}`)
-    if (profile.phone) filters.push(`phone.eq.${profile.phone}`)
-
-    if (filters.length === 0) return []
-
-    const { data: studentsRaw } = await supabase
+    const { data: studentRaw } = await supabase
       .from('students')
       .select('id')
-      .or(filters.join(','))
-      .limit(5)
+      .eq('user_id', userId)
+      .limit(1)
 
-    return ((studentsRaw ?? []) as Array<{ id: string }>).map(row => row.id)
+    const student = (studentRaw as Array<{ id: string }> | null)?.[0]
+    return student ? [student.id] : []
   }
 
   return null

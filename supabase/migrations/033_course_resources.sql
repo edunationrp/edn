@@ -1,6 +1,6 @@
 -- ============================================================
--- Migration 017 — Ressources de cours (fichiers professeurs)
--- Bucket privé course-resources
+-- Migration 033 — Ressources de cours (fichiers professeurs)
+-- Idempotent : safe à relancer si une exécution partielle a échoué
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS course_resources (
@@ -26,16 +26,14 @@ CREATE TABLE IF NOT EXISTS course_resources (
 CREATE INDEX IF NOT EXISTS course_resources_class_idx
   ON course_resources(class_id, school_year_id, is_published);
 
+DROP TRIGGER IF EXISTS update_course_resources_updated_at ON course_resources;
 CREATE TRIGGER update_course_resources_updated_at
   BEFORE UPDATE ON course_resources
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================
--- RLS
--- ============================================================
 ALTER TABLE course_resources ENABLE ROW LEVEL SECURITY;
 
--- Professeur/staff : voir toutes les ressources de son école
+DROP POLICY IF EXISTS "cr_staff_select" ON course_resources;
 CREATE POLICY "cr_staff_select"
   ON course_resources FOR SELECT
   USING (
@@ -47,7 +45,7 @@ CREATE POLICY "cr_staff_select"
     )
   );
 
--- Professeur : créer des ressources pour ses classes
+DROP POLICY IF EXISTS "cr_staff_insert" ON course_resources;
 CREATE POLICY "cr_staff_insert"
   ON course_resources FOR INSERT
   WITH CHECK (
@@ -61,16 +59,17 @@ CREATE POLICY "cr_staff_insert"
     )
   );
 
--- Auteur peut modifier/supprimer ses ressources
+DROP POLICY IF EXISTS "cr_staff_update" ON course_resources;
 CREATE POLICY "cr_staff_update"
   ON course_resources FOR UPDATE
   USING (uploaded_by = auth.uid());
 
+DROP POLICY IF EXISTS "cr_staff_delete" ON course_resources;
 CREATE POLICY "cr_staff_delete"
   ON course_resources FOR DELETE
   USING (uploaded_by = auth.uid());
 
--- Élève : lecture uniquement des ressources publiées de sa classe
+DROP POLICY IF EXISTS "cr_student_select" ON course_resources;
 CREATE POLICY "cr_student_select"
   ON course_resources FOR SELECT
   USING (
@@ -84,15 +83,12 @@ CREATE POLICY "cr_student_select"
     )
   );
 
--- ============================================================
--- Bucket privé pour les fichiers (à créer via SQL Storage API)
--- ============================================================
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'course-resources',
   'course-resources',
   FALSE,
-  52428800, -- 50 MB
+  52428800,
   ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/gif',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -103,7 +99,7 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- Politique storage : staff upload
+DROP POLICY IF EXISTS "cr_storage_staff_insert" ON storage.objects;
 CREATE POLICY "cr_storage_staff_insert"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -111,7 +107,7 @@ CREATE POLICY "cr_storage_staff_insert"
     AND auth.role() = 'authenticated'
   );
 
--- Politique storage : staff/élève lecture via signed URL
+DROP POLICY IF EXISTS "cr_storage_authenticated_select" ON storage.objects;
 CREATE POLICY "cr_storage_authenticated_select"
   ON storage.objects FOR SELECT
   USING (
@@ -119,7 +115,7 @@ CREATE POLICY "cr_storage_authenticated_select"
     AND auth.role() = 'authenticated'
   );
 
--- Staff suppression de ses propres fichiers
+DROP POLICY IF EXISTS "cr_storage_owner_delete" ON storage.objects;
 CREATE POLICY "cr_storage_owner_delete"
   ON storage.objects FOR DELETE
   USING (

@@ -28,10 +28,10 @@ export async function ParentDashboard({ schoolId, userId, userName = 'M. Ouedrao
   let children: Child[] = []
 
   if (schoolId) {
-    const { data: relationsRaw } = await supabase
+    const { data: relationsRaw } = await (supabase as any)
       .from('parent_student_relations')
       .select('student_id')
-      .eq('parent_id', userId)
+      .eq('parent_user_id', userId)
       .limit(10)
 
     const relations = (relationsRaw as Relation[] | null) ?? []

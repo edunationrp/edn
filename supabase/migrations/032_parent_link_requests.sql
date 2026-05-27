@@ -1,5 +1,6 @@
 -- ============================================================
--- Migration 016 — Demandes de rattachement parent ↔ élève
+-- Migration 032 — Demandes de rattachement parent ↔ élève
+-- Idempotent : safe à relancer si une exécution partielle a échoué
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS parent_link_requests (
@@ -19,32 +20,28 @@ CREATE TABLE IF NOT EXISTS parent_link_requests (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Un parent ne peut avoir qu'une demande en cours par élève
 CREATE UNIQUE INDEX IF NOT EXISTS parent_link_requests_pending_unique
   ON parent_link_requests(parent_user_id, student_iun)
   WHERE status = 'pending';
 
--- Trigger updated_at
+DROP TRIGGER IF EXISTS update_parent_link_requests_updated_at ON parent_link_requests;
 CREATE TRIGGER update_parent_link_requests_updated_at
   BEFORE UPDATE ON parent_link_requests
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================================
--- RLS
--- ============================================================
 ALTER TABLE parent_link_requests ENABLE ROW LEVEL SECURITY;
 
--- Le parent voit ses propres demandes
+DROP POLICY IF EXISTS "plr_parent_select" ON parent_link_requests;
 CREATE POLICY "plr_parent_select"
   ON parent_link_requests FOR SELECT
   USING (parent_user_id = auth.uid());
 
--- Le parent peut créer une demande
+DROP POLICY IF EXISTS "plr_parent_insert" ON parent_link_requests;
 CREATE POLICY "plr_parent_insert"
   ON parent_link_requests FOR INSERT
   WITH CHECK (parent_user_id = auth.uid());
 
--- La secrétaire peut voir toutes les demandes de son école
+DROP POLICY IF EXISTS "plr_secretaire_select" ON parent_link_requests;
 CREATE POLICY "plr_secretaire_select"
   ON parent_link_requests FOR SELECT
   USING (
@@ -57,7 +54,7 @@ CREATE POLICY "plr_secretaire_select"
     )
   );
 
--- La secrétaire peut approuver/rejeter (UPDATE status)
+DROP POLICY IF EXISTS "plr_secretaire_update" ON parent_link_requests;
 CREATE POLICY "plr_secretaire_update"
   ON parent_link_requests FOR UPDATE
   USING (

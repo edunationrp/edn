@@ -6,6 +6,13 @@ import { z } from 'zod'
 
 const IUN_REGEX = /^BF-\d{4}-\d{6}-\d$/
 
+function mapLinkRelationshipToRelationType(
+  relationship: 'parent' | 'tuteur' | 'autre'
+): 'pere' | 'mere' | 'tuteur_legal' | 'autre' {
+  if (relationship === 'tuteur') return 'tuteur_legal'
+  return 'autre'
+}
+
 // ----------------------------------------------------------------
 // 1. Parent : soumettre une demande de rattachement par IUN
 // ----------------------------------------------------------------
@@ -32,9 +39,11 @@ export async function requestParentStudentLink(formData: {
   if (!user) return { error: 'Non authentifié' }
 
   const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any
 
   // Vérifier que l'étudiant existe
-  const { data: student, error: studentErr } = await admin
+  const { data: student, error: studentErr } = await db
     .from('students')
     .select('id, school_id, status')
     .eq('iun', studentIun)
@@ -44,7 +53,7 @@ export async function requestParentStudentLink(formData: {
   if (student.status !== 'active') return { error: 'Dossier élève inactif' }
 
   // Vérifier qu'il n'y a pas déjà une demande en attente
-  const { data: existing } = await admin
+  const { data: existing } = await db
     .from('parent_link_requests')
     .select('id, status')
     .eq('parent_user_id', user.id)
@@ -55,17 +64,17 @@ export async function requestParentStudentLink(formData: {
   if (existing) return { error: 'Une demande est déjà en cours pour cet élève' }
 
   // Vérifier qu'il n'est pas déjà lié
-  const { data: existingLink } = await admin
+  const { data: existingLink } = await db
     .from('parent_student_relations')
     .select('id')
-    .eq('parent_id', user.id)
+    .eq('parent_user_id', user.id)
     .eq('student_id', student.id)
     .single()
 
   if (existingLink) return { error: 'Vous êtes déjà rattaché à cet élève' }
 
   // Créer la demande
-  const { error: insertErr } = await admin.from('parent_link_requests').insert({
+  const { error: insertErr } = await db.from('parent_link_requests').insert({
     parent_user_id: user.id,
     school_id: student.school_id,
     student_iun: studentIun,
@@ -88,7 +97,7 @@ export async function getMyLinkRequests() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('parent_link_requests')
     .select('id, student_iun, relationship, status, message, created_at, reviewed_at')
     .eq('parent_user_id', user.id)
@@ -107,6 +116,8 @@ export async function getSchoolLinkRequests(schoolId: string) {
   if (!user) return { error: 'Non authentifié' }
 
   const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any
 
   // Vérifier le rôle
   const { data: roleRow } = await admin
@@ -121,7 +132,7 @@ export async function getSchoolLinkRequests(schoolId: string) {
 
   if (!roleRow) return { error: 'Permission insuffisante' }
 
-  const { data, error } = await admin
+  const { data, error } = await db
     .from('parent_link_requests')
     .select(`
       id, student_iun, relationship, status, message, created_at,
@@ -145,8 +156,10 @@ export async function approveLinkRequest(requestId: string) {
   if (!user) return { error: 'Non authentifié' }
 
   const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any
 
-  const { data: req, error: reqErr } = await admin
+  const { data: req, error: reqErr } = await db
     .from('parent_link_requests')
     .select('id, parent_user_id, student_id, student_iun, school_id, relationship')
     .eq('id', requestId)
@@ -169,12 +182,11 @@ export async function approveLinkRequest(requestId: string) {
   if (!roleRow) return { error: 'Permission insuffisante' }
 
   // Créer la relation parent ↔ élève
-  const { error: linkErr } = await admin.from('parent_student_relations').insert({
-    parent_id: req.parent_user_id,
+  const { error: linkErr } = await db.from('parent_student_relations').insert({
+    parent_user_id: req.parent_user_id,
     student_id: req.student_id,
     school_id: req.school_id,
-    relationship: req.relationship,
-    is_active: true,
+    relation_type: mapLinkRelationshipToRelationType(req.relationship),
   })
 
   if (linkErr && !linkErr.message.includes('duplicate')) {
@@ -182,7 +194,7 @@ export async function approveLinkRequest(requestId: string) {
   }
 
   // Attribuer le rôle PARENT dans l'école si pas déjà fait
-  await admin.from('user_school_roles').upsert({
+  await db.from('user_school_roles').upsert({
     user_id: req.parent_user_id,
     school_id: req.school_id,
     role_code: 'PARENT',
@@ -190,7 +202,7 @@ export async function approveLinkRequest(requestId: string) {
   }, { onConflict: 'user_id,school_id,role_code' })
 
   // Marquer la demande comme approuvée
-  await admin.from('parent_link_requests').update({
+  await db.from('parent_link_requests').update({
     status: 'approved',
     reviewed_by: user.id,
     reviewed_at: new Date().toISOString(),
@@ -208,8 +220,10 @@ export async function rejectLinkRequest(requestId: string, reason?: string) {
   if (!user) return { error: 'Non authentifié' }
 
   const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = admin as any
 
-  const { data: req, error: reqErr } = await admin
+  const { data: req, error: reqErr } = await db
     .from('parent_link_requests')
     .select('id, school_id')
     .eq('id', requestId)
@@ -230,7 +244,7 @@ export async function rejectLinkRequest(requestId: string, reason?: string) {
 
   if (!roleRow) return { error: 'Permission insuffisante' }
 
-  await admin.from('parent_link_requests').update({
+  await db.from('parent_link_requests').update({
     status: 'rejected',
     reviewed_by: user.id,
     reviewed_at: new Date().toISOString(),

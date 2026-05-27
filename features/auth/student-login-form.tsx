@@ -49,7 +49,7 @@ export function StudentLoginForm() {
 
     const result = await lookupStudentByIun(iun)
     if ('error' in result) {
-      setServerError(result.error)
+      setServerError(result.error ?? 'Une erreur est survenue.')
       return
     }
 
@@ -72,7 +72,7 @@ export function StudentLoginForm() {
     })
 
     if (result.error) {
-      setServerError(result.error)
+      setServerError(result.error ?? 'Une erreur est survenue.')
       return
     }
 

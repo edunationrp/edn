@@ -1,5 +1,6 @@
 -- ============================================================
--- Migration 015 — Authentification élèves par IUN
+-- Migration 031 — Authentification élèves par IUN
+-- Idempotent : safe à relancer si une exécution partielle a échoué
 -- Ajoute user_id + champs code d'activation à students
 -- Réécrit is_student_owner() pour utiliser user_id
 -- ============================================================
@@ -19,15 +20,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS students_user_id_idx ON students(user_id) WHER
 CREATE INDEX IF NOT EXISTS students_iun_active_idx ON students(iun) WHERE status = 'active';
 
 -- 2. Réécriture de is_student_owner() — utilise user_id, plus le téléphone
-CREATE OR REPLACE FUNCTION is_student_owner(student_id UUID)
+-- (CREATE OR REPLACE conserve les politiques RLS qui en dépendent)
+CREATE OR REPLACE FUNCTION is_student_owner(p_student_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
+STABLE
 AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM students
-    WHERE id = student_id
+    WHERE id = p_student_id
       AND user_id = auth.uid()
   );
 END;

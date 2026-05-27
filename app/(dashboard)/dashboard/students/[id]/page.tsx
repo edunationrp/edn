@@ -7,11 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { formatDate, getInitials, getStatusColor, getStatusLabel } from '@/lib/utils'
-<<<<<<< HEAD
 import { StudentActivationCodeButton } from '@/features/students/student-activation-code-button'
-=======
 import { canAccessStudentRegistry } from '@/lib/students/registry-access'
->>>>>>> 86232464c73376de9f5a348331ee72cc9bb5eb60
 import type { Metadata } from 'next'
 
 export async function generateMetadata({
