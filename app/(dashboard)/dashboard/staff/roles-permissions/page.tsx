@@ -5,31 +5,66 @@ import { redirect } from 'next/navigation'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { Suspense } from 'react'
 import { RolesPermissionsClient } from '@/features/staff/roles-permissions-client'
-import { hasPermission } from '@/types/permissions'
+import { hasPermission, isSchoolFullAuthority } from '@/types/permissions'
 import { ROLE_LABELS } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 import type { Metadata } from 'next'
 import type { RolesPermissionsPayload } from '@/features/staff/roles-permissions-types'
 import { getPublicAppUrl } from '@/lib/env/public'
+import {
+  enrichTeacherAssignments,
+  parseTeacherAssignmentsFromMetadata,
+} from '@/lib/staff/invitation-assignments'
 
 export const metadata: Metadata = {
   title: 'Rôles & Permissions — EduNation',
+}
+
+type RawInvitation = {
+  id: string
+  role_code: string
+  status: string
+  token: string
+  expires_at: string
+  invited_email: string | null
+  invited_name: string | null
+  metadata: unknown
 }
 
 async function loadInvitations(
   schoolId: string,
   supabase: Awaited<ReturnType<typeof createClient>>
 ) {
-  const mapRows = (rows: Array<{
-    id: string
-    role_code: string
-    status: string
-    token: string
-    expires_at: string
-    invited_email: string | null
-    invited_name: string | null
-  }> | null) =>
-    rows?.map(row => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: userData, error: userError } = await (supabase as any)
+    .from('staff_invitations')
+    .select('id, role_code, status, token, expires_at, invited_email, invited_name, metadata')
+    .eq('school_id', schoolId)
+    .order('expires_at', { ascending: false })
+    .limit(50)
+
+  let rows = (userData as RawInvitation[] | null) ?? []
+
+  if (userError || !userData) {
+    try {
+      const admin = createAdminClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (admin as any)
+        .from('staff_invitations')
+        .select('id, role_code, status, token, expires_at, invited_email, invited_name, metadata')
+        .eq('school_id', schoolId)
+        .order('expires_at', { ascending: false })
+        .limit(50)
+      rows = (data as RawInvitation[] | null) ?? []
+    } catch {
+      return []
+    }
+  }
+
+  const db = createAdminClient()
+
+  return Promise.all(
+    rows.map(async row => ({
       id: row.id,
       roleCode: row.role_code,
       status: row.status,
@@ -37,33 +72,59 @@ async function loadInvitations(
       expiresAt: row.expires_at,
       invitedEmail: row.invited_email,
       invitedName: row.invited_name,
-    })) ?? []
+      teacherAssignments: row.role_code === 'PROFESSEUR'
+        ? await enrichTeacherAssignments(
+            db,
+            schoolId,
+            parseTeacherAssignmentsFromMetadata(row.metadata)
+          )
+        : [],
+    }))
+  )
+}
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: userData, error: userError } = await (supabase as any)
-    .from('staff_invitations')
-    .select('id, role_code, status, token, expires_at, invited_email, invited_name')
+async function loadInviteFormOptions(
+  schoolId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>
+) {
+  const { data: yearRaw } = await supabase
+    .from('school_years')
+    .select('id')
     .eq('school_id', schoolId)
-    .order('expires_at', { ascending: false })
-    .limit(50)
+    .eq('is_active', true)
+    .limit(1)
 
-  if (!userError && userData) {
-    return mapRows(userData)
+  const activeYearId = (yearRaw as Array<{ id: string }> | null)?.[0]?.id
+
+  let classesQuery = supabase
+    .from('classes')
+    .select('id, name')
+    .eq('school_id', schoolId)
+    .order('name')
+
+  if (activeYearId) {
+    classesQuery = classesQuery.eq('school_year_id', activeYearId)
   }
 
-  try {
-    const admin = createAdminClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (admin as any)
-      .from('staff_invitations')
-      .select('id, role_code, status, token, expires_at, invited_email, invited_name')
+  const [classesResult, subjectsResult] = await Promise.all([
+    classesQuery,
+    supabase
+      .from('subjects')
+      .select('id, name')
       .eq('school_id', schoolId)
-      .order('expires_at', { ascending: false })
-      .limit(50)
+      .eq('is_active', true)
+      .order('name'),
+  ])
 
-    return mapRows(data)
-  } catch {
-    return []
+  return {
+    inviteClasses: ((classesResult.data ?? []) as Array<{ id: string; name: string }>).map(c => ({
+      id: c.id,
+      name: c.name,
+    })),
+    inviteSubjects: ((subjectsResult.data ?? []) as Array<{ id: string; name: string }>).map(s => ({
+      id: s.id,
+      name: s.name,
+    })),
   }
 }
 
@@ -81,10 +142,9 @@ export default async function RolesPermissionsPage() {
   }
 
   const canManage = hasPermission(role, 'staff:invite')
-  const canViewInvites = hasPermission(role, 'staff:read')
   const schoolId = ctx.school_id
 
-  const [schoolResult, membersResult, invitations] = await Promise.all([
+  const [schoolResult, membersResult, invitations, inviteOptions] = await Promise.all([
     supabase.from('schools').select('name').eq('id', schoolId).limit(1),
     supabase
       .from('user_school_roles')
@@ -94,7 +154,11 @@ export default async function RolesPermissionsPage() {
       `)
       .eq('school_id', schoolId)
       .order('created_at', { ascending: false }),
-    canViewInvites ? loadInvitations(schoolId, supabase) : Promise.resolve([]),
+    canManage ? loadInvitations(schoolId, supabase) : Promise.resolve([]),
+    canManage ? loadInviteFormOptions(schoolId, supabase) : Promise.resolve({
+      inviteClasses: [],
+      inviteSubjects: [],
+    }),
   ])
 
   const schoolName = (schoolResult.data as Array<{ name: string }> | null)?.[0]?.name ?? 'Mon établissement'
@@ -141,9 +205,12 @@ export default async function RolesPermissionsPage() {
     canInvite: hasPermission(role, 'staff:invite'),
     canActivate: hasPermission(role, 'staff:activate'),
     canDeactivate: hasPermission(role, 'staff:deactivate'),
+    canRemove: isSchoolFullAuthority(role),
     members,
     roleCounts,
     invitations,
+    inviteClasses: inviteOptions.inviteClasses,
+    inviteSubjects: inviteOptions.inviteSubjects,
   }
 
   return (

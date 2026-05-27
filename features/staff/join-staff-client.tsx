@@ -3,7 +3,8 @@
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Shield, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Shield, CheckCircle, XCircle, Loader2, LogOut, LogIn } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,10 +15,18 @@ import { ROLE_COLORS } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 import { formatDate } from '@/lib/utils'
 
+function emailsMatch(a: string | null | undefined, b: string | null | undefined) {
+  if (!a || !b) return true
+  return a.trim().toLowerCase() === b.trim().toLowerCase()
+}
+
 type JoinStaffClientProps = {
   token: string
   isLoggedIn: boolean
+  loggedInContactEmail?: string | null
+  isMemberOfInvitationSchool?: boolean
   preview: {
+    schoolId: string
     schoolName: string
     roleCode: string
     roleLabel: string
@@ -27,13 +36,28 @@ type JoinStaffClientProps = {
     invitedEmail: string | null
     isExpired: boolean
     isValid: boolean
+    accountExistsAtSchool?: boolean
+    teacherAssignments: Array<{
+      classId: string
+      subjectId: string
+      className: string
+      subjectName: string
+    }>
   } | null
   error?: string
 }
 
-export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaffClientProps) {
+export function JoinStaffClient({
+  token,
+  isLoggedIn,
+  loggedInContactEmail,
+  isMemberOfInvitationSchool = false,
+  preview,
+  error,
+}: JoinStaffClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [isSigningOut, startSignOut] = useTransition()
 
   if (error || !preview) {
     return (
@@ -53,6 +77,31 @@ export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaff
   }
 
   const invalid = !preview.isValid || preview.isExpired || preview.status !== 'pending'
+  const invitedEmail = preview.invitedEmail?.trim() ?? null
+  const emailMismatch =
+    isLoggedIn && !!invitedEmail && !emailsMatch(loggedInContactEmail, invitedEmail)
+  const wrongSchoolSession = isLoggedIn && !isMemberOfInvitationSchool
+  const canAcceptLoggedIn =
+    isLoggedIn &&
+    isMemberOfInvitationSchool &&
+    (!invitedEmail || emailsMatch(loggedInContactEmail, invitedEmail))
+  const accountExistsAtSchool = preview.accountExistsAtSchool ?? false
+
+  const loginHref = invitedEmail
+    ? `/login?email=${encodeURIComponent(invitedEmail)}&school=${encodeURIComponent(preview.schoolId)}&redirect=${encodeURIComponent(`/join/staff/${token}`)}`
+    : `/login?redirect=${encodeURIComponent(`/join/staff/${token}`)}`
+
+  function handleSignOutAndContinue(mode: 'signup' | 'login') {
+    startSignOut(async () => {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      if (mode === 'login') {
+        router.push(loginHref)
+      } else {
+        router.refresh()
+      }
+    })
+  }
 
   function handleAccept() {
     startTransition(async () => {
@@ -92,32 +141,144 @@ export function JoinStaffClient({ token, isLoggedIn, preview, error }: JoinStaff
           </p>
         </div>
 
+        {preview.teacherAssignments.length > 0 && (
+          <div className="rounded-xl border bg-white p-4">
+            <p className="text-sm font-semibold text-slate-900">Vos affectations</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Définies par la direction — vous complétez ensuite votre profil.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {preview.teacherAssignments.map(item => (
+                <li
+                  key={`${item.classId}-${item.subjectId}`}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                >
+                  <span className="font-medium text-slate-900">{item.className}</span>
+                  <span className="text-slate-500"> · {item.subjectName}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {invalid ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-center text-sm text-amber-900">
             {preview.isExpired
               ? 'Cette invitation a expiré. Contactez le directeur pour un nouveau lien.'
               : 'Cette invitation n\'est plus disponible.'}
           </div>
-        ) : !isLoggedIn ? (
+        ) : emailMismatch ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+              <p>
+                Vous êtes connecté avec <strong>{loggedInContactEmail}</strong>, mais cette invitation
+                est adressée à <strong>{invitedEmail}</strong>.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {accountExistsAtSchool && (
+                <Button
+                  className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"
+                  disabled={isSigningOut}
+                  onClick={() => handleSignOutAndContinue('login')}
+                >
+                  {isSigningOut ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Redirection…
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="h-4 w-4" />
+                      Se connecter avec {invitedEmail}
+                    </>
+                  )}
+                </Button>
+              )}
+              <Button
+                variant={accountExistsAtSchool ? 'outline' : 'default'}
+                className={accountExistsAtSchool ? 'w-full' : 'w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]'}
+                disabled={isSigningOut}
+                onClick={() => handleSignOutAndContinue('signup')}
+              >
+                <LogOut className="h-4 w-4" />
+                {accountExistsAtSchool
+                  ? `Créer un compte avec ${invitedEmail}`
+                  : `Finaliser mon inscription (${invitedEmail})`}
+              </Button>
+            </div>
+          </div>
+        ) : wrongSchoolSession ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-950">
+              <p>
+                Vous êtes connecté à un autre établissement.
+                {accountExistsAtSchool
+                  ? ` Connectez-vous à ${preview.schoolName} avec le mot de passe de cet établissement.`
+                  : ` Pour rejoindre ${preview.schoolName}, créez un compte dédié avec un mot de passe propre à cet établissement.`}
+              </p>
+            </div>
+            <div className="space-y-2">
+              {accountExistsAtSchool ? (
+                <Button
+                  className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"
+                  disabled={isSigningOut}
+                  onClick={() => handleSignOutAndContinue('login')}
+                >
+                  <LogIn className="h-4 w-4" />
+                  Se connecter à {preview.schoolName}
+                </Button>
+              ) : null}
+              <Button
+                variant={accountExistsAtSchool ? 'outline' : 'default'}
+                className={accountExistsAtSchool ? 'w-full' : 'w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]'}
+                disabled={isSigningOut}
+                onClick={() => handleSignOutAndContinue('signup')}
+              >
+                <LogOut className="h-4 w-4" />
+                {accountExistsAtSchool
+                  ? 'Me déconnecter et changer de compte'
+                  : `Me déconnecter et créer mon compte (${preview.schoolName})`}
+              </Button>
+            </div>
+          </div>
+        ) : accountExistsAtSchool && !isLoggedIn ? (
+          <div className="space-y-4 border-t pt-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Un compte existe déjà pour <strong>{invitedEmail}</strong> à{' '}
+              <strong>{preview.schoolName}</strong>.
+            </p>
+            <Button asChild className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]">
+              <Link href={loginHref}>
+                <LogIn className="h-4 w-4" />
+                Se connecter à {preview.schoolName}
+              </Link>
+            </Button>
+          </div>
+        ) : !canAcceptLoggedIn ? (
           <div className="space-y-4">
             <div className="border-t pt-4">
               <h3 className="mb-1 text-center text-sm font-semibold text-foreground">
                 Finalisez votre compte
               </h3>
               <p className="mb-4 text-center text-xs text-muted-foreground">
-                Complétez vos informations pour rejoindre {preview.schoolName}.
+                Créez votre accès pour {preview.schoolName}. Vous pourvez réutiliser le même email
+                qu&apos;un autre établissement avec un mot de passe différent.
               </p>
               <StaffInvitationSignupForm
                 token={token}
                 invitedName={preview.invitedName}
                 invitedEmail={preview.invitedEmail}
+                loginHref={loginHref}
+                showLoginLink={false}
               />
             </div>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-center text-sm text-muted-foreground">
-              Vous êtes connecté. Confirmez pour accéder à votre espace{' '}
+              Connecté en tant que <strong>{loggedInContactEmail}</strong> à{' '}
+              <strong>{preview.schoolName}</strong>. Confirmez pour accéder à votre espace{' '}
               <strong>{preview.roleLabel}</strong>.
             </p>
             <Button

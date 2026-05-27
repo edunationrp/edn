@@ -48,7 +48,7 @@ export function FeeStructuresTable({ fees }: { fees: FeeStructureRow[] }) {
         <FilterBar className="border-slate-100 bg-white p-3">
           <FilterSearch value={search} onChange={setSearch} placeholder="Rechercher…" icon={<Search className="h-4 w-4" />} />
           <Button variant="outline" size="sm" className="shrink-0" asChild>
-            <Link href="/dashboard/finance/fees/new">Ajouter</Link>
+            <Link href="/dashboard/finance/tuition">Configurer</Link>
           </Button>
         </FilterBar>
       }
@@ -56,7 +56,7 @@ export function FeeStructuresTable({ fees }: { fees: FeeStructureRow[] }) {
       emptyState={{
         icon: <FileText className="h-6 w-6" />,
         title: 'Aucune structure tarifaire',
-        action: <Button variant="link" size="sm" asChild><Link href="/dashboard/finance/fees/new">Configurer les frais</Link></Button>,
+        action: <Button variant="link" size="sm" asChild><Link href="/dashboard/finance/tuition">Configurer les tarifs</Link></Button>,
       }}
       renderMobileRow={fee => (
         <div className="flex items-start justify-between gap-3 px-4 py-4">

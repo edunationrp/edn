@@ -53,7 +53,7 @@ export default async function GradesPage() {
   const pendingEvals = evaluations.filter(e => !e.is_locked).length
 
   const isTeacher = role === 'PROFESSEUR'
-  const isAdmin = ['PROVISEUR', 'DIRECTEUR_ADJOINT', 'CENSEUR', 'SUPER_ADMIN_EDUNATION'].includes(role ?? '')
+  const isAdmin = ['DIRECTEUR_ADJOINT', 'CENSEUR', 'SUPER_ADMIN_EDUNATION'].includes(role ?? '')
 
   return (
     <div className="space-y-4 animate-fade-in sm:space-y-6">

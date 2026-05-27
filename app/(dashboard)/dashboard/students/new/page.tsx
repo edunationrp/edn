@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { canAccessSecretaryAdmissionQueue } from '@/lib/admissions/access'
+import { canAccessStudentRegistry } from '@/lib/students/registry-access'
 import { StudentEnrollmentForm } from '@/features/students/student-enrollment-form'
 
 export default async function NewStudentPage() {
@@ -11,6 +12,9 @@ export default async function NewStudentPage() {
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx) redirect('/dashboard')
+  if (!canAccessStudentRegistry(ctx.role_code)) {
+    redirect('/dashboard')
+  }
   if (canAccessSecretaryAdmissionQueue(ctx.role_code)) {
     redirect('/dashboard/admissions/to-process')
   }

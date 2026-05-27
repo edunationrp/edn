@@ -41,7 +41,12 @@ import {
   ROLE_LABELS,
 } from '@/lib/permissions/catalog'
 import type { UserRole } from '@/types/roles'
-import type { InvitationRow } from '@/features/staff/roles-permissions-types'
+import type { InvitationRow, InviteClassOption, InviteSubjectOption } from '@/features/staff/roles-permissions-types'
+import type { TeacherInviteAssignmentInput } from '@/lib/staff/invitation-assignments'
+import {
+  TeacherInviteAssignmentsFields,
+  normalizeTeacherInviteAssignments,
+} from '@/features/staff/teacher-invite-assignments-fields'
 import {
   buildInviteMailto,
   cn,
@@ -93,6 +98,8 @@ type StaffInvitationsPanelProps = {
   schoolName: string
   appUrl: string
   invitations: InvitationRow[]
+  inviteClasses: InviteClassOption[]
+  inviteSubjects: InviteSubjectOption[]
   isPending: boolean
   pendingKey: string | null
   onCreateInvite: (payload: {
@@ -100,6 +107,7 @@ type StaffInvitationsPanelProps = {
     invitedEmail?: string
     invitedName?: string
     sendEmail: boolean
+    teacherAssignments?: TeacherInviteAssignmentInput[]
   }) => void
   onCopyUrl: (url: string) => void
   onResend: (inviteId: string) => void
@@ -119,6 +127,8 @@ export function StaffInvitationsPanel({
   schoolName,
   appUrl,
   invitations,
+  inviteClasses,
+  inviteSubjects,
   isPending,
   pendingKey,
   onCreateInvite,
@@ -133,6 +143,9 @@ export function StaffInvitationsPanel({
     name: '',
     sendEmail: true,
   })
+  const [teacherAssignments, setTeacherAssignments] = useState<TeacherInviteAssignmentInput[]>([
+    { classId: '', subjectId: '' },
+  ])
   const [filter, setFilter] = useState<InviteFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -246,7 +259,9 @@ export function StaffInvitationsPanel({
               <div>
                 <CardTitle className="text-base">Nouvelle invitation</CardTitle>
                 <CardDescription className="mt-1">
-                  Lien sécurisé valable 7 jours — l&apos;invité définit son mot de passe à l&apos;acceptation.
+                  {inviteForm.roleCode === 'PROFESSEUR'
+                    ? 'Choisissez les classes et matières, puis envoyez le lien — le professeur complète son profil à l\'acceptation.'
+                    : 'Lien sécurisé valable 7 jours — l\'invité définit son mot de passe à l\'acceptation.'}
                 </CardDescription>
               </div>
             </div>
@@ -255,11 +270,21 @@ export function StaffInvitationsPanel({
             <form
               onSubmit={e => {
                 e.preventDefault()
+                const normalizedAssignments = inviteForm.roleCode === 'PROFESSEUR'
+                  ? normalizeTeacherInviteAssignments(teacherAssignments)
+                  : []
+
+                if (inviteForm.roleCode === 'PROFESSEUR' && normalizedAssignments.length === 0) {
+                  return
+                }
+
                 onCreateInvite({
                   roleCode: inviteForm.roleCode,
                   invitedEmail: inviteForm.email || undefined,
                   invitedName: inviteForm.name || undefined,
                   sendEmail: inviteForm.sendEmail && !!inviteForm.email,
+                  teacherAssignments:
+                    inviteForm.roleCode === 'PROFESSEUR' ? normalizedAssignments : undefined,
                 })
               }}
               className="space-y-4"
@@ -285,6 +310,16 @@ export function StaffInvitationsPanel({
                   {ROLE_DESCRIPTIONS[inviteForm.roleCode as UserRole]}
                 </p>
               </div>
+
+              {inviteForm.roleCode === 'PROFESSEUR' && (
+                <TeacherInviteAssignmentsFields
+                  classes={inviteClasses}
+                  subjects={inviteSubjects}
+                  value={teacherAssignments}
+                  onChange={setTeacherAssignments}
+                  disabled={isPending}
+                />
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="invite-name">Nom de l&apos;invité</Label>
@@ -328,7 +363,11 @@ export function StaffInvitationsPanel({
                 type="submit"
                 variant="brandDark"
                 className="w-full"
-                disabled={isPending}
+                disabled={
+                  isPending ||
+                  (inviteForm.roleCode === 'PROFESSEUR' &&
+                    normalizeTeacherInviteAssignments(teacherAssignments).length === 0)
+                }
                 loading={pendingKey === 'create-invite'}
               >
                 <Link2 className="h-4 w-4" />
@@ -515,6 +554,16 @@ function InvitationRowCard({
               </span>
             )}
           </div>
+
+          {invite.teacherAssignments.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {invite.teacherAssignments.map(item => (
+                <Badge key={`${item.classId}-${item.subjectId}`} variant="outline" className="text-[11px]">
+                  {item.className} · {item.subjectName}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

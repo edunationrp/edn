@@ -1,4 +1,8 @@
 import type { NextConfig } from 'next'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url))
 
 function getSupabaseHostname() {
   try {
@@ -13,6 +17,9 @@ function getSupabaseHostname() {
 const supabaseHostname = getSupabaseHostname()
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: projectRoot,
+  },
   poweredByHeader: false,
   reactStrictMode: true,
   images: supabaseHostname

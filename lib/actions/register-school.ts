@@ -15,6 +15,7 @@ import {
 } from '@/lib/onboarding/schemas'
 import { sendRegistrationCompleteEmail } from '@/lib/email/send'
 import { dispatchNotification } from '@/lib/notifications/dispatch'
+import { ensureDefaultClassLevels } from '@/lib/schools/seed-class-levels'
 
 type AdminDb = SupabaseClient<any>
 
@@ -160,6 +161,11 @@ async function createSchoolForFounder(
     }
   }
 
+  const levelsResult = await ensureDefaultClassLevels(admin, school.id, payload.school_type)
+  if ('error' in levelsResult && levelsResult.error) {
+    return { error: levelsResult.error }
+  }
+
   const { error: profileError } = await admin
     .from('profiles')
     .update({
@@ -300,6 +306,7 @@ export async function completeFullRegistration(
     success: true as const,
     requiresEmailConfirmation: true as const,
     email: director.email,
+    schoolId: schoolResult.schoolId,
   }
 }
 

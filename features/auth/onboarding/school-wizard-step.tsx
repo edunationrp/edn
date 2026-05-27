@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { completeFullRegistration, completeSchoolOnboarding } from '@/lib/actions/register-school'
+import { uploadSchoolLogo, uploadSchoolLogoBootstrap } from '@/lib/actions/school-logo'
+import { SchoolLogoUpload } from '@/components/schools/school-logo-upload'
 import { notify } from '@/lib/feedback/toast'
 import { TOAST_SUCCESS } from '@/lib/feedback/messages'
 import { buildOnboardingSchoolPayload, COUNTRIES, SCHOOL_TYPES } from '@/lib/onboarding/constants'
@@ -91,6 +93,7 @@ export function SchoolWizardStep({
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
 
   useEffect(() => {
     onSubStepChange?.(subStep)
@@ -152,6 +155,19 @@ export function SchoolWizardStep({
     onEditDirector?.({ form, subStep })
   }
 
+  async function uploadLogoIfNeeded(schoolId: string, email?: string) {
+    if (!logoFile) return
+    if (email) {
+      const fd = new FormData()
+      fd.set('logo', logoFile)
+      await uploadSchoolLogoBootstrap({ schoolId, email, formData: fd })
+      return
+    }
+    const fd = new FormData()
+    fd.set('logo', logoFile)
+    await uploadSchoolLogo(fd)
+  }
+
   async function handleFinish() {
     if (!validateCurrentSubStep()) return
 
@@ -188,6 +204,23 @@ export function SchoolWizardStep({
         return
       }
 
+      if ('schoolId' in result && result.schoolId && logoFile) {
+        const logoResult = await uploadSchoolLogoBootstrap({
+          schoolId: result.schoolId,
+          email: result.email ?? directorAccount.email,
+          formData: (() => {
+            const fd = new FormData()
+            fd.set('logo', logoFile)
+            return fd
+          })(),
+        })
+        if ('error' in logoResult && logoResult.error) {
+          notify.warning('École créée', {
+            description: 'Le logo n\'a pas pu être enregistré — ajoutez-le dans Paramètres.',
+          })
+        }
+      }
+
       notify.success('Inscription terminée', {
         description: 'Consultez votre email pour confirmer votre compte.',
       })
@@ -201,6 +234,10 @@ export function SchoolWizardStep({
     if (result.error) {
       notify.error(result.error, 'onboarding_school')
       return
+    }
+
+    if (result.schoolId && logoFile) {
+      await uploadLogoIfNeeded(result.schoolId)
     }
 
     notify.success(TOAST_SUCCESS.onboardingComplete.title, {
@@ -342,6 +379,11 @@ export function SchoolWizardStep({
               />
               {errors.email && <p className="text-[11px] text-destructive">{errors.email}</p>}
             </div>
+            <SchoolLogoUpload
+              compact
+              hint="Optionnel — visible sur le tableau de bord et les reçus."
+              onFileSelect={setLogoFile}
+            />
           </div>
         )}
       </div>

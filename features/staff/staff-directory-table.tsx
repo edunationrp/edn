@@ -1,16 +1,21 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Mail, Phone, Search, UserPlus, Users } from 'lucide-react'
+import { Mail, Phone, Search, Trash2, UserPlus, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   DataTableShell,
   FilterBar,
   FilterSearch,
   FilterSelect,
 } from '@/components/dashboard/filter-bar'
+import { removeStaffMemberFromSchool } from '@/lib/actions/staff'
+import { canRemoveStaffMember } from '@/lib/staff/member-removal'
+import { notify } from '@/lib/feedback/toast'
 import { ROLE_COLORS, ROLE_LABELS, STAFF_ROLES } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 import { cn, formatDate, getInitials } from '@/lib/utils'
@@ -18,16 +23,26 @@ import { dashboard } from '@/lib/dashboard/ui-classes'
 
 export type StaffDirectoryRow = {
   id: string
+  userId: string
   roleCode: UserRole
   isActive: boolean
   createdAt: string
   fullName: string
   email: string | null
   phone: string | null
+  isCurrentUser: boolean
 }
 
 type StaffDirectoryTableProps = {
   members: StaffDirectoryRow[]
+  canRemove: boolean
+}
+
+function canRemoveMember(member: StaffDirectoryRow, canRemove: boolean) {
+  return canRemoveStaffMember({
+    canRemove,
+    roleCode: member.roleCode,
+  })
 }
 
 function MemberAvatar({ name, inactive }: { name: string; inactive?: boolean }) {
@@ -71,7 +86,21 @@ function PhoneCell({ phone }: { phone: string | null }) {
   )
 }
 
-function MobileStaffRow({ member }: { member: StaffDirectoryRow }) {
+function MobileStaffRow({
+  member,
+  canRemove,
+  onRequestRemove,
+  isPending,
+  pendingKey,
+}: {
+  member: StaffDirectoryRow
+  canRemove: boolean
+  onRequestRemove: (memberId: string, memberName: string) => void
+  isPending: boolean
+  pendingKey: string | null
+}) {
+  const removable = canRemoveMember(member, canRemove)
+
   return (
     <article
       className={cn(
@@ -107,13 +136,40 @@ function MobileStaffRow({ member }: { member: StaffDirectoryRow }) {
               <dd className="text-xs text-slate-500">{formatDate(member.createdAt)}</dd>
             </div>
           </dl>
+          {removable && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+              disabled={isPending || pendingKey === `remove-${member.id}`}
+              onClick={() => onRequestRemove(member.id, member.fullName)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Retirer de l&apos;établissement
+            </Button>
+          )}
         </div>
       </div>
     </article>
   )
 }
 
-function DesktopStaffRow({ member }: { member: StaffDirectoryRow }) {
+function DesktopStaffRow({
+  member,
+  canRemove,
+  onRequestRemove,
+  isPending,
+  pendingKey,
+}: {
+  member: StaffDirectoryRow
+  canRemove: boolean
+  onRequestRemove: (memberId: string, memberName: string) => void
+  isPending: boolean
+  pendingKey: string | null
+}) {
+  const removable = canRemoveMember(member, canRemove)
+
   return (
     <tr className={cn(dashboard.tableRow, !member.isActive && 'opacity-75')}>
       <td className="px-4 py-3.5 sm:px-5">
@@ -137,11 +193,34 @@ function DesktopStaffRow({ member }: { member: StaffDirectoryRow }) {
         </Badge>
       </td>
       <td className="px-4 py-3.5 text-slate-500 sm:px-5">{formatDate(member.createdAt)}</td>
+      {canRemove && (
+        <td className="px-4 py-3.5 text-right sm:px-5">
+          {removable ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              title="Retirer de l'établissement"
+              className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+              disabled={isPending || pendingKey === `remove-${member.id}`}
+              onClick={() => onRequestRemove(member.id, member.fullName)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          ) : (
+            <span className="text-xs text-slate-400">—</span>
+          )}
+        </td>
+      )}
     </tr>
   )
 }
 
-export function StaffDirectoryTable({ members }: StaffDirectoryTableProps) {
+export function StaffDirectoryTable({ members, canRemove }: StaffDirectoryTableProps) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [pendingKey, setPendingKey] = useState<string | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -170,6 +249,29 @@ export function StaffDirectoryTable({ members }: StaffDirectoryTableProps) {
     })
   }, [members, search, roleFilter, statusFilter])
 
+  function handleConfirmRemove() {
+    if (!removeTarget) return
+    setPendingKey(`remove-${removeTarget.id}`)
+    startTransition(async () => {
+      try {
+        const result = await removeStaffMemberFromSchool(removeTarget.id)
+        if (result.error) {
+          notify.error(result.error)
+          return
+        }
+        notify.success(
+          result.accountDeleted
+            ? 'Membre supprimé de cet établissement'
+            : 'Membre retiré de cet établissement',
+        )
+        setRemoveTarget(null)
+        router.refresh()
+      } finally {
+        setPendingKey(null)
+      }
+    })
+  }
+
   if (members.length === 0) {
     return (
       <div className={cn(dashboard.card, 'flex flex-col items-center gap-4 px-6 py-16 text-center')}>
@@ -193,7 +295,8 @@ export function StaffDirectoryTable({ members }: StaffDirectoryTableProps) {
   }
 
   return (
-    <DataTableShell>
+    <>
+      <DataTableShell>
       <FilterBar>
         <FilterSearch
           value={search}
@@ -222,7 +325,16 @@ export function StaffDirectoryTable({ members }: StaffDirectoryTableProps) {
 
       <div className="divide-y divide-slate-100 md:hidden">
         {filtered.length > 0 ? (
-          filtered.map(member => <MobileStaffRow key={member.id} member={member} />)
+          filtered.map(member => (
+            <MobileStaffRow
+              key={member.id}
+              member={member}
+              canRemove={canRemove}
+              onRequestRemove={(id, name) => setRemoveTarget({ id, name })}
+              isPending={isPending}
+              pendingKey={pendingKey}
+            />
+          ))
         ) : (
           <div className="flex flex-col items-center gap-2 px-6 py-14 text-center text-slate-500">
             <Search className="h-8 w-8 opacity-30" />
@@ -242,14 +354,26 @@ export function StaffDirectoryTable({ members }: StaffDirectoryTableProps) {
               <th className={cn(dashboard.label, 'px-4 py-3 text-left')}>Téléphone</th>
               <th className={cn(dashboard.label, 'px-4 py-3 text-left')}>Statut</th>
               <th className={cn(dashboard.label, 'px-4 py-3 text-left sm:px-5')}>Depuis</th>
+              {canRemove && (
+                <th className={cn(dashboard.label, 'px-4 py-3 text-right sm:px-5')}>Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {filtered.length > 0 ? (
-              filtered.map(member => <DesktopStaffRow key={member.id} member={member} />)
+              filtered.map(member => (
+                <DesktopStaffRow
+                  key={member.id}
+                  member={member}
+                  canRemove={canRemove}
+                  onRequestRemove={(id, name) => setRemoveTarget({ id, name })}
+                  isPending={isPending}
+                  pendingKey={pendingKey}
+                />
+              ))
             ) : (
               <tr>
-                <td colSpan={6} className="py-14 text-center text-slate-500">
+                <td colSpan={canRemove ? 7 : 6} className="py-14 text-center text-slate-500">
                   <Search className="mx-auto mb-2 h-8 w-8 opacity-30" />
                   <p className="text-sm font-medium">Aucun membre trouvé</p>
                 </td>
@@ -265,6 +389,24 @@ export function StaffDirectoryTable({ members }: StaffDirectoryTableProps) {
         {' · '}
         {members.length} au total
       </div>
-    </DataTableShell>
+      </DataTableShell>
+
+      <ConfirmDialog
+        open={!!removeTarget}
+        onOpenChange={open => { if (!open) setRemoveTarget(null) }}
+        title="Retirer ce membre ?"
+        description={
+          removeTarget
+            ? members.find(m => m.id === removeTarget.id)?.roleCode === 'PROFESSEUR'
+              ? `${removeTarget.name} sera retiré(e) de cet établissement uniquement. Ses affectations seront supprimées ici ; son compte dans les autres établissements reste intact.`
+              : `${removeTarget.name} sera supprimé(e) de cet établissement uniquement. Les autres établissements ne sont pas affectés.`
+            : ''
+        }
+        confirmLabel="Retirer de l'établissement"
+        variant="destructive"
+        loading={!!pendingKey && !!removeTarget}
+        onConfirm={handleConfirmRemove}
+      />
+    </>
   )
 }

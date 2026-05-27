@@ -88,7 +88,7 @@ export async function IntendantDashboard({ schoolId, userName = 'M. Diallo' }: I
         description={
           admittedAwaitingPayment.length > 0 ? (
             <>
-              <strong className="text-white">{admittedAwaitingPayment.length} élève(s) admis</strong> sans paiement enregistré.
+              <strong className="text-white">{admittedAwaitingPayment.length} nouvel(aux) admis</strong> en attente du premier encaissement.
             </>
           ) : pendingCount > 0 ? (
             <>
@@ -99,7 +99,7 @@ export async function IntendantDashboard({ schoolId, userName = 'M. Diallo' }: I
               <strong className="text-white">{overdueCount} impayé(s)</strong> à relancer.
             </>
           ) : (
-            'Enregistrez les paiements des familles et suivez la trésorerie de votre établissement.'
+            'Enregistrez les paiements des familles et consultez les rapports financiers.'
           )
         }
         icon={<Wallet className="h-14 w-14 text-white/35" />}
@@ -128,7 +128,7 @@ export async function IntendantDashboard({ schoolId, userName = 'M. Diallo' }: I
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Admis sans paiement" value={admittedAwaitingPayment.length} subtitle="Dossiers à ouvrir" icon={<Clock className="h-4 w-4" />} tone="amber" />
+        <StatCard title="Premier encaissement" value={admittedAwaitingPayment.length} subtitle="Nouveaux admis" icon={<Clock className="h-4 w-4" />} tone="amber" />
         <StatCard title="Recettes encaissées" value={fmtAmount(totalCollected)} subtitle="Paiements validés" icon={<TrendingUp className="h-4 w-4" />} tone="green" />
         <StatCard title="En attente" value={fmtAmount(totalPending)} subtitle={pendingCount > 0 ? `${pendingCount} transaction(s)` : 'Aucun en attente'} icon={<Clock className="h-4 w-4" />} tone="navy" />
         <StatCard title="Impayés" value={fmtAmount(totalOverdue)} subtitle={overdueCount > 0 ? `${overdueCount} retard(s)` : 'Aucun impayé'} icon={<AlertTriangle className="h-4 w-4" />} tone="rose" />

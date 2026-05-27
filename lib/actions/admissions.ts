@@ -14,10 +14,13 @@ import {
   canSubmitToProviseur,
   getDefaultDocuments,
   parseDossierMetadata,
+  resetDocumentsAfterReturn,
   type AdmissionDocumentFile,
   type DocumentKey,
   type DocumentStatus,
 } from '@/lib/admissions/dossier-metadata'
+import { formatAdmissionTrackingRef } from '@/lib/admissions/format'
+import { notifyAdmissionStaff } from '@/lib/admissions/notify-staff'
 
 function getDb() {
   try {
@@ -104,7 +107,18 @@ function revalidateAdmissionPaths() {
   revalidatePath('/dashboard/admissions/to-process')
   revalidatePath('/dashboard/admissions/to-validate')
   revalidatePath('/dashboard/admissions/admitted')
+  revalidatePath('/dashboard/admissions/archived')
   revalidatePath('/dashboard/students')
+}
+
+const MIN_DECISION_COMMENT_LENGTH = 10
+
+function validateDecisionComment(comment: string, label: string) {
+  const trimmed = comment.trim()
+  if (trimmed.length < MIN_DECISION_COMMENT_LENGTH) {
+    return { error: `${label} : saisissez au moins ${MIN_DECISION_COMMENT_LENGTH} caractères.` as const }
+  }
+  return { value: trimmed }
 }
 
 async function generateIun(birthDate: string) {
@@ -164,8 +178,21 @@ export async function createMinimalAdmissionRequest(input: {
 
   if (error || !data) return { error: error?.message ?? 'Erreur lors de la création.' }
 
+  const requestId = data.id as string
+  const trackingRef = formatAdmissionTrackingRef(requestId)
+  const created = await getRequest(requestId, access.schoolId)
+  if (created) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from('student_registration_requests')
+      .update({
+        metadata: { ...(created.metadata ?? {}), tracking_ref: trackingRef },
+      })
+      .eq('id', requestId)
+  }
+
   revalidateAdmissionPaths()
-  return { success: true as const, requestId: data.id as string }
+  return { success: true as const, requestId }
 }
 
 export async function registerAdmissionDocument(
@@ -350,6 +377,9 @@ export async function submitAdmissionForValidation(requestId: string) {
   const result = await updateRequestWorkflow(requestId, access.schoolId, 'EN_ATTENTE_PROVISEUR', {
     submitted_by: access.user.id,
     submitted_at: new Date().toISOString(),
+    return_comment: null,
+    returned_at: null,
+    returned_by: null,
   })
 
   if ('error' in result) return result
@@ -360,20 +390,54 @@ export async function submitAdmissionForValidation(requestId: string) {
 export async function returnAdmissionForCorrection(requestId: string, comment: string) {
   const access = await requireProviseur()
   if ('error' in access) return access
-  if (!comment.trim()) return { error: 'Commentaire requis.' }
 
-  const result = await updateRequestWorkflow(requestId, access.schoolId, 'EN_COMPLETION', {
-    returned_by: access.user.id,
-    returned_at: new Date().toISOString(),
-    return_comment: comment.trim(),
+  const validated = validateDecisionComment(comment, 'Motif de correction')
+  if ('error' in validated) return validated
+
+  const current = await getRequest(requestId, access.schoolId)
+  if (!current || current.status !== 'pending') return { error: 'Dossier introuvable.' }
+
+  const meta = parseDossierMetadata(current.metadata)
+  const documents = resetDocumentsAfterReturn(meta)
+  const childName = `${meta.last_name ?? ''} ${meta.first_name ?? ''}`.trim() || 'Dossier admission'
+
+  const db = getDb() ?? access.supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('student_registration_requests')
+    .update({
+      metadata: {
+        ...(current.metadata ?? {}),
+        workflow_status: 'EN_COMPLETION',
+        documents,
+        returned_by: access.user.id,
+        returned_at: new Date().toISOString(),
+        return_comment: validated.value,
+      },
+    })
+    .eq('id', requestId)
+    .eq('school_id', access.schoolId)
+
+  if (error) return { error: error.message }
+
+  await notifyAdmissionStaff(access.schoolId, {
+    roles: ['SECRETAIRE'],
+    title: 'Dossier à corriger',
+    body: `${childName} — le proviseur demande des corrections : ${validated.value}`,
+    actionPath: `/dashboard/admissions/${requestId}`,
+    excludeUserId: access.user.id,
   })
 
-  if ('error' in result) return result
   revalidateAdmissionPaths()
+  revalidatePath(`/dashboard/admissions/${requestId}`)
   return { success: true as const }
 }
 
-export async function decideAdmission(requestId: string, decision: 'active' | 'rejected') {
+export async function decideAdmission(
+  requestId: string,
+  decision: 'active' | 'rejected',
+  rejectionReason?: string
+) {
   const access = await requireProviseur()
   if ('error' in access) return access
 
@@ -387,6 +451,14 @@ export async function decideAdmission(requestId: string, decision: 'active' | 'r
   }
 
   if (decision === 'rejected') {
+    const validated = validateDecisionComment(rejectionReason ?? '', 'Motif de refus')
+    if ('error' in validated) return validated
+
+    const trackingRef =
+      meta.tracking_ref ?? formatAdmissionTrackingRef(requestId)
+    const childName = `${meta.last_name ?? ''} ${meta.first_name ?? ''}`.trim() || 'Dossier admission'
+    const rejectedAt = new Date().toISOString()
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (db as any)
       .from('student_registration_requests')
@@ -396,13 +468,26 @@ export async function decideAdmission(requestId: string, decision: 'active' | 'r
           ...current.metadata,
           workflow_status: 'REFUSE',
           decided_by: access.user.id,
-          decided_at: new Date().toISOString(),
+          decided_at: rejectedAt,
+          rejected_at: rejectedAt,
+          rejection_reason: validated.value,
+          tracking_ref: trackingRef,
         },
       })
       .eq('id', requestId)
 
     if (error) return { error: error.message }
+
+    await notifyAdmissionStaff(access.schoolId, {
+      roles: ['SECRETAIRE'],
+      title: 'Admission refusée',
+      body: `${childName} (${trackingRef}) — refus définitif : ${validated.value}`,
+      actionPath: `/dashboard/admissions/archived`,
+      excludeUserId: access.user.id,
+    })
+
     revalidateAdmissionPaths()
+    revalidatePath(`/dashboard/admissions/${requestId}`)
     return { success: true as const }
   }
 

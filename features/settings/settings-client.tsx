@@ -28,6 +28,9 @@ import type {
   SettingsSectionId,
   TeachingPreferences,
 } from '@/lib/settings/types'
+import { uploadSchoolLogo, removeSchoolLogo, updateSchoolWatermarkOpacity } from '@/lib/actions/school-logo'
+import { SchoolLogoUpload } from '@/components/schools/school-logo-upload'
+import { WATERMARK_OPACITY_DEFAULT } from '@/lib/schools/branding'
 import {
   createSchoolYear,
   setActiveSchoolYear,
@@ -171,6 +174,7 @@ function ShortcutLink({ href, label, description }: { href: string; label: strin
 export function SettingsClient({ data }: SettingsClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [opacitySavePending, setOpacitySavePending] = useState(false)
   const defaultTab = data.sections[0]?.id ?? 'profile'
 
   const [profileForm, setProfileForm] = useState(data.profile)
@@ -200,6 +204,7 @@ export function SettingsClient({ data }: SettingsClientProps) {
     email: data.school?.email ?? '',
     motto: data.school?.motto ?? '',
     logoUrl: data.school?.logo_url ?? '',
+    watermarkOpacity: data.school?.logo_watermark_opacity ?? WATERMARK_OPACITY_DEFAULT,
     isActive: data.school?.is_active ?? true,
   })
 
@@ -254,11 +259,6 @@ export function SettingsClient({ data }: SettingsClientProps) {
         { href: '/dashboard/students/pending', label: 'Inscriptions en attente', description: 'Validation des dossiers' },
         { href: '/dashboard/staff/roles-permissions', label: 'Rôles & permissions', description: 'Matrice des droits' },
         { href: '/dashboard/staff/roles-permissions?tab=invitations', label: 'Invitations personnel', description: 'Accès équipe' },
-        { href: '/dashboard/grades/entry', label: 'Saisie des notes', description: 'Saisie directe' },
-        { href: '/dashboard/grades/validate', label: 'Validation des notes', description: 'Contrôle pédagogique' },
-        { href: '/dashboard/report-cards/generate', label: 'Bulletins', description: 'Génération & publication' },
-        { href: '/dashboard/attendance/take', label: 'Faire l\'appel', description: 'Présences du jour' },
-        { href: '/dashboard/finance/payments/new', label: 'Nouveau paiement', description: 'Enregistrer un encaissement' },
         { href: '/dashboard/finance', label: 'Finance', description: 'Frais et paiements' },
         { href: '/dashboard/classes', label: 'Classes & matières', description: 'Structure pédagogique' },
         { href: '/dashboard/audit-logs', label: 'Journaux d\'audit', description: 'Historique des actions' },
@@ -281,7 +281,6 @@ export function SettingsClient({ data }: SettingsClientProps) {
       SECRETAIRE: [
         { href: '/dashboard/students/new', label: 'Nouvelle inscription' },
         { href: '/dashboard/students', label: 'Liste des élèves' },
-        { href: '/dashboard/staff/roles-permissions?tab=invitations', label: 'Invitations (consultation)' },
       ],
       PROFESSEUR: [
         { href: '/dashboard/grades/entry', label: 'Saisie des notes' },
@@ -688,12 +687,49 @@ export function SettingsClient({ data }: SettingsClientProps) {
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label>URL du logo</Label>
-                  <Input
-                    value={schoolIdentity.logoUrl}
-                    onChange={e => setSchoolIdentity(s => ({ ...s, logoUrl: e.target.value }))}
+                  <SchoolLogoUpload
+                    currentUrl={schoolIdentity.logoUrl || null}
+                    opacity={schoolIdentity.watermarkOpacity}
+                    schoolName={schoolIdentity.name || data.schoolName}
                     disabled={accessFor(data, 'school-identity') === 'view'}
-                    placeholder="https://..."
+                    hint="Affiché en filigrane sur le tableau de bord et sur les reçus de paiement."
+                    onOpacityChange={opacity =>
+                      setSchoolIdentity(s => ({ ...s, watermarkOpacity: opacity }))
+                    }
+                    onSaveOpacity={() => {
+                      if (accessFor(data, 'school-identity') !== 'edit') return
+                      setOpacitySavePending(true)
+                      startTransition(async () => {
+                        const result = await updateSchoolWatermarkOpacity(
+                          schoolIdentity.watermarkOpacity,
+                        )
+                        setOpacitySavePending(false)
+                        if (result.error) {
+                          notify.error(result.error)
+                          return
+                        }
+                        notify.success('Opacité du filigrane enregistrée')
+                        router.refresh()
+                      })
+                    }}
+                    opacitySavePending={opacitySavePending}
+                    onUpload={async file => {
+                      const fd = new FormData()
+                      fd.set('logo', file)
+                      return uploadSchoolLogo(fd)
+                    }}
+                    onRemove={async () => {
+                      const result = await removeSchoolLogo()
+                      if (result.error) return { error: result.error }
+                      setSchoolIdentity(s => ({ ...s, logoUrl: '' }))
+                      notify.success('Logo retiré')
+                      router.refresh()
+                    }}
+                    onUploadSuccess={logoUrl => {
+                      setSchoolIdentity(s => ({ ...s, logoUrl: logoUrl ?? '' }))
+                      notify.success('Logo enregistré')
+                      router.refresh()
+                    }}
                   />
                 </div>
               </div>

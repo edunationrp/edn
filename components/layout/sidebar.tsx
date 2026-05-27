@@ -13,7 +13,7 @@ import {
   FileText, Building2, Shield, TrendingUp,
   ChevronDown, Folder, Award,
   UserCheck, BookMarked, Send, Book, Compass, Heart,
-  Home, Clock, Grid,
+  Home, Clock, Grid, Archive,
 } from 'lucide-react'
 import { LogoSVG } from '@/components/brand/logo'
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -46,6 +46,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   send: <Send className="h-4 w-4" />,
   user: <GraduationCap className="h-4 w-4" />,
   clock: <Clock className="h-4 w-4" />,
+  archive: <Archive className="h-4 w-4" />,
 }
 
 // Configurations des rôles (identiques au HTML)
@@ -79,20 +80,18 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       { group: 'Admissions', items: [
         { id: 'admission-new', label: 'Créer une demande', icon: 'userPlus', href: '/dashboard/admissions/new-request' },
         { id: 'admission-validate', label: 'Dossiers à valider', icon: 'clock', href: '/dashboard/admissions/to-validate' },
-        { id: 'students-registry', label: 'Registre élèves', icon: 'users', href: '/dashboard/students' },
+        { id: 'admission-archived', label: 'Archives refusées', icon: 'archive', href: '/dashboard/admissions/archived' },
+        { id: 'students-registry', label: 'Liste des élèves', icon: 'users', href: '/dashboard/students' },
       ]},
       { group: 'Organisation', items: [
         { id: 'personnel', label: 'Personnel', icon: 'users', href: '/dashboard/staff' },
         { id: 'roles', label: 'Rôles & permissions', icon: 'shield', href: '/dashboard/staff/roles-permissions' },
+        { id: 'edt', label: 'Emplois du temps', icon: 'calendar', href: '/dashboard/timetable' },
         { id: 'classes', label: 'Classes & matières', icon: 'grid', href: '/dashboard/classes' },
-      ]},
-      { group: 'Pédagogie', items: [
-        { id: 'notes', label: 'Validation des notes', icon: 'fileCheck', href: '/dashboard/grades/validate' },
-        { id: 'bulletins', label: 'Bulletins & attestations', icon: 'award', href: '/dashboard/report-cards' },
-        { id: 'absences', label: 'Présences & absences', icon: 'userX', href: '/dashboard/attendance' },
       ]},
       { group: 'Finances', items: [
         { id: 'budget', label: 'Synthèse finance', icon: 'wallet', href: '/dashboard/finance' },
+        { id: 'tuition-official', label: 'Tarifs officiels', icon: 'fileText', href: '/dashboard/finance/tuition' },
       ]},
       { group: 'Système', items: [
         { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/audit-logs' },
@@ -112,6 +111,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       { group: 'École', items: [
         { id: 'personnel', label: 'Personnel', icon: 'users', href: '/dashboard/staff' },
         { id: 'inscriptions', label: 'Inscriptions élèves', icon: 'userPlus', href: '/dashboard/students' },
+        { id: 'edt', label: 'Emplois du temps', icon: 'calendar', href: '/dashboard/timetable' },
         { id: 'classes', label: 'Classes & matières', icon: 'grid', href: '/dashboard/classes' },
       ]},
       { group: 'Pédagogie', items: [
@@ -131,7 +131,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
       ]},
       { group: 'Organisation', items: [
-        { id: 'edt', label: 'Emplois du temps', icon: 'grid', href: '/dashboard/classes' },
+        { id: 'edt', label: 'Emplois du temps', icon: 'calendar', href: '/dashboard/timetable' },
         { id: 'classes', label: 'Classes & affectations', icon: 'users', href: '/dashboard/classes' },
         { id: 'examens', label: 'Examens', icon: 'calendar', href: '/dashboard/grades' },
       ]},
@@ -158,10 +158,6 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'admis-payer', label: 'Admis à encaisser', icon: 'userPlus', href: '/dashboard/admissions/admitted' },
         { id: 'nouveau-paiement', label: 'Nouveau paiement', icon: 'wallet', href: '/dashboard/finance/payments/new' },
         { id: 'paiements', label: 'Historique paiements', icon: 'fileText', href: '/dashboard/finance/payments' },
-      ]},
-      { group: 'Gestion', items: [
-        { id: 'budget-int', label: 'Budget & trésorerie', icon: 'chart', href: '/dashboard/finance' },
-        { id: 'structures', label: 'Structures tarifaires', icon: 'fileText', href: '/dashboard/finance' },
       ]},
       { group: 'Reporting', items: [
         { id: 'rapports-int', label: 'Rapports financiers', icon: 'fileText', href: '/dashboard/finance' },
@@ -201,7 +197,8 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Admissions & dossiers', items: [
         { id: 'to-process', label: 'Dossiers à traiter', icon: 'clock', href: '/dashboard/admissions/to-process' },
-        { id: 'registre', label: 'Registre élèves', icon: 'users', href: '/dashboard/students' },
+        { id: 'admission-archived', label: 'Archives refusées', icon: 'archive', href: '/dashboard/admissions/archived' },
+        { id: 'registre', label: 'Liste des élèves', icon: 'users', href: '/dashboard/students' },
         { id: 'suivi-finance', label: 'Suivi admissions validées', icon: 'wallet', href: '/dashboard/admissions/admitted' },
         { id: 'link-requests', label: 'Rattachements parents', icon: 'link', href: '/dashboard/parents/link-requests' },
       ]},
@@ -238,7 +235,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
     nav: [
       { group: "Aujourd'hui", items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'edt-p', label: 'Mon emploi du temps', icon: 'calendar', href: '/dashboard/classes' },
+        { id: 'edt-p', label: 'Mon emploi du temps', icon: 'calendar', href: '/dashboard/timetable' },
       ]},
       { group: 'Enseignement', items: [
         { id: 'classes', label: 'Mes classes', icon: 'users', href: '/dashboard/classes' },
@@ -274,6 +271,23 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
     ],
   },
+<<<<<<< HEAD
+=======
+  ELEVE: {
+    label: 'Élève',
+    nav: [
+      { group: 'Mon espace', items: [
+        { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
+        { id: 'edt-e', label: 'Emploi du temps', icon: 'calendar', href: '/dashboard/timetable' },
+      ]},
+      { group: 'Scolarité', items: [
+        { id: 'notes-e', label: 'Mes notes', icon: 'fileCheck', href: '/dashboard/grades' },
+        { id: 'absences-e', label: 'Mes absences', icon: 'userX', href: '/dashboard/attendance' },
+        { id: 'bulletins-e', label: 'Mes bulletins', icon: 'award', href: '/dashboard/report-cards' },
+      ]},
+    ],
+  },
+>>>>>>> 86232464c73376de9f5a348331ee72cc9bb5eb60
 }
 
 interface SidebarProps {
@@ -286,6 +300,20 @@ interface SidebarProps {
   collapsed?: boolean
   mobileOpen?: boolean
   onNavigate?: () => void
+}
+
+/** Un seul onglet actif : la route la plus spécifique qui correspond (ex. /payments/new vs /payments). */
+function isSidebarNavActive(pathname: string, href: string, allHrefs: string[]): boolean {
+  if (pathname === href) return true
+  if (href === '/dashboard') return false
+  if (!pathname.startsWith(`${href}/`)) return false
+
+  return !allHrefs.some(
+    other =>
+      other !== href &&
+      other.length > href.length &&
+      (pathname === other || pathname.startsWith(`${other}/`))
+  )
 }
 
 export function Sidebar({
@@ -301,6 +329,7 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname()
   const roleCfg = ROLE_NAV[resolveNavRole(userRole)] ?? ROLE_NAV.PROVISEUR
+  const allNavHrefs = roleCfg.nav.flatMap(section => section.items.map(item => item.href))
   const initials = userInitials || userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
@@ -364,9 +393,7 @@ export function Sidebar({
             </div>
             )}
             {section.items.map(item => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/dashboard' && pathname.startsWith(item.href))
+              const isActive = isSidebarNavActive(pathname, item.href, allNavHrefs)
               return (
                 <Link
                   key={item.id}

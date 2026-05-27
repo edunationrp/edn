@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { ROLE_LABELS, STAFF_ROLES, type UserRole } from '@/types/roles'
+import { canAccessStudentRegistry } from '@/lib/students/registry-access'
 
 export type DashboardEntityResult = {
   id: string
@@ -31,14 +32,18 @@ export async function searchDashboardEntities(query: string): Promise<DashboardE
 
   const pattern = `%${escapeIlike(trimmed)}%`
   const schoolId = ctx.school_id
+  const role = ctx.role_code
+  const includeStudents = canAccessStudentRegistry(role)
 
   const [studentsRes, classesRes, subjectsRes, staffRes] = await Promise.all([
-    supabase
-      .from('students')
-      .select('id, first_name, last_name, iun, status')
-      .eq('school_id', schoolId)
-      .or(`last_name.ilike.${pattern},first_name.ilike.${pattern},iun.ilike.${pattern}`)
-      .limit(6),
+    includeStudents
+      ? supabase
+          .from('students')
+          .select('id, first_name, last_name, iun, status')
+          .eq('school_id', schoolId)
+          .or(`last_name.ilike.${pattern},first_name.ilike.${pattern},iun.ilike.${pattern}`)
+          .limit(6)
+      : Promise.resolve({ data: [] }),
     supabase
       .from('classes')
       .select('id, name')

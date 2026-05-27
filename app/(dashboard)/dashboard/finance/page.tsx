@@ -1,6 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { getScopedStudentIds, canAccessFinance } from '@/lib/dashboard/role-scope'
+import { getScopedStudentIds } from '@/lib/dashboard/role-scope'
+import {
+  canAccessSchoolFinanceDashboard,
+  isPersonalFinanceRole,
+} from '@/lib/finance/access'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -37,8 +41,17 @@ export default async function FinancePage() {
   if (!user) redirect('/login')
 
   const ctx = await getUserSchoolContext(user.id)
-  const schoolId = ctx?.school_id
-  const isStaff = canAccessFinance(ctx?.role_code ?? '')
+  if (!ctx?.school_id) redirect('/dashboard')
+
+  if (isPersonalFinanceRole(ctx.role_code)) {
+    redirect('/dashboard/finance/payments')
+  }
+  if (!canAccessSchoolFinanceDashboard(ctx.role_code)) {
+    redirect('/dashboard')
+  }
+
+  const schoolId = ctx.school_id
+  const isStaff = canAccessSchoolFinanceDashboard(ctx.role_code)
   const scopedStudentIds = user && ctx ? await getScopedStudentIds(user.id, ctx.role_code) : null
 
   let paymentsQuery = schoolId

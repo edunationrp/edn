@@ -41,6 +41,7 @@ import { StaffTeamTable } from '@/features/staff/staff-team-table'
 import {
   cancelStaffInvitation,
   createStaffInvitation,
+  removeStaffMemberFromSchool,
   resendStaffInvitationEmail,
   setStaffMemberActive,
   updateStaffMemberRole,
@@ -51,6 +52,7 @@ type TabId = 'overview' | 'matrix' | 'team' | 'invitations' | 'compare'
 
 type ConfirmState =
   | { type: 'deactivate'; memberId: string; memberName: string }
+  | { type: 'remove'; memberId: string; memberName: string }
   | { type: 'cancel-invite'; inviteId: string; label: string }
   | { type: 'change-role'; memberId: string; memberName: string; newRole: UserRole; oldRole: UserRole }
   | null
@@ -62,6 +64,12 @@ const TAB_ITEMS: Array<{ id: TabId; label: string; icon: React.ReactNode }> = [
   { id: 'invitations', label: 'Invitations', icon: <UserPlus className="h-4 w-4" /> },
   { id: 'compare', label: 'Comparer', icon: <GitCompare className="h-4 w-4" /> },
 ]
+
+function resolveRolesTab(tab: string | null, canInvite: boolean): TabId {
+  const requested = (tab as TabId) || 'overview'
+  if (requested === 'invitations' && !canInvite) return 'overview'
+  return TAB_ITEMS.some(t => t.id === requested) ? requested : 'overview'
+}
 
 function PermissionChip({ granted, compact }: { granted: boolean; compact?: boolean }) {
   if (compact) {
@@ -108,17 +116,21 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
-  const initialTab = (searchParams.get('tab') as TabId) || 'overview'
-  const [activeTab, setActiveTab] = useState<TabId>(
-    TAB_ITEMS.some(t => t.id === initialTab) ? initialTab : 'overview'
+  const visibleTabs = useMemo(
+    () => TAB_ITEMS.filter(tab => tab.id !== 'invitations' || data.canInvite),
+    [data.canInvite]
   )
 
+  const initialTab = resolveRolesTab(searchParams.get('tab'), data.canInvite)
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab)
+
   useEffect(() => {
-    const tab = searchParams.get('tab') as TabId
-    if (tab && TAB_ITEMS.some(t => t.id === tab)) {
-      setActiveTab(tab)
+    const tab = resolveRolesTab(searchParams.get('tab'), data.canInvite)
+    setActiveTab(tab)
+    if (searchParams.get('tab') === 'invitations' && !data.canInvite) {
+      router.replace('/dashboard/staff/roles-permissions', { scroll: false })
     }
-  }, [searchParams])
+  }, [searchParams, data.canInvite, router])
   const [searchQuery, setSearchQuery] = useState('')
   const [matrixRoles, setMatrixRoles] = useState<UserRole[]>([
     'PROVISEUR', 'CENSEUR', 'INTENDANT', 'SECRETAIRE', 'PROFESSEUR',
@@ -189,6 +201,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
     action: () => Promise<{
       error?: string
       success?: boolean
+      successMessage?: string
       inviteUrl?: string
       emailSent?: boolean
       emailWarning?: string
@@ -215,7 +228,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
               : 'Le lien existant a été prolongé — copiez-le si besoin.',
           })
         } else {
-          notify.success(successMsg)
+          notify.success(result.successMessage ?? successMsg)
         }
 
         if (result.inviteUrl) setLastInviteUrl(result.inviteUrl)
@@ -262,6 +275,25 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
         `deactivate-${confirmState.memberId}`,
         () => setStaffMemberActive(confirmState.memberId, false),
         'Membre désactivé',
+        () => setConfirmState(null)
+      )
+      return
+    }
+
+    if (confirmState.type === 'remove') {
+      runAction(
+        `remove-${confirmState.memberId}`,
+        async () => {
+          const result = await removeStaffMemberFromSchool(confirmState.memberId)
+          if ('error' in result && result.error) return { error: result.error }
+          return {
+            success: true,
+            successMessage: result.accountDeleted
+              ? 'Membre supprimé de cet établissement'
+              : 'Membre retiré de cet établissement',
+          }
+        },
+        'Membre retiré de l\'établissement',
         () => setConfirmState(null)
       )
       return
@@ -333,7 +365,9 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
             {[
               { label: 'Membres', value: data.members.filter(m => m.isActive).length, tab: 'team' as TabId },
               { label: 'Rôles actifs', value: Object.keys(data.roleCounts).length, tab: 'overview' as TabId },
-              { label: 'Invitations', value: pendingInvites.length, tab: 'invitations' as TabId },
+              ...(data.canInvite
+                ? [{ label: 'Invitations', value: pendingInvites.length, tab: 'invitations' as TabId }]
+                : []),
             ].map(stat => (
               <button
                 key={stat.label}
@@ -353,7 +387,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
 
       <Tabs value={activeTab} onValueChange={v => handleTabChange(v as TabId)}>
         <TabsList className="h-auto w-full flex-wrap justify-start gap-1 p-1">
-          {TAB_ITEMS.map(tab => (
+          {visibleTabs.map(tab => (
             <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
               {tab.icon}
               <span className="hidden sm:inline">{tab.label}</span>
@@ -575,6 +609,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
             members={data.members}
             canActivate={data.canActivate}
             canDeactivate={data.canDeactivate}
+            canRemove={data.canRemove}
             isPending={isPending}
             pendingKey={pendingKey}
             onRoleChange={payload =>
@@ -589,6 +624,9 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
             onRequestDeactivate={(memberId, memberName) =>
               setConfirmState({ type: 'deactivate', memberId, memberName })
             }
+            onRequestRemove={(memberId, memberName) =>
+              setConfirmState({ type: 'remove', memberId, memberName })
+            }
             onActivate={memberId =>
               runAction(
                 `active-${memberId}`,
@@ -600,12 +638,15 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
         </TabsContent>
 
         {/* INVITATIONS */}
+        {data.canInvite && (
         <TabsContent value="invitations" className="space-y-4">
           <StaffInvitationsPanel
             canInvite={data.canInvite}
             schoolName={data.schoolName}
             appUrl={data.appUrl}
             invitations={data.invitations}
+            inviteClasses={data.inviteClasses}
+            inviteSubjects={data.inviteSubjects}
             isPending={isPending}
             pendingKey={pendingKey}
             lastInviteUrl={lastInviteUrl}
@@ -639,6 +680,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
             }
           />
         </TabsContent>
+        )}
 
         {/* COMPARE */}
         <TabsContent value="compare" className="space-y-4">
@@ -761,14 +803,20 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
         open={!!confirmState}
         onOpenChange={open => { if (!open) setConfirmState(null) }}
         title={
-          confirmState?.type === 'deactivate'
+          confirmState?.type === 'remove'
+            ? 'Retirer ce membre ?'
+            : confirmState?.type === 'deactivate'
             ? 'Désactiver ce membre ?'
             : confirmState?.type === 'cancel-invite'
               ? 'Annuler l\'invitation ?'
               : 'Changer le rôle ?'
         }
         description={
-          confirmState?.type === 'deactivate'
+          confirmState?.type === 'remove'
+            ? confirmState.memberName && data.members.find(m => m.id === confirmState.memberId)?.roleCode === 'PROFESSEUR'
+              ? `${confirmState.memberName} sera retiré(e) de cet établissement uniquement. Ses affectations seront supprimées ici ; son accès aux autres établissements reste intact.`
+              : `${confirmState.memberName} sera supprimé(e) de cet établissement uniquement. Les autres établissements ne sont pas affectés.`
+            : confirmState?.type === 'deactivate'
             ? `${confirmState.memberName} ne pourra plus accéder à l'établissement tant que son compte est inactif.`
             : confirmState?.type === 'cancel-invite'
               ? `Le lien d'invitation pour ${confirmState.label} ne sera plus utilisable.`
@@ -777,13 +825,15 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
                 : ''
         }
         confirmLabel={
-          confirmState?.type === 'deactivate'
+          confirmState?.type === 'remove'
+            ? 'Retirer de l\'établissement'
+            : confirmState?.type === 'deactivate'
             ? 'Désactiver'
             : confirmState?.type === 'cancel-invite'
               ? 'Annuler l\'invitation'
               : 'Confirmer le changement'
         }
-        variant={confirmState?.type === 'deactivate' || confirmState?.type === 'cancel-invite' ? 'destructive' : 'default'}
+        variant={confirmState?.type === 'deactivate' || confirmState?.type === 'remove' || confirmState?.type === 'cancel-invite' ? 'destructive' : 'default'}
         loading={!!pendingKey && !!confirmState}
         onConfirm={handleConfirmAction}
       />

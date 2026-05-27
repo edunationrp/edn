@@ -19,7 +19,7 @@ export default async function GradesValidatePage() {
   if (!ctx) redirect('/dashboard')
 
   const role = ctx.role_code
-  const isAdmin = ['PROVISEUR', 'DIRECTEUR_ADJOINT', 'CENSEUR', 'SUPER_ADMIN_EDUNATION'].includes(role ?? '')
+  const isAdmin = ['DIRECTEUR_ADJOINT', 'CENSEUR', 'SUPER_ADMIN_EDUNATION'].includes(role ?? '')
   if (!isAdmin) redirect('/dashboard/grades')
 
   const { data: evalsRaw } = await supabase

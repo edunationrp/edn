@@ -4,26 +4,36 @@ import { StudentsTable } from '@/features/students/students-table'
 import { DashboardPage } from '@/components/dashboard/dashboard-page'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { EmptyPanel } from '@/components/dashboard/empty-panel'
-import { Button } from '@/components/ui/button'
-import { UserPlus } from 'lucide-react'
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
+import { canAccessStudentRegistry } from '@/lib/students/registry-access'
 
 export const metadata: Metadata = {
-  title: 'Gestion des élèves',
+  title: 'Liste des élèves — EduNation',
 }
 
 const PAGE_SIZE = 20
 
+type StudentsSearchParams = {
+  page?: string
+  q?: string
+  class?: string
+  gender?: string
+  status?: string
+}
+
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>
+  searchParams: Promise<StudentsSearchParams>
 }) {
   const supabase = await createClient()
   const params = await searchParams
   const page = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
+  const searchQuery = params.q?.trim() ?? ''
+  const classFilter = params.class?.trim() ?? 'all'
+  const genderFilter = params.gender?.trim() ?? 'all'
+  const statusFilter = params.status?.trim() ?? 'all'
 
   const {
     data: { user },
@@ -34,16 +44,97 @@ export default async function StudentsPage({
   const schoolId = schoolRole?.school_id
   if (!schoolId) redirect('/dashboard')
 
+  if (!canAccessStudentRegistry(schoolRole.role_code)) {
+    redirect('/dashboard')
+  }
+
+  const { data: yearRaw } = await supabase
+    .from('school_years')
+    .select('id')
+    .eq('school_id', schoolId)
+    .eq('is_active', true)
+    .limit(1)
+
+  const activeYearId = (yearRaw as Array<{ id: string }> | null)?.[0]?.id
+
+  let classesQuery = supabase
+    .from('classes')
+    .select('id, name')
+    .eq('school_id', schoolId)
+    .order('name')
+
+  if (activeYearId) {
+    classesQuery = classesQuery.eq('school_year_id', activeYearId)
+  }
+
+  const { data: classesRaw } = await classesQuery
+  const classes = ((classesRaw ?? []) as Array<{ id: string; name: string }>).map(c => ({
+    id: c.id,
+    name: c.name,
+  }))
+
+  let studentIdsForClass: string[] | null = null
+  if (classFilter !== 'all') {
+    const { data: enrollmentRows } = await supabase
+      .from('student_enrollments')
+      .select('student_id')
+      .eq('school_id', schoolId)
+      .eq('class_id', classFilter)
+
+    studentIdsForClass = ((enrollmentRows ?? []) as Array<{ student_id: string }>).map(
+      row => row.student_id
+    )
+  }
+
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
-  const { data: studentsRaw, count } = await supabase
+  let studentsQuery = supabase
     .from('students')
     .select(
       'id, iun, first_name, last_name, birth_date, gender, phone, status, photo_url, created_at, student_enrollments(class_id, classes(name))',
       { count: 'exact' }
     )
     .eq('school_id', schoolId)
+
+  if (studentIdsForClass !== null) {
+    if (studentIdsForClass.length === 0) {
+      return (
+        <DashboardPage>
+          <PageHeader
+            title="Liste des élèves"
+            description="0 élève"
+          />
+          <StudentsTable
+            students={[]}
+            page={1}
+            totalPages={1}
+            totalCount={0}
+            classes={classes}
+            filters={{ q: searchQuery, class: classFilter, gender: genderFilter, status: statusFilter }}
+          />
+        </DashboardPage>
+      )
+    }
+    studentsQuery = studentsQuery.in('id', studentIdsForClass)
+  }
+
+  if (genderFilter === 'M' || genderFilter === 'F') {
+    studentsQuery = studentsQuery.eq('gender', genderFilter)
+  }
+
+  if (statusFilter !== 'all') {
+    studentsQuery = studentsQuery.eq('status', statusFilter)
+  }
+
+  if (searchQuery) {
+    const term = searchQuery.replace(/[%_,]/g, '')
+    studentsQuery = studentsQuery.or(
+      `iun.ilike.%${term}%,last_name.ilike.%${term}%,first_name.ilike.%${term}%`
+    )
+  }
+
+  const { data: studentsRaw, count } = await studentsQuery
     .order('last_name', { ascending: true })
     .range(from, to)
 
@@ -64,31 +155,23 @@ export default async function StudentsPage({
 
   const total = count ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const hasFilters =
+    searchQuery !== '' ||
+    classFilter !== 'all' ||
+    genderFilter !== 'all' ||
+    statusFilter !== 'all'
 
   return (
     <DashboardPage>
       <PageHeader
-        title="Élèves"
-        description={`${total} élève${total > 1 ? 's' : ''} au total`}
-        actions={
-          <Button asChild className="w-full sm:w-auto" variant="brandDark">
-            <Link href="/dashboard/students/new">
-              <UserPlus className="h-4 w-4" />
-              Inscrire un élève
-            </Link>
-          </Button>
-        }
+        title="Liste des élèves"
+        description={`${total} élève${total !== 1 ? 's' : ''}${hasFilters ? ' (filtres actifs)' : ''}`}
       />
 
-      {total === 0 ? (
+      {total === 0 && !hasFilters ? (
         <EmptyPanel
           title="Aucun élève inscrit"
-          description="Commencez par inscrire votre premier élève pour gérer les dossiers scolaires."
-          action={
-            <Button asChild size="sm" variant="brandDark">
-              <Link href="/dashboard/students/new">Inscrire un élève</Link>
-            </Button>
-          }
+          description="Les élèves validés et inscrits apparaîtront ici."
         />
       ) : (
         <StudentsTable
@@ -96,6 +179,8 @@ export default async function StudentsPage({
           page={page}
           totalPages={totalPages}
           totalCount={total}
+          classes={classes}
+          filters={{ q: searchQuery, class: classFilter, gender: genderFilter, status: statusFilter }}
         />
       )}
     </DashboardPage>

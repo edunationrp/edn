@@ -1,48 +1,61 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 import { NewPaymentForm } from '@/features/finance/new-payment-form'
+import { canEncashPayments } from '@/lib/finance/access'
+import { Loader2 } from 'lucide-react'
 
-export default async function NewPaymentPage() {
+export default async function NewPaymentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ studentId?: string }>
+}) {
+  const { studentId } = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const ctx = await getUserSchoolContext(user.id)
-  if (!ctx) redirect('/dashboard')
+  if (!ctx?.school_id) redirect('/dashboard')
+  if (!canEncashPayments(ctx.role_code)) redirect('/dashboard')
 
   const { data: schoolRaw } = await supabase
     .from('schools')
-    .select('name')
+    .select('name, logo_url')
     .eq('id', ctx.school_id)
     .single()
 
-  const schoolName = (schoolRaw as { name: string } | null)?.name ?? 'Mon établissement'
-
-  const [feesResult, yearsResult] = await Promise.all([
-    supabase.from('fee_structures').select('id, name, amount, is_mandatory').eq('school_id', ctx.school_id).order('name'),
-    supabase.from('school_years').select('id, name').eq('school_id', ctx.school_id).eq('is_active', true).limit(1),
-  ])
-
-  const fees = (feesResult.data as Array<{ id: string; name: string; amount: number; is_mandatory: boolean }> | null) ?? []
-  const years = (yearsResult.data as Array<{ id: string; name: string }> | null) ?? []
-  const currentYear = years[0] ?? null
+  const schoolRow = schoolRaw as { name: string; logo_url: string | null } | null
+  const schoolName = schoolRow?.name ?? 'Mon établissement'
+  const schoolLogoUrl = schoolRow?.logo_url ?? null
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
+    <div className="mx-auto max-w-3xl animate-fade-in space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Enregistrer un paiement</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          Rechercher un élève et enregistrer son paiement
+        <h1 className="text-2xl font-bold text-gray-900">Encaissement</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Dossier élève, frais officiels, suppléments et reçu de paiement
         </p>
       </div>
-      <NewPaymentForm
-        schoolId={ctx.school_id}
-        schoolName={schoolName}
-        cassierId={user.id}
-        feeStructures={fees}
-        currentYear={currentYear}
-      />
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Chargement…
+          </div>
+        }
+      >
+        <NewPaymentForm
+          schoolId={ctx.school_id}
+          schoolName={schoolName}
+          schoolLogoUrl={schoolLogoUrl}
+          cassierId={user.id}
+          initialStudentId={studentId ?? null}
+        />
+      </Suspense>
     </div>
   )
 }

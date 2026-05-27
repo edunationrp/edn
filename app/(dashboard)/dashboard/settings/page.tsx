@@ -55,7 +55,7 @@ export default async function SettingsPage() {
       .from('schools')
       .select(`
         id, name, structure_name, type, address, city, province, country,
-        phone, email, logo_url, motto, currency, evaluation_system,
+        phone, email, logo_url, logo_watermark_opacity, motto, currency, evaluation_system,
         main_language, access_level, academic_format, estimated_students,
         is_active, organization_id
       `)

@@ -20,3 +20,8 @@ export function canAccessSecretaryAdmissionQueue(role: string) {
 export function canAccessProviseurAdmissionValidation(role: string) {
   return isProviseurRole(role) && !isSecretaryRole(role)
 }
+
+/** Archives des dossiers refusés — secrétariat et direction. */
+export function canAccessAdmissionArchives(role: string) {
+  return isSecretaryRole(role) || isProviseurRole(role)
+}

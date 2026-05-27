@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { registerStaffFromInvitation } from '@/lib/actions/staff'
-import { createClient } from '@/lib/supabase/client'
+import { loginStaffMember } from '@/lib/actions/auth-login'
 import { notify } from '@/lib/feedback/toast'
 
 const schema = z.object({
@@ -42,6 +42,7 @@ type StaffInvitationSignupFormProps = {
   token: string
   invitedName?: string | null
   invitedEmail?: string | null
+  loginHref?: string
   submitLabel?: string
   showLoginLink?: boolean
 }
@@ -50,9 +51,15 @@ export function StaffInvitationSignupForm({
   token,
   invitedName,
   invitedEmail,
+  loginHref,
   submitLabel = 'Créer mon compte et rejoindre l\'équipe',
   showLoginLink = true,
 }: StaffInvitationSignupFormProps) {
+  const resolvedLoginHref =
+    loginHref ??
+    (invitedEmail
+      ? `/login?email=${encodeURIComponent(invitedEmail)}&redirect=${encodeURIComponent(`/join/staff/${token}`)}`
+      : `/login?redirect=${encodeURIComponent(`/join/staff/${token}`)}`)
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -89,15 +96,21 @@ export function StaffInvitationSignupForm({
         return
       }
 
-      const supabase = createClient()
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      })
-
-      if (signInError) {
+      if (!('schoolId' in result) || !result.schoolId) {
         notify.error('Compte créé, mais connexion impossible. Connectez-vous manuellement.')
         router.push(`/login?redirect=${encodeURIComponent('/dashboard')}`)
+        return
+      }
+
+      const login = await loginStaffMember({
+        contactEmail: data.email,
+        password: data.password,
+        schoolId: result.schoolId,
+      })
+
+      if ('error' in login && login.error) {
+        notify.error('Compte créé, mais connexion impossible. Connectez-vous manuellement.')
+        router.push(`/login?email=${encodeURIComponent(data.email)}&redirect=${encodeURIComponent('/dashboard')}`)
         return
       }
 
@@ -134,7 +147,8 @@ export function StaffInvitationSignupForm({
         />
         {invitedEmail && (
           <p className="text-xs text-muted-foreground">
-            Adresse utilisée pour l&apos;invitation — non modifiable.
+            Adresse utilisée pour l&apos;invitation — non modifiable. Vous pouvez réutiliser cet email
+            dans un autre établissement avec un mot de passe différent.
           </p>
         )}
         {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
@@ -188,10 +202,7 @@ export function StaffInvitationSignupForm({
       {showLoginLink && (
         <p className="text-center text-xs text-muted-foreground">
           Déjà un compte ?{' '}
-          <Link
-            href={`/login?redirect=${encodeURIComponent(`/join/staff/${token}`)}`}
-            className="font-medium text-[#1a4d2e] hover:underline"
-          >
+          <Link href={resolvedLoginHref} className="font-medium text-[#1a4d2e] hover:underline">
             Se connecter
           </Link>
         </p>

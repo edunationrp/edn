@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createFeeStructure } from '@/lib/actions/fees'
+import { parseMoneyInput } from '@/lib/finance/money'
 import { notify } from '@/lib/feedback/toast'
 
 export function FeeStructureForm({
@@ -29,7 +30,7 @@ export function FeeStructureForm({
       const result = await createFeeStructure(schoolId, {
         schoolYearId,
         name: name.trim(),
-        amount: parseFloat(amount) || 0,
+        amount: parseMoneyInput(amount),
         isMandatory,
         dueDate: dueDate || undefined,
       })

@@ -63,6 +63,7 @@ export type SchoolSettingsData = {
   phone: string | null
   email: string | null
   logo_url: string | null
+  logo_watermark_opacity: number | null
   motto: string | null
   currency: string
   evaluation_system: string
