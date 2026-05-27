@@ -137,4 +137,252 @@
 /* Print */
 @media print {
   .no-print { display: none !important; }
+
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 6mm;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .timetable-print-root,
+  .timetable-print-root * {
+    visibility: visible !important;
+  }
+
+  .timetable-print-root {
+    position: fixed !important;
+    inset: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+    overflow: visible !important;
+  }
+
+  .timetable-print-screen-only {
+    display: none !important;
+  }
+
+  .timetable-print-only {
+    display: block !important;
+  }
+
+  .timetable-print-sheet {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background: white;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .timetable-print-watermark {
+    position: fixed;
+    left: 50%;
+    top: 54%;
+    z-index: 0;
+    width: 48%;
+    max-height: 62%;
+    object-fit: contain;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .timetable-print-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .timetable-print-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4mm;
+    padding-bottom: 2mm;
+    border-bottom: 1px solid #cbd5e1;
+  }
+
+  .timetable-print-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 3mm;
+    min-width: 0;
+  }
+
+  .timetable-print-logo {
+    width: 14mm;
+    height: 14mm;
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+
+  .timetable-print-logo-placeholder {
+    width: 14mm;
+    height: 14mm;
+    flex-shrink: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 2mm;
+    background: #f8fafc;
+  }
+
+  .timetable-print-school {
+    margin: 0;
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+  }
+
+  .timetable-print-title {
+    margin: 0.5mm 0 0;
+    font-size: 13pt;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #0f172a;
+  }
+
+  .timetable-print-subtitle {
+    margin: 1mm 0 0;
+    font-size: 8pt;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .timetable-print-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1mm;
+    font-size: 7pt;
+    font-weight: 700;
+    color: #475569;
+    white-space: nowrap;
+  }
+
+  .timetable-print-grid {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 6.5pt;
+    line-height: 1.25;
+  }
+
+  .timetable-print-grid th,
+  .timetable-print-grid td {
+    border: 1px solid #cbd5e1;
+    vertical-align: top;
+    padding: 1.2mm 1mm;
+  }
+
+  .timetable-print-grid th {
+    background: #102e5c !important;
+    color: white !important;
+    font-size: 6.5pt;
+    font-weight: 800;
+    text-align: center;
+    padding: 1.5mm 1mm;
+  }
+
+  .timetable-print-time-col {
+    width: 18mm;
+    font-weight: 800;
+    font-size: 6pt;
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .timetable-print-break-row td {
+    background: #f1f5f9 !important;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 6pt;
+    font-weight: 800;
+    color: #64748b !important;
+    padding: 1mm;
+  }
+
+  .timetable-print-cell {
+    height: auto;
+    min-height: 0;
+  }
+
+  .timetable-print-slot + .timetable-print-slot {
+    margin-top: 1mm;
+    padding-top: 1mm;
+    border-top: 1px dashed #cbd5e1;
+  }
+
+  .timetable-print-slot-subject {
+    margin: 0;
+    font-size: 6.5pt;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .timetable-print-slot-meta {
+    margin: 0.3mm 0 0;
+    font-size: 5.8pt;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .timetable-print-slot-desc {
+    margin: 0.5mm 0 0;
+    font-size: 5.5pt;
+    font-style: italic;
+    color: #64748b;
+    line-height: 1.2;
+  }
+
+  .timetable-print-empty {
+    display: block;
+    text-align: center;
+    color: #cbd5e1;
+  }
+
+  .timetable-print-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2mm 4mm;
+    margin-top: 2mm;
+    padding-top: 1.5mm;
+    border-top: 1px solid #e2e8f0;
+    font-size: 6pt;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .timetable-print-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 1mm;
+  }
+
+  .timetable-print-legend-dot {
+    display: inline-block;
+    width: 2mm;
+    height: 2mm;
+    border-radius: 999px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

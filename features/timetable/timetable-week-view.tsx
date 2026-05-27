@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { TimetableBreaksDialog } from '@/features/timetable/timetable-breaks-dialog'
 import { TimetableCalendarView } from '@/features/timetable/timetable-calendar-view'
 import { TimetableMobileSchedule } from '@/features/timetable/timetable-mobile-schedule'
+import { TimetablePrintSheet } from '@/features/timetable/timetable-print-sheet'
 import { TimetableRequestsPanel } from '@/features/timetable/timetable-requests-panel'
 import { TimetableSlotDialog, type SlotDialogMode } from '@/features/timetable/timetable-slot-dialog'
 import { DAY_LABELS, WEEKDAY_NUMBERS } from '@/lib/timetable/constants'
@@ -100,6 +101,9 @@ type TimetableWeekViewProps = {
   calendarEvents: CalendarEventView[]
   teachers: TimetableTeacherOption[]
   meta: TimetablePageMeta
+  schoolName: string
+  schoolLogoUrl?: string | null
+  schoolWatermarkOpacity?: number | null
   canManage: boolean
   canRequestChanges: boolean
   emptyTitle?: string
@@ -116,6 +120,9 @@ export function TimetableWeekView({
   calendarEvents,
   teachers,
   meta,
+  schoolName,
+  schoolLogoUrl,
+  schoolWatermarkOpacity,
   canManage,
   canRequestChanges,
   emptyTitle = 'Aucun créneau planifié',
@@ -207,12 +214,22 @@ export function TimetableWeekView({
   }
 
   function handlePrint() {
+    if (mainTab !== 'schedule') {
+      setMainTab('schedule')
+      notify.info('Préparation de l\'impression de la grille hebdomadaire…')
+      window.setTimeout(() => window.print(), 150)
+      return
+    }
+    if (scheduleSlots.length === 0) {
+      notify.error('Aucun créneau à imprimer.')
+      return
+    }
     window.print()
   }
 
   function handleExportPdf() {
-    notify.info('Export PDF — utilisez Imprimer puis « Enregistrer en PDF ».')
-    window.print()
+    notify.info('Utilisez « Enregistrer en PDF » dans la boîte de dialogue d\'impression.')
+    handlePrint()
   }
 
   function handleCheckConflicts() {
@@ -250,9 +267,13 @@ export function TimetableWeekView({
   const calendarFilterClassId = canManage && scheduleView === 'class' ? selectedClassId : undefined
   const calendarFilterTeacherId = canManage && scheduleView === 'teacher' ? selectedTeacherId : undefined
 
+  const printSubtitle = scheduleView === 'teacher'
+    ? `Professeur : ${selectedTeacher?.name ?? '—'}`
+    : `Classe : ${selectedClass?.name ?? meta.className} · Prof. principal : ${selectedClass?.mainTeacherName ?? meta.mainTeacherName}`
+
   return (
-    <section ref={printRef} className="space-y-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:space-y-5 sm:rounded-[2rem] sm:p-4 md:p-6 print:border-0 print:p-0 print:shadow-none">
-      <div className="flex flex-col gap-4 sm:gap-5 print:hidden">
+    <section ref={printRef} className="timetable-print-root space-y-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:space-y-5 sm:rounded-[2rem] sm:p-4 md:p-6 print:border-0 print:p-0 print:shadow-none">
+      <div className="timetable-print-screen-only flex flex-col gap-4 sm:gap-5 print:hidden">
         <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#1B3A6B]/10 bg-[#1B3A6B]/5 px-3 py-1 text-xs font-semibold text-[#1B3A6B]">
@@ -435,7 +456,6 @@ export function TimetableWeekView({
             )}
           </>
         )}
-      </div>
 
       {mainTab === 'calendar' ? (
         <TimetableCalendarView
@@ -483,7 +503,7 @@ export function TimetableWeekView({
             onAddSlot={(day, start, end) => openDialog('add', undefined, { day, start, end })}
           />
 
-          <div className="hidden overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm lg:block print:block">
+          <div className="hidden overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm lg:block">
           <div className="overflow-x-auto overscroll-x-contain">
             <div className="min-w-[980px]">
               <div
@@ -677,6 +697,22 @@ export function TimetableWeekView({
         breaks={breaks}
         onClose={() => setBreaksDialogOpen(false)}
       />
+      </div>
+
+      {scheduleSlots.length > 0 && (
+        <TimetablePrintSheet
+          schoolName={schoolName}
+          logoUrl={schoolLogoUrl}
+          watermarkOpacity={schoolWatermarkOpacity}
+          meta={meta}
+          subtitle={printSubtitle}
+          visibleDays={visibleDays}
+          displayTimeRows={displayTimeRows}
+          breaks={breaks}
+          slotsByCell={slotsByCell}
+          legendItems={legendItems}
+        />
+      )}
     </section>
   )
 }

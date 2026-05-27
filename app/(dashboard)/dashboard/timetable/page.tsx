@@ -53,6 +53,18 @@ export default async function TimetablePage() {
   const isManager = canManageTimetable(role)
   const isTeacher = canRequestTimetableChange(role)
 
+  const { data: schoolRaw } = await supabase
+    .from('schools')
+    .select('name, logo_url, logo_watermark_opacity')
+    .eq('id', schoolId)
+    .maybeSingle()
+
+  const school = schoolRaw as {
+    name: string
+    logo_url: string | null
+    logo_watermark_opacity: number | null
+  } | null
+
   const [schoolSlots, teacherSlots, requests, meta, classes, staffAssignments, breaks, calendarEvents, teachers] = await Promise.all([
     getSchoolTimetableSlots(schoolId, schoolYearId),
     isTeacher ? getTeacherTimetableSlots(schoolId, schoolYearId, user.id) : Promise.resolve([]),
@@ -77,6 +89,9 @@ export default async function TimetablePage() {
         calendarEvents={calendarEvents}
         teachers={teachers}
         meta={meta}
+        schoolName={school?.name ?? 'Établissement scolaire'}
+        schoolLogoUrl={school?.logo_url ?? null}
+        schoolWatermarkOpacity={school?.logo_watermark_opacity ?? null}
         canManage={isManager}
         canRequestChanges={isTeacher}
         emptyTitle={isManager ? 'Aucun cours planifié pour cette classe' : 'Aucun créneau planifié'}
