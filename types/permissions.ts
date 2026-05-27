@@ -206,7 +206,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'reports:read',
   ],
   PROFESSEUR: [
-    'students:read',
     'classes:read',
     'subjects:read',
     'grades:read_own', 'grades:create', 'grades:update',

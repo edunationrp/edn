@@ -232,7 +232,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
     nav: [
       { group: "Aujourd'hui", items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'edt-p', label: 'Mon emploi du temps', icon: 'calendar', href: '/dashboard/classes' },
+        { id: 'edt-p', label: 'Mon emploi du temps', icon: 'calendar', href: '/dashboard/timetable' },
       ]},
       { group: 'Enseignement', items: [
         { id: 'classes', label: 'Mes classes', icon: 'users', href: '/dashboard/classes' },
@@ -272,7 +272,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
     nav: [
       { group: 'Mon espace', items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'edt-e', label: 'Emploi du temps', icon: 'calendar', href: '/dashboard/classes' },
+        { id: 'edt-e', label: 'Emploi du temps', icon: 'calendar', href: '/dashboard/timetable' },
       ]},
       { group: 'Scolarité', items: [
         { id: 'notes-e', label: 'Mes notes', icon: 'fileCheck', href: '/dashboard/grades' },

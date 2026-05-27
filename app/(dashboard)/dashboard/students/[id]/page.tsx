@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { formatDate, getInitials, getStatusColor, getStatusLabel } from '@/lib/utils'
+import { canAccessStudentRegistry } from '@/lib/students/registry-access'
 import type { Metadata } from 'next'
 
 export async function generateMetadata({
@@ -37,6 +38,9 @@ export default async function StudentDetailPage({
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx?.school_id) redirect('/dashboard')
+  if (!canAccessStudentRegistry(ctx.role_code)) {
+    redirect('/dashboard')
+  }
 
   const { data: studentRaw } = await supabase
     .from('students')

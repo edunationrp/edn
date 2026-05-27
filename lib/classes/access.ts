@@ -69,6 +69,7 @@ export async function getTeacherAssignments(
     .select('id, class_id, subject_id, classes(name), subjects(name)')
     .eq('teacher_id', userId)
     .eq('school_id', schoolId)
+    .eq('is_active', true)
 
   return ((data ?? []) as Array<{
     id: string

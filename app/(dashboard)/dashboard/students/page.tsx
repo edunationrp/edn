@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { EmptyPanel } from '@/components/dashboard/empty-panel'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
+import { canAccessStudentRegistry } from '@/lib/students/registry-access'
 
 export const metadata: Metadata = {
   title: 'Liste des élèves — EduNation',
@@ -42,6 +43,10 @@ export default async function StudentsPage({
   const schoolRole = await getUserSchoolContext(user.id)
   const schoolId = schoolRole?.school_id
   if (!schoolId) redirect('/dashboard')
+
+  if (!canAccessStudentRegistry(schoolRole.role_code)) {
+    redirect('/dashboard')
+  }
 
   const { data: yearRaw } = await supabase
     .from('school_years')
