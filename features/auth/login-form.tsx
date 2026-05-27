@@ -130,6 +130,21 @@ export function LoginForm() {
           Inscrire mon école
         </a>
       </p>
+
+      <div className="flex flex-col gap-1.5 border-t pt-3">
+        <a
+          href="/login/eleve"
+          className="block rounded-md border py-2 text-center text-xs text-muted-foreground transition hover:border-[#1B3A6B]/40 hover:bg-[#1B3A6B]/5 hover:text-[#1B3A6B]"
+        >
+          🎓 Connexion élève (IUN)
+        </a>
+        <a
+          href="/register/parent"
+          className="block rounded-md border py-2 text-center text-xs text-muted-foreground transition hover:border-[#1B3A6B]/40 hover:bg-[#1B3A6B]/5 hover:text-[#1B3A6B]"
+        >
+          👨‍👩‍👧 Créer un compte parent
+        </a>
+      </div>
     </form>
   )
 }

@@ -203,6 +203,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'to-process', label: 'Dossiers à traiter', icon: 'clock', href: '/dashboard/admissions/to-process' },
         { id: 'registre', label: 'Registre élèves', icon: 'users', href: '/dashboard/students' },
         { id: 'suivi-finance', label: 'Suivi admissions validées', icon: 'wallet', href: '/dashboard/admissions/admitted' },
+        { id: 'link-requests', label: 'Rattachements parents', icon: 'link', href: '/dashboard/parents/link-requests' },
       ]},
       { group: 'Documents', items: [
         { id: 'attestations', label: 'Attestations', icon: 'fileCheck', href: '/dashboard/report-cards' },
@@ -243,6 +244,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'classes', label: 'Mes classes', icon: 'users', href: '/dashboard/classes' },
         { id: 'saisie-notes', label: 'Saisie des notes', icon: 'fileCheck', href: '/dashboard/grades/entry' },
         { id: 'appel', label: 'Appel des élèves', icon: 'userCheck', href: '/dashboard/attendance/take' },
+        { id: 'cours', label: 'Ressources de cours', icon: 'book', href: '/dashboard/cours' },
       ]},
       { group: 'Communication', items: [
         { id: 'parents', label: 'Messages', icon: 'mail', href: '/dashboard/messages' },
@@ -257,7 +259,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
     nav: [
       { group: 'Mon espace', items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'enfants', label: 'Mes enfants', icon: 'user', href: '/dashboard' },
+        { id: 'enfants', label: 'Mes enfants', icon: 'user', href: '/dashboard/mes-enfants' },
       ]},
       { group: 'Scolarité', items: [
         { id: 'notes-p', label: 'Notes & résultats', icon: 'fileCheck', href: '/dashboard/grades' },
@@ -269,20 +271,6 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Communication', items: [
         { id: 'messages-p', label: 'Messages', icon: 'mail', href: '/dashboard/messages' },
-      ]},
-    ],
-  },
-  ELEVE: {
-    label: 'Élève',
-    nav: [
-      { group: 'Mon espace', items: [
-        { id: 'dashboard', label: 'Tableau de bord', icon: 'home', href: '/dashboard' },
-        { id: 'edt-e', label: 'Emploi du temps', icon: 'calendar', href: '/dashboard/classes' },
-      ]},
-      { group: 'Scolarité', items: [
-        { id: 'notes-e', label: 'Mes notes', icon: 'fileCheck', href: '/dashboard/grades' },
-        { id: 'absences-e', label: 'Mes absences', icon: 'userX', href: '/dashboard/attendance' },
-        { id: 'bulletins-e', label: 'Mes bulletins', icon: 'award', href: '/dashboard/report-cards' },
       ]},
     ],
   },

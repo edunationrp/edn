@@ -47,13 +47,8 @@ serve(async (req) => {
       .single()
 
     if (error || !record) {
-      // Incrémenter les tentatives
-      await supabaseAdmin
-        .from('sms_verification_codes')
-        .update({ attempts: supabaseAdmin.rpc('increment_attempts') })
-        .eq('phone', phone)
-        .eq('purpose', purpose)
-        .is('verified_at', null)
+      // Incrémenter les tentatives via SQL pour éviter race condition
+      await supabaseAdmin.rpc('increment_sms_attempts', { p_phone: phone, p_purpose: purpose })
 
       return new Response(
         JSON.stringify({ valid: false, error: 'Code invalide ou expiré' }),

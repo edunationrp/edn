@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { formatDate, getInitials, getStatusColor, getStatusLabel } from '@/lib/utils'
+import { StudentActivationCodeButton } from '@/features/students/student-activation-code-button'
 import type { Metadata } from 'next'
 
 export async function generateMetadata({
@@ -42,6 +43,7 @@ export default async function StudentDetailPage({
     .from('students')
     .select(`
       id, iun, first_name, last_name, birth_date, gender, phone, status, created_at,
+      user_id, activation_code_expires_at,
       student_enrollments(class_id, classes(name), school_years(name))
     `)
     .eq('id', id)
@@ -59,6 +61,8 @@ export default async function StudentDetailPage({
       phone: string | null
       status: string
       created_at: string
+      user_id: string | null
+      activation_code_expires_at: string | null
       student_enrollments: Array<{
         class_id: string
         classes: { name: string } | null
@@ -121,9 +125,27 @@ export default async function StudentDetailPage({
               <p className="text-muted-foreground">Téléphone</p>
               <p className="font-medium">{student.phone ?? '—'}</p>
             </div>
+            <div>
+              <p className="text-muted-foreground">Compte élève</p>
+              <p className="font-medium">{student.user_id ? '✅ Activé' : '⏳ Non activé'}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {!student.user_id && student.status === 'active' && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Accès numérique</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Générez un code d&apos;activation à remettre à l&apos;élève pour qu&apos;il puisse créer son mot de passe.
+            </p>
+            <StudentActivationCodeButton studentId={student.id} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

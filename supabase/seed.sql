@@ -45,6 +45,21 @@ TRUNCATE TABLE audit_logs, grades, evaluations, attendance_records,
   RESTART IDENTITY CASCADE;
 
 -- ============================================================
+-- COMPTES DE TEST LOCAUX
+-- Secrétaire de test : secretaire@test.local / Test2025!
+-- ============================================================
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+VALUES
+  ('bbbbbbbb-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+   'secretaire@test.local', crypt('Test2025!', gen_salt('bf')), NOW(), NOW(), NOW(),
+   '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Aminata OUEDRAOGO"}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO profiles (id, email, full_name, default_role, is_active)
+VALUES ('bbbbbbbb-0000-0000-0000-000000000001', 'secretaire@test.local', 'Aminata OUEDRAOGO', 'SECRETAIRE', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
 -- 1. ÉTABLISSEMENTS
 -- ============================================================
 INSERT INTO schools (id, name, type, city, address, phone, email, is_active)
@@ -210,8 +225,43 @@ VALUES
    NOW() - INTERVAL '1 day');
 
 -- ============================================================
+-- 12. RÔLES DE TEST
+-- ============================================================
+INSERT INTO user_school_roles (user_id, school_id, role_code, is_active)
+VALUES
+  ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'SECRETAIRE', true)
+ON CONFLICT (user_id, school_id, role_code) DO NOTHING;
+
+-- ============================================================
+-- 13. COMPTE ÉLÈVE DE TEST (Moussa OUEDRAOGO — BF-2026-001001)
+-- IUN: BF-2026-001001 / mot de passe: Eleve2025!
+-- ============================================================
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+VALUES
+  ('cccccccc-0000-0000-0000-00000000eeee', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+   'eleve-bf2026001001@eleves.edunation.bf', crypt('Eleve2025!', gen_salt('bf')), NOW(), NOW(), NOW(),
+   '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Moussa OUEDRAOGO","role":"ELEVE"}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO profiles (id, email, full_name, default_role, is_active)
+VALUES ('cccccccc-0000-0000-0000-00000000eeee', 'eleve-bf2026001001@eleves.edunation.bf', 'Moussa OUEDRAOGO', 'ELEVE', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Lier le user_id au dossier élève
+UPDATE students SET user_id = 'cccccccc-0000-0000-0000-00000000eeee'
+WHERE iun = 'BF-2026-001001';
+
+INSERT INTO user_school_roles (user_id, school_id, role_code, is_active)
+VALUES ('cccccccc-0000-0000-0000-00000000eeee', '11111111-0000-0000-0000-000000000001', 'ELEVE', true)
+ON CONFLICT (user_id, school_id, role_code) DO NOTHING;
+
+-- ============================================================
 -- FIN DU SEED
 -- ============================================================
 -- Total : 3 écoles, 3 années scolaires, 7 niveaux, 8 classes,
 -- 10 matières, 5 structures tarifaires, 15 élèves, 5 paiements,
 -- 4 absences, 3 annonces
+-- Comptes de test locaux :
+--   secretaire@test.local / Test2025! (SECRETAIRE, Lycée Wend-Panga)
+--   eleve-bf2026001001@eleves.edunation.bf / Eleve2025!
+--   ou IUN BF-2026-001001 sur /login/eleve

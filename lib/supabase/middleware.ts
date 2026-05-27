@@ -41,7 +41,14 @@ export async function updateSession(request: NextRequest) {
   const isParentSimpleRoute = pathname.startsWith('/parent-simple')
   const isApiRoute = pathname.startsWith('/api')
   const isDashboardRoute = pathname.startsWith('/dashboard')
+  const isEleveRoute = pathname.startsWith('/eleve')
+  const isStudentLoginRoute = pathname.startsWith('/login/eleve')
+  const isAllowedPublic =
+    isPublicRoute || isRegisterRoute || isJoinRoute ||
+    isSuperAdminSetupRoute || isParentSimpleRoute || isApiRoute ||
+    isStudentLoginRoute
 
+  // Protéger /dashboard/* et /eleve/* si non authentifié
   if (!user && isDashboardRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
@@ -49,10 +56,49 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (user && pathname === '/login') {
+  if (!user && isEleveRoute) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login/eleve'
+    return NextResponse.redirect(url)
+  }
+
+  // Bloquer l'accès des élèves au /dashboard/*
+  if (user && isDashboardRoute) {
+    const { data: studentRow } = await supabase
+      .from('students')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single()
+
+    if (studentRow) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/eleve'
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // Rediriger login standard → dashboard pour les non-élèves authentifiés
+  if (user && pathname === '/login' && !isStudentLoginRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
+  }
+
+  // Rediriger /login/eleve → /eleve pour les élèves déjà connectés
+  if (user && isStudentLoginRoute) {
+    const { data: studentRow } = await supabase
+      .from('students')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single()
+
+    if (studentRow) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/eleve'
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse
