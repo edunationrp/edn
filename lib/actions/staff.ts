@@ -23,11 +23,13 @@ import {
   cleanupTeacherSchoolMembership,
   isRemovableStaffRole,
 } from '@/lib/staff/member-removal'
-import { buildStaffMembershipAuthEmail } from '@/lib/auth/staff-membership-email'
 import {
   deleteStaffSchoolAccountIfEmpty,
-  isStaffContactEmailUsedAtSchool,
 } from '@/lib/staff/membership-auth'
+import {
+  registerStaffFromInvitationCore,
+  staffAccountExistsAtSchool,
+} from '@/lib/staff/register-from-invitation'
 
 export type StaffInviteActionResult =
   | {
@@ -743,6 +745,9 @@ export async function getInvitationPreview(token: string) {
       invitedName: row.invited_name,
       invitedEmail: row.invited_email,
       isExpired: new Date(row.expires_at) < new Date(),
+      accountExistsAtSchool: row.invited_email
+        ? await staffAccountExistsAtSchool(admin, row.school_id, row.invited_email)
+        : false,
       teacherAssignments,
     },
   }
@@ -762,7 +767,6 @@ export async function registerStaffFromInvitation(input: {
 
   const firstName = input.firstName.trim()
   const lastName = input.lastName.trim()
-  const fullName = [firstName, lastName].filter(Boolean).join(' ')
 
   if (!firstName || !lastName) {
     return { error: 'Le prénom et le nom sont requis.' }
@@ -796,83 +800,23 @@ export async function registerStaffFromInvitation(input: {
     return { error: 'Cette invitation est réservée à une autre adresse email.' }
   }
 
-  if (await isStaffContactEmailUsedAtSchool(admin, invitation.school_id, email)) {
-    return { error: 'Cet email est déjà utilisé dans cet établissement.' }
-  }
-
-  const authEmail = buildStaffMembershipAuthEmail(email, invitation.school_id)
-
-  const { data: authData, error: signUpError } = await admin.auth.admin.createUser({
-    email: authEmail,
+  const result = await registerStaffFromInvitationCore(admin, invitation, {
+    contactEmail: email,
     password: input.password,
-    email_confirm: true,
-    user_metadata: {
-      full_name: fullName,
-      first_name: firstName,
-      last_name: lastName,
-      phone: input.phone?.trim(),
-      default_role: invitation.role_code,
-      contact_email: email,
-    },
+    firstName,
+    lastName,
+    phone: input.phone,
   })
 
-  if (signUpError || !authData.user) {
-    const msg = signUpError?.message ?? 'Création du compte impossible.'
-    if (/already|registered|exists|duplicate/i.test(msg)) {
-      return {
-        error: 'Un compte existe déjà pour cet établissement avec cet email. Connectez-vous avec le mot de passe de cet établissement.',
-      }
-    }
-    return { error: msg }
-  }
-
-  const userId = authData.user.id
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: profileError } = await (admin as any).from('profiles').upsert({
-      id: userId,
-      email,
-      full_name: fullName,
-      phone: input.phone?.trim() || null,
-      preferred_language: 'fr',
-      default_role: invitation.role_code,
-    })
-
-    if (profileError) throw new Error(profileError.message)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: roleError } = await (admin as any).from('user_school_roles').insert({
-      user_id: userId,
-      school_id: invitation.school_id,
-      role_code: invitation.role_code,
-      is_active: true,
-    })
-
-    if (roleError) throw new Error(roleError.message)
-
-    if (invitation.role_code === 'PROFESSEUR') {
-      const assignments = parseTeacherAssignmentsFromMetadata(invitation.metadata)
-      const applied = await applyTeacherAssignmentsFromInvitation(admin, {
-        schoolId: invitation.school_id,
-        teacherId: userId,
-        assignments,
-      })
-      if (applied.error) throw new Error(applied.error)
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: inviteError } = await (admin as any)
-      .from('staff_invitations')
-      .update({ status: 'used', used_at: new Date().toISOString() })
-      .eq('id', invitation.id)
-
-    if (inviteError) throw new Error(inviteError.message)
-  } catch (err) {
-    await admin.auth.admin.deleteUser(userId)
-    return { error: err instanceof Error ? err.message : 'Inscription interrompue.' }
+  if ('error' in result) {
+    return { error: result.error }
   }
 
   revalidatePath('/dashboard')
-  return { success: true as const, email, schoolId: invitation.school_id, roleCode: invitation.role_code }
+  return {
+    success: true as const,
+    email: result.contactEmail,
+    schoolId: result.schoolId,
+    roleCode: result.roleCode,
+  }
 }

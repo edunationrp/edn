@@ -36,6 +36,7 @@ type JoinStaffClientProps = {
     invitedEmail: string | null
     isExpired: boolean
     isValid: boolean
+    accountExistsAtSchool?: boolean
     teacherAssignments: Array<{
       classId: string
       subjectId: string
@@ -84,6 +85,7 @@ export function JoinStaffClient({
     isLoggedIn &&
     isMemberOfInvitationSchool &&
     (!invitedEmail || emailsMatch(loggedInContactEmail, invitedEmail))
+  const accountExistsAtSchool = preview.accountExistsAtSchool ?? false
 
   const loginHref = invitedEmail
     ? `/login?email=${encodeURIComponent(invitedEmail)}&school=${encodeURIComponent(preview.schoolId)}&redirect=${encodeURIComponent(`/join/staff/${token}`)}`
@@ -174,31 +176,35 @@ export function JoinStaffClient({
               </p>
             </div>
             <div className="space-y-2">
+              {accountExistsAtSchool && (
+                <Button
+                  className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"
+                  disabled={isSigningOut}
+                  onClick={() => handleSignOutAndContinue('login')}
+                >
+                  {isSigningOut ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Redirection…
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="h-4 w-4" />
+                      Se connecter avec {invitedEmail}
+                    </>
+                  )}
+                </Button>
+              )}
               <Button
-                className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"
-                disabled={isSigningOut}
-                onClick={() => handleSignOutAndContinue('login')}
-              >
-                {isSigningOut ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Redirection…
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="h-4 w-4" />
-                    Se connecter avec {invitedEmail}
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full"
+                variant={accountExistsAtSchool ? 'outline' : 'default'}
+                className={accountExistsAtSchool ? 'w-full' : 'w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]'}
                 disabled={isSigningOut}
                 onClick={() => handleSignOutAndContinue('signup')}
               >
                 <LogOut className="h-4 w-4" />
-                Créer un compte avec {invitedEmail}
+                {accountExistsAtSchool
+                  ? `Créer un compte avec ${invitedEmail}`
+                  : `Finaliser mon inscription (${invitedEmail})`}
               </Button>
             </div>
           </div>
@@ -206,19 +212,47 @@ export function JoinStaffClient({
           <div className="space-y-4">
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-950">
               <p>
-                Vous êtes connecté à un autre établissement. Pour rejoindre{' '}
-                <strong>{preview.schoolName}</strong> avec le même email, créez un compte dédié
-                avec un <strong>mot de passe propre à cet établissement</strong>.
+                Vous êtes connecté à un autre établissement.
+                {accountExistsAtSchool
+                  ? ` Connectez-vous à ${preview.schoolName} avec le mot de passe de cet établissement.`
+                  : ` Pour rejoindre ${preview.schoolName}, créez un compte dédié avec un mot de passe propre à cet établissement.`}
               </p>
             </div>
-            <Button
-              variant="outline"
-              className="w-full"
-              disabled={isSigningOut}
-              onClick={() => handleSignOutAndContinue('signup')}
-            >
-              <LogOut className="h-4 w-4" />
-              Me déconnecter et créer mon compte {preview.schoolName}
+            <div className="space-y-2">
+              {accountExistsAtSchool ? (
+                <Button
+                  className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]"
+                  disabled={isSigningOut}
+                  onClick={() => handleSignOutAndContinue('login')}
+                >
+                  <LogIn className="h-4 w-4" />
+                  Se connecter à {preview.schoolName}
+                </Button>
+              ) : null}
+              <Button
+                variant={accountExistsAtSchool ? 'outline' : 'default'}
+                className={accountExistsAtSchool ? 'w-full' : 'w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]'}
+                disabled={isSigningOut}
+                onClick={() => handleSignOutAndContinue('signup')}
+              >
+                <LogOut className="h-4 w-4" />
+                {accountExistsAtSchool
+                  ? 'Me déconnecter et changer de compte'
+                  : `Me déconnecter et créer mon compte (${preview.schoolName})`}
+              </Button>
+            </div>
+          </div>
+        ) : accountExistsAtSchool && !isLoggedIn ? (
+          <div className="space-y-4 border-t pt-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Un compte existe déjà pour <strong>{invitedEmail}</strong> à{' '}
+              <strong>{preview.schoolName}</strong>.
+            </p>
+            <Button asChild className="w-full bg-[#1a4d2e] hover:bg-[#2d6a4f]">
+              <Link href={loginHref}>
+                <LogIn className="h-4 w-4" />
+                Se connecter à {preview.schoolName}
+              </Link>
             </Button>
           </div>
         ) : !canAcceptLoggedIn ? (
@@ -228,13 +262,15 @@ export function JoinStaffClient({
                 Finalisez votre compte
               </h3>
               <p className="mb-4 text-center text-xs text-muted-foreground">
-                Chaque établissement a son propre mot de passe, même si vous réutilisez le même email.
+                Créez votre accès pour {preview.schoolName}. Vous pourvez réutiliser le même email
+                qu&apos;un autre établissement avec un mot de passe différent.
               </p>
               <StaffInvitationSignupForm
                 token={token}
                 invitedName={preview.invitedName}
                 invitedEmail={preview.invitedEmail}
                 loginHref={loginHref}
+                showLoginLink={false}
               />
             </div>
           </div>

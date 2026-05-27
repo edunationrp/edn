@@ -61,7 +61,10 @@ export async function loginStaffMember(input: {
 
   const userId = await findStaffUserIdAtSchool(admin, contactEmail, input.schoolId)
   if (!userId) {
-    return { error: 'Email ou mot de passe incorrect.' }
+    return {
+      error:
+        'Aucun compte pour cet établissement. Finalisez d\'abord votre inscription via le lien d\'invitation reçu par email.',
+    }
   }
 
   const loginEmail = await resolveStaffLoginEmail(admin, userId, contactEmail, input.schoolId)
