@@ -1,10 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { WEEKDAY_NUMBERS } from '@/lib/timetable/constants'
+import { DEFAULT_BREAKS } from '@/lib/timetable/grid-utils'
 import type {
+  CalendarEventView,
   TimetableAssignmentOption,
+  TimetableBreakView,
   TimetableChangeRequestView,
+  TimetableClassOption,
   TimetablePageMeta,
   TimetableSlotView,
+  TimetableStaffAssignment,
+  TimetableTeacherOption,
 } from '@/lib/timetable/types'
 
 export { DAY_LABELS, WEEKDAY_NUMBERS } from '@/lib/timetable/constants'
@@ -26,6 +32,7 @@ type SlotRow = {
   subject_id: string
   teacher_id: string | null
   room: string | null
+  description: string | null
   day_of_week: number
   start_time: string
   end_time: string
@@ -50,6 +57,7 @@ function mapSlotRow(row: SlotRow): TimetableSlotView {
     subjectName: subjectRow?.name ?? 'Matière',
     teacherName: profileName(teacherRow),
     room: row.room,
+    description: row.description ?? null,
     dayOfWeek: row.day_of_week,
     startTime: formatTime(row.start_time),
     endTime: formatTime(row.end_time),
@@ -80,7 +88,7 @@ export async function getSchoolTimetableSlots(
     .from('timetable_slots')
     .select(`
       id, school_id, school_year_id, class_id, subject_id, teacher_id,
-      room, day_of_week, start_time, end_time,
+      room, description, day_of_week, start_time, end_time,
       classes(name), subjects(name),
       profiles:teacher_id(full_name)
     `)
@@ -103,7 +111,7 @@ export async function getTeacherTimetableSlots(
     .from('timetable_slots')
     .select(`
       id, school_id, school_year_id, class_id, subject_id, teacher_id,
-      room, day_of_week, start_time, end_time,
+      room, description, day_of_week, start_time, end_time,
       classes(name), subjects(name),
       profiles:teacher_id(full_name)
     `)
@@ -146,6 +154,70 @@ export async function getTeacherAssignmentOptions(
         subjectId: row.subject_id!,
         className: classRow?.name ?? 'Classe',
         subjectName: subjectRow?.name ?? 'Matière',
+      }
+    })
+}
+
+export async function getTimetableClasses(
+  schoolId: string,
+  schoolYearId: string,
+): Promise<TimetableClassOption[]> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('classes')
+    .select('id, name, profiles:main_teacher_id(full_name)')
+    .eq('school_id', schoolId)
+    .eq('school_year_id', schoolYearId)
+    .order('name')
+
+  return ((data ?? []) as Array<{
+    id: string
+    name: string
+    profiles: { full_name: string | null } | { full_name: string | null }[] | null
+  }>).map(row => {
+    const mainTeacher = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+    return {
+      id: row.id,
+      name: row.name,
+      mainTeacherName: mainTeacher?.full_name ?? 'Non défini',
+    }
+  })
+}
+
+export async function getSchoolStaffAssignments(
+  schoolId: string,
+): Promise<TimetableStaffAssignment[]> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('teacher_assignments')
+    .select('id, class_id, subject_id, teacher_id, classes(name), subjects(name), profiles:teacher_id(full_name)')
+    .eq('school_id', schoolId)
+    .eq('is_active', true)
+
+  return ((data ?? []) as Array<{
+    id: string
+    class_id: string | null
+    subject_id: string | null
+    teacher_id: string | null
+    classes: { name: string } | { name: string }[] | null
+    subjects: { name: string } | { name: string }[] | null
+    profiles: { full_name: string | null } | { full_name: string | null }[] | null
+  }>)
+    .filter(row => row.class_id && row.subject_id && row.teacher_id)
+    .map(row => {
+      const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes
+      const subjectRow = Array.isArray(row.subjects) ? row.subjects[0] : row.subjects
+      const teacherRow = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+      return {
+        id: row.id,
+        classId: row.class_id!,
+        className: classRow?.name ?? 'Classe',
+        subjectId: row.subject_id!,
+        subjectName: subjectRow?.name ?? 'Matière',
+        teacherId: row.teacher_id!,
+        teacherName: teacherRow?.full_name ?? 'Professeur',
       }
     })
 }
@@ -306,4 +378,108 @@ export function groupSlotsByDay(slots: TimetableSlotView[]): Map<number, Timetab
 export function getTodayDayOfWeek(): number {
   const jsDay = new Date().getDay()
   return jsDay === 0 ? 7 : jsDay
+}
+
+export async function getTimetableBreaks(
+  schoolId: string,
+  schoolYearId: string,
+): Promise<TimetableBreakView[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('timetable_breaks')
+    .select('id, label, break_type, start_time, end_time, order_num')
+    .eq('school_id', schoolId)
+    .or(`school_year_id.eq.${schoolYearId},school_year_id.is.null`)
+    .order('order_num')
+
+  const rows = (data ?? []) as Array<{
+    id: string
+    label: string
+    break_type: 'pause' | 'lunch'
+    start_time: string
+    end_time: string
+    order_num: number
+  }>
+
+  if (rows.length === 0) return DEFAULT_BREAKS
+
+  return rows.map(row => ({
+    id: row.id,
+    label: row.label,
+    breakType: row.break_type,
+    startTime: formatTime(row.start_time),
+    endTime: formatTime(row.end_time),
+    orderNum: row.order_num,
+  }))
+}
+
+export async function getCalendarEvents(
+  schoolId: string,
+  schoolYearId: string,
+): Promise<CalendarEventView[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('calendar_events')
+    .select(`
+      id, event_type, title, description, event_date, end_date,
+      all_day, start_time, end_time, class_id, subject_id, teacher_id, room,
+      classes(name), subjects(name), profiles:teacher_id(full_name)
+    `)
+    .eq('school_id', schoolId)
+    .eq('school_year_id', schoolYearId)
+    .order('event_date')
+
+  return ((data ?? []) as Array<{
+    id: string
+    event_type: CalendarEventView['eventType']
+    title: string
+    description: string | null
+    event_date: string
+    end_date: string | null
+    all_day: boolean
+    start_time: string | null
+    end_time: string | null
+    class_id: string | null
+    subject_id: string | null
+    teacher_id: string | null
+    room: string | null
+    classes: { name: string } | { name: string }[] | null
+    subjects: { name: string } | { name: string }[] | null
+    profiles: { full_name: string | null } | { full_name: string | null }[] | null
+  }>).map(row => {
+    const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes
+    const subjectRow = Array.isArray(row.subjects) ? row.subjects[0] : row.subjects
+    const teacherRow = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+    return {
+      id: row.id,
+      eventType: row.event_type,
+      title: row.title,
+      description: row.description,
+      eventDate: row.event_date,
+      endDate: row.end_date,
+      allDay: row.all_day,
+      startTime: row.start_time ? formatTime(row.start_time) : null,
+      endTime: row.end_time ? formatTime(row.end_time) : null,
+      classId: row.class_id,
+      className: classRow?.name ?? null,
+      subjectId: row.subject_id,
+      subjectName: subjectRow?.name ?? null,
+      teacherId: row.teacher_id,
+      teacherName: teacherRow?.full_name ?? null,
+      room: row.room,
+    }
+  })
+}
+
+export async function getSchoolTeachers(
+  schoolId: string,
+): Promise<TimetableTeacherOption[]> {
+  const assignments = await getSchoolStaffAssignments(schoolId)
+  const seen = new Map<string, string>()
+  for (const row of assignments) {
+    if (!seen.has(row.teacherId)) seen.set(row.teacherId, row.teacherName)
+  }
+  return [...seen.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }

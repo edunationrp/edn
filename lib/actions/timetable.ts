@@ -7,6 +7,8 @@ import {
   requireTimetableRead,
 } from '@/lib/timetable/access'
 import { getActiveSchoolYearId } from '@/lib/timetable/data'
+import { dispatchNotification } from '@/lib/notifications/dispatch'
+import type { CalendarEventType } from '@/lib/timetable/types'
 
 const TIMETABLE_PATH = '/dashboard/timetable'
 
@@ -15,6 +17,7 @@ type SlotTimeInput = {
   startTime: string
   endTime: string
   room?: string | null
+  description?: string | null
 }
 
 function normalizeTime(value: string): string | null {
@@ -66,6 +69,7 @@ export async function updateTimetableSlot(slotId: string, input: SlotTimeInput) 
       start_time: startTime,
       end_time: endTime,
       room: input.room?.trim() || null,
+      description: input.description?.trim() || null,
     })
     .eq('id', slotId)
     .eq('school_id', schoolId)
@@ -85,6 +89,7 @@ export async function createTimetableSlot(input: {
   startTime: string
   endTime: string
   room?: string | null
+  description?: string | null
 }) {
   const access = await requireTimetableManage()
   if ('error' in access) return { error: access.error }
@@ -107,6 +112,7 @@ export async function createTimetableSlot(input: {
     start_time: normalizeTime(input.startTime)!,
     end_time: normalizeTime(input.endTime)!,
     room: input.room?.trim() || null,
+    description: input.description?.trim() || null,
   })
 
   if (error) return { error: error.message }
@@ -190,7 +196,7 @@ export async function reviewTimetableChangeRequest(
   const { data: requestRaw } = await supabase
     .from('timetable_change_requests')
     .select(`
-      id, school_id, timetable_slot_id, requested_day_of_week,
+      id, school_id, teacher_id, timetable_slot_id, requested_day_of_week,
       requested_start_time, requested_end_time, requested_room, status
     `)
     .eq('id', requestId)
@@ -199,6 +205,7 @@ export async function reviewTimetableChangeRequest(
 
   const request = requestRaw as {
     id: string
+    teacher_id: string
     timetable_slot_id: string | null
     requested_day_of_week: number
     requested_start_time: string
@@ -241,8 +248,168 @@ export async function reviewTimetableChangeRequest(
 
   if (error) return { error: error.message }
 
+  await dispatchNotification({
+    userId: request.teacher_id,
+    schoolId,
+    title: decision === 'approved' ? 'Demande d\'emploi du temps approuvée' : 'Demande d\'emploi du temps refusée',
+    body: decision === 'approved'
+      ? 'Votre demande de modification a été acceptée par le censeur.'
+      : 'Votre demande de modification a été refusée. Consultez l\'emploi du temps pour le détail.',
+    type: 'timetable_request',
+    actionPath: '/dashboard/timetable',
+  })
+
   revalidatePath(TIMETABLE_PATH)
   revalidatePath('/dashboard')
+  return { success: true }
+}
+
+export async function saveTimetableBreaks(
+  breaks: Array<{ label: string; breakType: 'pause' | 'lunch'; startTime: string; endTime: string; orderNum: number }>,
+) {
+  const access = await requireTimetableManage()
+  if ('error' in access) return { error: access.error }
+
+  const { supabase, schoolId } = access
+  const schoolYearId = await getActiveSchoolYearId(supabase, schoolId)
+  if (!schoolYearId) return { error: 'Aucune année scolaire active.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any
+  await db.from('timetable_breaks').delete().eq('school_id', schoolId).eq('school_year_id', schoolYearId)
+
+  if (breaks.length === 0) {
+    revalidatePath(TIMETABLE_PATH)
+    return { success: true }
+  }
+
+  const rows = breaks.map((item, index) => ({
+    school_id: schoolId,
+    school_year_id: schoolYearId,
+    label: item.label,
+    break_type: item.breakType,
+    start_time: normalizeTime(item.startTime)!,
+    end_time: normalizeTime(item.endTime)!,
+    order_num: item.orderNum ?? index,
+  }))
+
+  const { error } = await db.from('timetable_breaks').insert(rows)
+  if (error) return { error: error.message }
+
+  revalidatePath(TIMETABLE_PATH)
+  return { success: true }
+}
+
+export async function createCalendarEvent(input: {
+  eventType: CalendarEventType
+  title: string
+  description?: string | null
+  eventDate: string
+  endDate?: string | null
+  allDay?: boolean
+  startTime?: string | null
+  endTime?: string | null
+  classId?: string | null
+  subjectId?: string | null
+  teacherId?: string | null
+  room?: string | null
+}) {
+  const access = await requireTimetableRead()
+  if ('error' in access) return { error: access.error }
+
+  const title = input.title.trim()
+  if (title.length < 2) return { error: 'Titre requis.' }
+
+  const { supabase, userId, schoolId } = access
+  const schoolYearId = await getActiveSchoolYearId(supabase, schoolId)
+  if (!schoolYearId) return { error: 'Aucune année scolaire active.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).from('calendar_events').insert({
+    school_id: schoolId,
+    school_year_id: schoolYearId,
+    event_type: input.eventType,
+    title,
+    description: input.description?.trim() || null,
+    event_date: input.eventDate,
+    end_date: input.endDate || null,
+    all_day: input.allDay ?? true,
+    start_time: input.startTime ? normalizeTime(input.startTime) : null,
+    end_time: input.endTime ? normalizeTime(input.endTime) : null,
+    class_id: input.classId || null,
+    subject_id: input.subjectId || null,
+    teacher_id: input.teacherId || null,
+    room: input.room?.trim() || null,
+    created_by: userId,
+  })
+
+  if (error) return { error: error.message }
+  revalidatePath(TIMETABLE_PATH)
+  return { success: true }
+}
+
+export async function updateCalendarEvent(
+  eventId: string,
+  input: {
+    eventType: CalendarEventType
+    title: string
+    description?: string | null
+    eventDate: string
+    endDate?: string | null
+    allDay?: boolean
+    startTime?: string | null
+    endTime?: string | null
+    classId?: string | null
+    subjectId?: string | null
+    teacherId?: string | null
+    room?: string | null
+  },
+) {
+  const access = await requireTimetableManage()
+  if ('error' in access) return { error: access.error }
+
+  const title = input.title.trim()
+  if (title.length < 2) return { error: 'Titre requis.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (access.supabase as any)
+    .from('calendar_events')
+    .update({
+      event_type: input.eventType,
+      title,
+      description: input.description?.trim() || null,
+      event_date: input.eventDate,
+      end_date: input.endDate || null,
+      all_day: input.allDay ?? true,
+      start_time: input.startTime ? normalizeTime(input.startTime) : null,
+      end_time: input.endTime ? normalizeTime(input.endTime) : null,
+      class_id: input.classId || null,
+      subject_id: input.subjectId || null,
+      teacher_id: input.teacherId || null,
+      room: input.room?.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', eventId)
+    .eq('school_id', access.schoolId)
+
+  if (error) return { error: error.message }
+  revalidatePath(TIMETABLE_PATH)
+  return { success: true }
+}
+
+export async function deleteCalendarEvent(eventId: string) {
+  const access = await requireTimetableManage()
+  if ('error' in access) return { error: access.error }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (access.supabase as any)
+    .from('calendar_events')
+    .delete()
+    .eq('id', eventId)
+    .eq('school_id', access.schoolId)
+
+  if (error) return { error: error.message }
+  revalidatePath(TIMETABLE_PATH)
   return { success: true }
 }
 

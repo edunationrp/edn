@@ -7,9 +7,14 @@ import { TimetableWeekView } from '@/features/timetable/timetable-week-view'
 import { canManageTimetable, canRequestTimetableChange } from '@/lib/timetable/access'
 import {
   getActiveSchoolYearId,
+  getCalendarEvents,
+  getSchoolStaffAssignments,
+  getSchoolTeachers,
   getSchoolTimetableSlots,
   getTeacherTimetableSlots,
+  getTimetableBreaks,
   getTimetableChangeRequests,
+  getTimetableClasses,
   getTimetablePageMeta,
 } from '@/lib/timetable/data'
 import { hasPermission } from '@/types/permissions'
@@ -45,13 +50,19 @@ export default async function TimetablePage() {
     )
   }
 
-  const [schoolSlots, teacherSlots, requests, meta] = await Promise.all([
+  const isManager = canManageTimetable(role)
+  const isTeacher = canRequestTimetableChange(role)
+
+  const [schoolSlots, teacherSlots, requests, meta, classes, staffAssignments, breaks, calendarEvents, teachers] = await Promise.all([
     getSchoolTimetableSlots(schoolId, schoolYearId),
-    role === 'PROFESSEUR'
-      ? getTeacherTimetableSlots(schoolId, schoolYearId, user.id)
-      : Promise.resolve([]),
-    getTimetableChangeRequests(schoolId, role === 'PROFESSEUR' ? user.id : undefined),
+    isTeacher ? getTeacherTimetableSlots(schoolId, schoolYearId, user.id) : Promise.resolve([]),
+    getTimetableChangeRequests(schoolId, isTeacher ? user.id : undefined),
     getTimetablePageMeta(schoolId, schoolYearId),
+    getTimetableClasses(schoolId, schoolYearId),
+    isManager ? getSchoolStaffAssignments(schoolId) : Promise.resolve([]),
+    getTimetableBreaks(schoolId, schoolYearId),
+    getCalendarEvents(schoolId, schoolYearId),
+    getSchoolTeachers(schoolId),
   ])
 
   return (
@@ -60,9 +71,20 @@ export default async function TimetablePage() {
         schoolSlots={schoolSlots}
         teacherSlots={teacherSlots}
         requests={requests}
+        classes={classes}
+        staffAssignments={staffAssignments}
+        breaks={breaks}
+        calendarEvents={calendarEvents}
+        teachers={teachers}
         meta={meta}
-        canManage={canManageTimetable(role)}
-        canRequestChanges={canRequestTimetableChange(role)}
+        canManage={isManager}
+        canRequestChanges={isTeacher}
+        emptyTitle={isManager ? 'Aucun cours planifié pour cette classe' : 'Aucun créneau planifié'}
+        emptyDescription={
+          isManager
+            ? 'Ajoutez des créneaux avec le bouton « Ajouter une matière » ou en cliquant sur une case libre.'
+            : 'L’emploi du temps officiel apparaîtra ici une fois publié par le censeur.'
+        }
       />
     </DashboardPage>
   )
