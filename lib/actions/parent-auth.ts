@@ -257,9 +257,10 @@ export async function completeParentRegistration(formData: {
     phone: phonePrimary,
     user_metadata: {
       full_name: fullName,
-      role: 'PARENT',
+      default_role: 'PARENT',
       parent_code: parentCode,
       phone: phonePrimary,
+      ...(contactEmail ? { contact_email: contactEmail } : {}),
     },
   })
 
@@ -267,14 +268,18 @@ export async function completeParentRegistration(formData: {
     return { error: authErr?.message ?? 'Erreur lors de la création du compte.' }
   }
 
-  const { error: profileErr } = await db.from('profiles').insert({
-    id: authData.user.id,
-    full_name: fullName,
-    email: contactEmail ?? authEmail,
-    phone: phonePrimary,
-    default_role: 'PARENT',
-    is_active: true,
-  })
+  // Le trigger handle_new_user crée déjà la ligne profiles — upsert pour éviter profiles_pkey
+  const { error: profileErr } = await db.from('profiles').upsert(
+    {
+      id: authData.user.id,
+      full_name: fullName,
+      email: contactEmail ?? authEmail,
+      phone: phonePrimary,
+      default_role: 'PARENT',
+      is_active: true,
+    },
+    { onConflict: 'id' },
+  )
 
   if (profileErr) {
     await admin.auth.admin.deleteUser(authData.user.id)
