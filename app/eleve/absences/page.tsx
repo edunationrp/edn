@@ -39,10 +39,10 @@ export default async function EleveAbsencesPage() {
   const lates = records.filter(r => r.status === 'late').length
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-bold text-gray-900">Mes absences & retards</h1>
+    <div className="w-full min-w-0 space-y-4 sm:space-y-5">
+      <h1 className="text-lg font-bold text-gray-900 sm:text-xl">Mes absences & retards</h1>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         <Card>
           <CardContent className="flex items-center gap-3 py-4">
             <span className="text-2xl font-bold text-red-500">{absences}</span>
@@ -66,9 +66,9 @@ export default async function EleveAbsencesPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {records.map(r => (
-              <div key={r.id} className="flex items-center justify-between text-sm">
-                <div>
-                  <p className="font-medium text-gray-700">{r.subjects?.name ?? 'Cours'}</p>
+              <div key={r.id} className="flex min-w-0 items-start justify-between gap-2 text-sm sm:items-center">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-gray-700">{r.subjects?.name ?? 'Cours'}</p>
                   <p className="text-xs text-muted-foreground">{formatDate(r.recorded_at)}</p>
                 </div>
                 <Badge variant={r.status === 'absent' ? 'destructive' : 'secondary'}>

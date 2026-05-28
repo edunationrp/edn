@@ -32,8 +32,10 @@ export default async function EleveEmploiDuTempsPage() {
   ])
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-bold text-gray-900">Emploi du temps</h1>
+    <div className="w-full min-w-0 space-y-4">
+      <div>
+        <h1 className="text-lg font-bold text-gray-900 sm:text-xl">Emploi du temps</h1>
+      </div>
       <StudentTimetableView
         className={ctx.className}
         slots={slots}

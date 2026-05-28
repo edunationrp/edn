@@ -73,7 +73,7 @@ function SlotDetailDialog({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+        className="w-full max-w-[100vw] rounded-t-2xl bg-white p-4 shadow-xl sm:max-w-md sm:rounded-2xl sm:p-5"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -148,11 +148,17 @@ export function StudentTimetableView({ className, slots, breaks }: StudentTimeta
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Emploi du temps de <span className="font-semibold text-gray-800">{className}</span>
-        {' '}— consultation seule. Cliquez sur un cours pour voir le détail du jour.
-      </p>
+    <div className="w-full min-w-0 space-y-3 sm:space-y-4">
+      <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+        <p className="text-sm text-muted-foreground sm:hidden">
+          Emploi du temps de <span className="font-semibold text-gray-800">{className}</span>.
+          Touchez un cours pour le détail.
+        </p>
+        <p className="hidden text-sm text-muted-foreground sm:block">
+          Emploi du temps de <span className="font-semibold text-gray-800">{className}</span>
+          {' '}— consultation seule. Cliquez sur un cours pour voir le détail du jour.
+        </p>
+      </div>
 
       <TimetableMobileSchedule
         visibleDays={visibleDays}

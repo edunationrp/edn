@@ -57,41 +57,41 @@ export default async function EleveDashboardPage() {
     : null
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">
+        <h1 className="text-lg font-bold text-gray-900 sm:text-xl">
           Bonjour, {student.first_name} 👋
         </h1>
         <p className="text-sm text-muted-foreground">Voici un résumé de votre scolarité</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
         <Card>
-          <CardContent className="flex flex-col items-center py-4">
-            <BookOpen className="mb-1 h-6 w-6 text-[#1B3A6B]" />
-            <p className="text-2xl font-bold text-[#1B3A6B]">{moyennes ?? '—'}</p>
-            <p className="text-[11px] text-muted-foreground">Moyenne récente</p>
+          <CardContent className="flex flex-col items-center px-2 py-3 sm:py-4">
+            <BookOpen className="mb-1 h-5 w-5 text-[#1B3A6B] sm:h-6 sm:w-6" />
+            <p className="text-xl font-bold text-[#1B3A6B] sm:text-2xl">{moyennes ?? '—'}</p>
+            <p className="text-center text-[10px] text-muted-foreground sm:text-[11px]">Moyenne récente</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex flex-col items-center py-4">
-            <UserX className="mb-1 h-6 w-6 text-orange-500" />
-            <p className="text-2xl font-bold text-orange-500">{absenceCount ?? 0}</p>
-            <p className="text-[11px] text-muted-foreground">Absences</p>
+          <CardContent className="flex flex-col items-center px-2 py-3 sm:py-4">
+            <UserX className="mb-1 h-5 w-5 text-orange-500 sm:h-6 sm:w-6" />
+            <p className="text-xl font-bold text-orange-500 sm:text-2xl">{absenceCount ?? 0}</p>
+            <p className="text-center text-[10px] text-muted-foreground sm:text-[11px]">Absences</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex flex-col items-center py-4">
-            <FileText className="mb-1 h-6 w-6 text-green-600" />
-            <p className="text-2xl font-bold text-green-600">{bulletinCount ?? 0}</p>
-            <p className="text-[11px] text-muted-foreground">Bulletins</p>
+          <CardContent className="flex flex-col items-center px-2 py-3 sm:py-4">
+            <FileText className="mb-1 h-5 w-5 text-green-600 sm:h-6 sm:w-6" />
+            <p className="text-xl font-bold text-green-600 sm:text-2xl">{bulletinCount ?? 0}</p>
+            <p className="text-center text-[10px] text-muted-foreground sm:text-[11px]">Bulletins</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex flex-col items-center py-4">
-            <Calendar className="mb-1 h-6 w-6 text-purple-600" />
-            <p className="text-2xl font-bold text-purple-600">{recentGrades.length}</p>
-            <p className="text-[11px] text-muted-foreground">Notes récentes</p>
+          <CardContent className="flex flex-col items-center px-2 py-3 sm:py-4">
+            <Calendar className="mb-1 h-5 w-5 text-purple-600 sm:h-6 sm:w-6" />
+            <p className="text-xl font-bold text-purple-600 sm:text-2xl">{recentGrades.length}</p>
+            <p className="text-center text-[10px] text-muted-foreground sm:text-[11px]">Notes récentes</p>
           </CardContent>
         </Card>
       </div>

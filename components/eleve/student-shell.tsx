@@ -8,7 +8,7 @@ import { WatermarkBackground } from '@/components/schools/watermark-background'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Home, BookOpen, FileText, UserX, Calendar, Settings, GraduationCap,
 } from 'lucide-react'
@@ -22,6 +22,16 @@ const NAV_ITEMS = [
   { href: '/eleve/emploi-du-temps', label: 'Emploi du temps', icon: Calendar },
   { href: '/eleve/parametres', label: 'Paramètres', icon: Settings },
 ]
+
+const PAGE_TITLES: Record<string, string> = {
+  '/eleve': 'Accueil',
+  '/eleve/notes': 'Mes notes',
+  '/eleve/bulletins': 'Bulletins',
+  '/eleve/absences': 'Absences',
+  '/eleve/cours': 'Cours',
+  '/eleve/emploi-du-temps': 'Emploi du temps',
+  '/eleve/parametres': 'Paramètres',
+}
 
 type StudentShellProps = {
   children: React.ReactNode
@@ -37,6 +47,14 @@ type StudentShellProps = {
 function isNavActive(pathname: string, href: string, exact?: boolean) {
   if (exact) return pathname === href
   return pathname === href || pathname.startsWith(`${href}/`)
+}
+
+function getPageTitle(pathname: string) {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname]
+  const match = Object.keys(PAGE_TITLES)
+    .filter(key => key !== '/eleve')
+    .find(key => pathname.startsWith(`${key}/`))
+  return match ? PAGE_TITLES[match] : 'Mon espace'
 }
 
 export function StudentShell({
@@ -60,6 +78,17 @@ export function StudentShell({
     .join('')
     .slice(0, 2)
     .toUpperCase()
+
+  const pageTitle = getPageTitle(pathname)
+
+  useEffect(() => {
+    if (!mobileOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [mobileOpen])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -176,10 +205,10 @@ export function StudentShell({
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F0F4F8]">
+    <div className="flex min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-[#F0F4F8]">
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 flex w-[min(88vw,240px)] flex-col overflow-y-auto bg-[#1B3A6B] text-white shadow-xl transition-transform duration-200 lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-30 flex w-[min(88vw,280px)] flex-col overflow-y-auto bg-[#1B3A6B] text-white shadow-xl transition-transform duration-200 lg:w-[240px] lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
@@ -195,25 +224,27 @@ export function StudentShell({
         />
       )}
 
-      <div className="flex min-h-screen flex-1 flex-col lg:ml-[240px]">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-slate-200/80 bg-white/95 px-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-md sm:px-4 lg:hidden">
+      <div className="flex min-h-[100dvh] min-w-0 w-full flex-1 flex-col lg:ml-[240px]">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-slate-200/80 bg-white/95 px-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-md sm:px-4 lg:hidden">
           <button
             type="button"
             aria-label="Ouvrir le menu"
             onClick={() => setMobileOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"
           >
             <Menu className="h-5 w-5" />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-gray-900">{studentName}</p>
-            <p className="truncate text-[11px] text-muted-foreground">{className ?? iun}</p>
+            <p className="truncate text-sm font-semibold text-gray-900">{pageTitle}</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {className ? `${className} · ${studentName}` : studentName}
+            </p>
           </div>
         </header>
 
-        <main className="relative flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:px-8 lg:py-7">
+        <main className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-5 lg:px-8 lg:py-7">
           <WatermarkBackground logoUrl={schoolLogoUrl} opacity={schoolWatermarkOpacity} />
-          <div className="relative z-[1]">{children}</div>
+          <div className="relative z-[1] mx-auto w-full min-w-0 max-w-4xl">{children}</div>
         </main>
       </div>
     </div>

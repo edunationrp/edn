@@ -50,8 +50,8 @@ export default async function EleveNotesPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-bold text-gray-900">Mes notes</h1>
+    <div className="w-full min-w-0 space-y-4 sm:space-y-5">
+      <h1 className="text-lg font-bold text-gray-900 sm:text-xl">Mes notes</h1>
       {Object.keys(byPeriod).length === 0 ? (
         <p className="text-sm text-muted-foreground">Aucune note disponible pour le moment.</p>
       ) : (
@@ -62,15 +62,15 @@ export default async function EleveNotesPage() {
           return (
             <Card key={period}>
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
+                <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-sm">{period}</CardTitle>
-                  <Badge variant="secondary">Moy. {moyenne}/20</Badge>
+                  <Badge variant="secondary" className="w-fit">Moy. {moyenne}/20</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-1.5">
                 {pGrades.map(g => (
-                  <div key={g.id} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm">
-                    <span className="text-gray-700">{g.subjects?.name ?? '—'}</span>
+                  <div key={g.id} className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2 text-sm">
+                    <span className="min-w-0 truncate text-gray-700">{g.subjects?.name ?? '—'}</span>
                     <span className="font-semibold text-[#1B3A6B]">
                       {g.value} <span className="font-normal text-muted-foreground">/ {g.max_value}</span>
                     </span>
