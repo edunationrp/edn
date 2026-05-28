@@ -37,15 +37,49 @@ export default async function CoursPage() {
 
   const schoolYear = schoolYearRaw as { id: string; name: string } | null
 
+  let teacherAssignments: Array<{
+    classId: string
+    className: string
+    subjectId: string
+    subjectName: string
+  }> = []
+
+  if (ctx.role_code === 'PROFESSEUR') {
+    const { data: assignmentsRaw } = await supabase
+      .from('teacher_assignments')
+      .select('class_id, subject_id, classes(name), subjects(name)')
+      .eq('school_id', ctx.school_id)
+      .eq('teacher_id', user.id)
+      .eq('is_active', true)
+
+    teacherAssignments = ((assignmentsRaw ?? []) as Array<{
+      class_id: string
+      subject_id: string
+      classes: { name: string } | null
+      subjects: { name: string } | null
+    }>)
+      .filter(row => row.class_id && row.subject_id)
+      .map(row => ({
+        classId: row.class_id,
+        className: row.classes?.name ?? 'Classe',
+        subjectId: row.subject_id,
+        subjectName: row.subjects?.name ?? 'Matière',
+      }))
+  }
+
   return (
     <div className="space-y-5">
-      <PageHeader title="Ressources de cours" description="Publiez des documents pour vos classes" />
+      <PageHeader
+        title="Ressources de cours"
+        description="Publiez des documents pour vos classes — visibles par tous les élèves inscrits."
+      />
       <CourseResourcesManager
         schoolId={ctx.school_id}
         userId={user.id}
         classes={(classesRaw ?? []) as Array<{ id: string; name: string }>}
         subjects={(subjectsRaw ?? []) as Array<{ id: string; name: string }>}
         schoolYearId={schoolYear?.id ?? null}
+        teacherAssignments={teacherAssignments}
       />
     </div>
   )
