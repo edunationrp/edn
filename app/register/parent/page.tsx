@@ -11,7 +11,7 @@ export default function RegisterParentPage() {
     <div className="flex flex-col">
       <h2 className="mb-0.5 text-lg font-bold text-gray-900">Créer un compte parent</h2>
       <p className="mb-3 text-xs text-muted-foreground">
-        Entrez votre numéro de téléphone pour recevoir un code de vérification
+        Par téléphone (SMS) ou Gmail — vous recevrez ensuite votre identifiant E0… et un mot de passe
       </p>
       <Suspense fallback={<div className="py-8 text-sm text-muted-foreground">Chargement…</div>}>
         <ParentRegistrationForm />

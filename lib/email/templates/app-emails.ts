@@ -8,6 +8,7 @@ import {
   featureRow,
   heading,
   infoBox,
+  otpBox,
   paragraph,
   quoteBlock,
   secondaryLink,
@@ -345,6 +346,83 @@ export function staffInviteEmail(data: StaffInviteEmailData) {
       paragraph('Ce lien est personnel et sécurisé. Ne le partagez pas.'),
       signatureBlock(),
     ].join(''),
+  })
+
+  return { subject, html }
+}
+
+export type ParentOtpEmailData = {
+  fullName?: string
+  code: string
+}
+
+export function parentRegistrationOtpEmail(data: ParentOtpEmailData) {
+  const subject = 'Votre code de vérification EduNation'
+  const greeting = data.fullName ? `Bonjour ${escapeHtml(data.fullName)},` : 'Bonjour,'
+
+  const html = baseEmailLayout({
+    previewText: `Code EduNation : ${data.code}`,
+    content: [
+      badge('Inscription parent'),
+      heading(greeting, 'Confirmez votre adresse Gmail pour créer votre compte parent.'),
+      paragraph(
+        'Utilisez le code ci-dessous pour poursuivre la création de votre compte parent sur EduNation. Ce code expire dans <strong>10 minutes</strong>.'
+      ),
+      otpBox(escapeHtml(data.code)),
+      infoBox(
+        'Ne partagez jamais ce code. Si vous n\'êtes pas à l\'origine de cette demande, ignorez cet email.',
+        'warning'
+      ),
+      supportLine(),
+      signatureBlock(),
+    ].join(''),
+    showQuote: false,
+  })
+
+  return { subject, html }
+}
+
+export type ParentCredentialsEmailData = {
+  fullName: string
+  parentCode: string
+  password: string
+}
+
+export function parentCredentialsEmail(data: ParentCredentialsEmailData) {
+  const appUrl = getAppUrl()
+  const fullName = escapeHtml(data.fullName)
+  const parentCode = escapeHtml(data.parentCode)
+  const password = escapeHtml(data.password)
+  const subject = 'Vos identifiants parent EduNation'
+
+  const html = baseEmailLayout({
+    previewText: `Identifiant parent : ${data.parentCode}`,
+    content: [
+      badge('Compte créé'),
+      heading(`Bonjour ${fullName},`, 'Votre compte parent EduNation est prêt.'),
+      paragraph(
+        'Conservez précieusement vos identifiants de connexion. Vous pourrez ensuite rattacher vos enfants via leur IUN.'
+      ),
+      infoBox(
+        `<strong>Identifiant parent :</strong> ${parentCode}<br />
+         <strong>Mot de passe :</strong> ${password}`,
+        'success'
+      ),
+      stepsList([
+        {
+          title: 'Connectez-vous',
+          description: 'Utilisez votre identifiant E0… et le mot de passe ci-dessus.',
+        },
+        {
+          title: 'Rattachez votre enfant',
+          description: 'Depuis « Mes enfants », saisissez l\'IUN et attendez la validation du secrétariat.',
+        },
+      ]),
+      ctaButton('Se connecter en tant que parent', `${appUrl}/login/parent`),
+      supportLine(),
+      signatureBlock(),
+    ].join(''),
+    showQuote: false,
   })
 
   return { subject, html }

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { StudentShell } from '@/components/eleve/student-shell'
+import { excludeMessagingNotificationTypes } from '@/lib/notifications/categories'
 
 export default async function EleveLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -46,8 +47,28 @@ export default async function EleveLayout({ children }: { children: React.ReactN
   const className = activeEnrollment?.classes?.name ?? null
   const schoolYear = activeEnrollment?.school_years?.name ?? null
 
+  const { count: unreadNotifications } = await excludeMessagingNotificationTypes(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('notifications')
+      .select('id, title, body, type, is_read, created_at', { count: 'exact' })
+      .eq('user_id', user.id)
+      .eq('is_read', false),
+  )
+
+  const { data: recentNotificationsRaw } = await excludeMessagingNotificationTypes(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('notifications')
+      .select('id, title, body, type, is_read, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(30),
+  )
+
   return (
     <StudentShell
+      userId={user.id}
       studentName={`${student.first_name} ${student.last_name}`}
       iun={student.iun}
       className={className}
@@ -55,6 +76,15 @@ export default async function EleveLayout({ children }: { children: React.ReactN
       schoolYear={schoolYear}
       schoolLogoUrl={school?.logo_url ?? null}
       schoolWatermarkOpacity={school?.logo_watermark_opacity ?? null}
+      notifications={(recentNotificationsRaw ?? []) as Array<{
+        id: string
+        title: string
+        body: string
+        type: string
+        is_read: boolean
+        created_at: string
+      }>}
+      unreadNotifications={unreadNotifications ?? 0}
     >
       {children}
     </StudentShell>

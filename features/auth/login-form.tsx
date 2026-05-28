@@ -227,10 +227,16 @@ export function LoginForm() {
           🎓 Connexion élève (IUN)
         </a>
         <a
+          href="/login/parent"
+          className="block rounded-md border py-2 text-center text-xs text-muted-foreground transition hover:border-[#1B3A6B]/40 hover:bg-[#1B3A6B]/5 hover:text-[#1B3A6B]"
+        >
+          👨‍👩‍👧 Se connecter en tant que parent
+        </a>
+        <a
           href="/register/parent"
           className="block rounded-md border py-2 text-center text-xs text-muted-foreground transition hover:border-[#1B3A6B]/40 hover:bg-[#1B3A6B]/5 hover:text-[#1B3A6B]"
         >
-          👨‍👩‍👧 Créer un compte parent
+          Créer un compte parent
         </a>
       </div>
     </form>

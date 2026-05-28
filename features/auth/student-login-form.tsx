@@ -152,8 +152,8 @@ export function StudentLoginForm() {
       )}
 
       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-        <Link href="/login" className="hover:text-foreground hover:underline">
-          Connexion staff/parent
+        <Link href="/login/parent" className="hover:text-foreground hover:underline">
+          Connexion parent
         </Link>
       </div>
     </form>

@@ -786,6 +786,81 @@ export interface Database {
           updated_at?: string
         }
       }
+      parent_accounts: {
+        Row: {
+          id: string
+          parent_code: string
+          first_name: string
+          last_name: string
+          date_of_birth: string
+          phone_primary: string
+          phone_secondary: string | null
+          contact_email: string | null
+          registration_channel: 'phone' | 'gmail'
+          auth_email: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          parent_code: string
+          first_name: string
+          last_name: string
+          date_of_birth: string
+          phone_primary: string
+          phone_secondary?: string | null
+          contact_email?: string | null
+          registration_channel: 'phone' | 'gmail'
+          auth_email: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          parent_code?: string
+          first_name?: string
+          last_name?: string
+          date_of_birth?: string
+          phone_primary?: string
+          phone_secondary?: string | null
+          contact_email?: string | null
+          registration_channel?: 'phone' | 'gmail'
+          auth_email?: string
+          updated_at?: string
+        }
+      }
+      parent_registration_sessions: {
+        Row: {
+          id: string
+          channel: 'phone' | 'gmail'
+          phone: string | null
+          email: string | null
+          code_hash: string
+          otp_verified: boolean
+          otp_attempts: number
+          expires_at: string
+          consumed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          channel: 'phone' | 'gmail'
+          phone?: string | null
+          email?: string | null
+          code_hash: string
+          otp_verified?: boolean
+          otp_attempts?: number
+          expires_at: string
+          consumed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          code_hash?: string
+          otp_verified?: boolean
+          otp_attempts?: number
+          expires_at?: string
+          consumed_at?: string | null
+        }
+      }
       sms_verification_codes: {
         Row: {
           id: string

@@ -1,21 +1,26 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { TimetableMobileSchedule } from '@/features/timetable/timetable-mobile-schedule'
+import { TimetablePrintSheet } from '@/features/timetable/timetable-print-sheet'
+import { Button } from '@/components/ui/button'
 import { DAY_LABELS, WEEKDAY_NUMBERS } from '@/lib/timetable/constants'
 import { buildGridTimeRows } from '@/lib/timetable/grid-utils'
-import type { TimetableBreakView, TimetableSlotView } from '@/lib/timetable/types'
+import type { TimetableBreakView, TimetablePageMeta, TimetableSlotView } from '@/lib/timetable/types'
+import { notify } from '@/lib/feedback/toast'
 import {
   BookOpen,
   Calculator,
   Clock,
   Coffee,
+  Download,
   Dumbbell,
   FlaskConical,
   Languages,
   Leaf,
   MapPin,
   Monitor,
+  Printer,
   School,
   User,
   Utensils,
@@ -27,6 +32,10 @@ type StudentTimetableViewProps = {
   className: string
   slots: TimetableSlotView[]
   breaks: TimetableBreakView[]
+  schoolName: string
+  schoolLogoUrl?: string | null
+  schoolWatermarkOpacity?: number | null
+  meta: TimetablePageMeta
 }
 
 const SUBJECT_STYLES = [
@@ -56,6 +65,18 @@ function getInitialDay(): number {
   const today = new Date().getDay()
   const day = today === 0 ? 7 : today
   return day >= 1 && day <= 6 ? day : 1
+}
+
+function uniqueLegend(slots: TimetableSlotView[]) {
+  const seen = new Set<string>()
+  const items = []
+  for (const slot of slots) {
+    const style = getSubjectStyle(slot.subjectName)
+    if (seen.has(style.label)) continue
+    seen.add(style.label)
+    items.push(style)
+  }
+  return items.length > 0 ? items : SUBJECT_STYLES.slice(0, 6)
 }
 
 function SlotDetailDialog({
@@ -120,7 +141,16 @@ function SlotDetailDialog({
   )
 }
 
-export function StudentTimetableView({ className, slots, breaks }: StudentTimetableViewProps) {
+export function StudentTimetableView({
+  className,
+  slots,
+  breaks,
+  schoolName,
+  schoolLogoUrl,
+  schoolWatermarkOpacity,
+  meta,
+}: StudentTimetableViewProps) {
+  const printRef = useRef<HTMLElement>(null)
   const [selectedDay, setSelectedDay] = useState<number>(getInitialDay)
   const [detailSlot, setDetailSlot] = useState<TimetableSlotView | null>(null)
 
@@ -130,6 +160,22 @@ export function StudentTimetableView({ className, slots, breaks }: StudentTimeta
     () => buildGridTimeRows(breaks, slots),
     [breaks, slots],
   )
+
+  const legendItems = useMemo(() => uniqueLegend(slots), [slots])
+  const printSubtitle = `Classe : ${className}`
+
+  function handlePrint() {
+    if (slots.length === 0) {
+      notify.error('Aucun créneau à télécharger.')
+      return
+    }
+    window.print()
+  }
+
+  function handleExportPdf() {
+    notify.info('Choisissez « Enregistrer en PDF » dans la fenêtre d\'impression.')
+    handlePrint()
+  }
 
   const slotsByCell = useMemo(() => {
     const grouped = new Map<string, TimetableSlotView[]>()
@@ -148,16 +194,32 @@ export function StudentTimetableView({ className, slots, breaks }: StudentTimeta
   }
 
   return (
-    <div className="w-full min-w-0 space-y-3 sm:space-y-4">
-      <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
-        <p className="text-sm text-muted-foreground sm:hidden">
-          Emploi du temps de <span className="font-semibold text-gray-800">{className}</span>.
-          Touchez un cours pour le détail.
-        </p>
-        <p className="hidden text-sm text-muted-foreground sm:block">
-          Emploi du temps de <span className="font-semibold text-gray-800">{className}</span>
-          {' '}— consultation seule. Cliquez sur un cours pour voir le détail du jour.
-        </p>
+    <section ref={printRef} className="timetable-print-root w-full min-w-0 space-y-3 sm:space-y-4">
+      <div className="timetable-print-screen-only rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4 print:hidden">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground sm:hidden">
+              Emploi du temps de <span className="font-semibold text-gray-800">{className}</span>.
+              Touchez un cours pour le détail.
+            </p>
+            <p className="hidden text-sm text-muted-foreground sm:block">
+              Emploi du temps de <span className="font-semibold text-gray-800">{className}</span>
+              {' '}— consultation seule. Cliquez sur un cours pour voir le détail du jour.
+            </p>
+          </div>
+          {slots.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" className="gap-2" onClick={handlePrint}>
+                <Printer className="h-4 w-4" />
+                Imprimer
+              </Button>
+              <Button type="button" variant="brandDark" size="sm" className="gap-2" onClick={handleExportPdf}>
+                <Download className="h-4 w-4" />
+                Télécharger PDF
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       <TimetableMobileSchedule
@@ -270,6 +332,21 @@ export function StudentTimetableView({ className, slots, breaks }: StudentTimeta
       {detailSlot && (
         <SlotDetailDialog slot={detailSlot} onClose={() => setDetailSlot(null)} />
       )}
-    </div>
+
+      {slots.length > 0 && (
+        <TimetablePrintSheet
+          schoolName={schoolName}
+          logoUrl={schoolLogoUrl}
+          watermarkOpacity={schoolWatermarkOpacity}
+          meta={meta}
+          subtitle={printSubtitle}
+          visibleDays={visibleDays}
+          displayTimeRows={displayTimeRows}
+          breaks={breaks}
+          slotsByCell={slotsByCell}
+          legendItems={legendItems}
+        />
+      )}
+    </section>
   )
 }

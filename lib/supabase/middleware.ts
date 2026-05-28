@@ -43,10 +43,11 @@ export async function updateSession(request: NextRequest) {
   const isDashboardRoute = pathname.startsWith('/dashboard')
   const isEleveRoute = pathname.startsWith('/eleve')
   const isStudentLoginRoute = pathname.startsWith('/login/eleve')
+  const isParentLoginRoute = pathname.startsWith('/login/parent')
   const isAllowedPublic =
     isPublicRoute || isRegisterRoute || isJoinRoute ||
     isSuperAdminSetupRoute || isParentSimpleRoute || isApiRoute ||
-    isStudentLoginRoute
+    isStudentLoginRoute || isParentLoginRoute
 
   // Protéger /dashboard/* et /eleve/* si non authentifié
   if (!user && isDashboardRoute) {
@@ -78,8 +79,24 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // Rediriger login parent → dashboard si déjà connecté (non-élève)
+  if (user && isParentLoginRoute) {
+    const { data: studentRow } = await supabase
+      .from('students')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single()
+
+    if (!studentRow) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
+  }
+
   // Rediriger login standard → dashboard pour les non-élèves authentifiés
-  if (user && pathname === '/login' && !isStudentLoginRoute) {
+  if (user && pathname === '/login' && !isStudentLoginRoute && !isParentLoginRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

@@ -20,6 +20,8 @@ export async function markAllNotificationsRead() {
 
   if (error) return { error: error.message }
   revalidatePath('/dashboard/notifications')
+  revalidatePath('/eleve')
+  revalidatePath('/eleve/notifications')
   return { success: true }
 }
 
@@ -37,5 +39,7 @@ export async function markNotificationRead(notificationId: string) {
 
   if (error) return { error: error.message }
   revalidatePath('/dashboard/notifications')
+  revalidatePath('/eleve')
+  revalidatePath('/eleve/notifications')
   return { success: true }
 }

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
-import { revalidateStudentCourses } from '@/lib/actions/course-resources'
+import { revalidateStudentCourses, notifyStudentsCoursePublished } from '@/lib/actions/course-resources'
 import { notify } from '@/lib/feedback/toast'
 
 const schema = z.object({
@@ -142,6 +142,13 @@ export function CourseResourcesManager({
 
     if (insertErr) { setServerError(insertErr.message); return }
 
+    const subjectName = availableSubjects.find(s => s.id === data.subjectId)?.name ?? 'Matière'
+    await notifyStudentsCoursePublished({
+      schoolId,
+      classId: data.classId,
+      title: data.title,
+      subjectName,
+    })
     await revalidateStudentCourses()
     reset()
     setFile(null)

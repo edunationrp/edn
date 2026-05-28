@@ -12,6 +12,11 @@ import { useEffect, useState } from 'react'
 import {
   Home, BookOpen, FileText, UserX, Calendar, Settings, GraduationCap,
 } from 'lucide-react'
+import {
+  StudentNotificationBell,
+  StudentNotificationsPanel,
+  type StudentNotificationItem,
+} from '@/features/eleve/student-notifications-panel'
 
 const NAV_ITEMS = [
   { href: '/eleve', label: 'Accueil', icon: Home, exact: true },
@@ -31,10 +36,12 @@ const PAGE_TITLES: Record<string, string> = {
   '/eleve/cours': 'Cours',
   '/eleve/emploi-du-temps': 'Emploi du temps',
   '/eleve/parametres': 'Paramètres',
+  '/eleve/notifications': 'Notifications',
 }
 
 type StudentShellProps = {
   children: React.ReactNode
+  userId: string
   studentName: string
   iun: string
   className: string | null
@@ -42,6 +49,8 @@ type StudentShellProps = {
   schoolYear: string | null
   schoolLogoUrl?: string | null
   schoolWatermarkOpacity?: number | null
+  notifications?: StudentNotificationItem[]
+  unreadNotifications?: number
 }
 
 function isNavActive(pathname: string, href: string, exact?: boolean) {
@@ -59,6 +68,7 @@ function getPageTitle(pathname: string) {
 
 export function StudentShell({
   children,
+  userId,
   studentName,
   iun,
   className,
@@ -66,11 +76,15 @@ export function StudentShell({
   schoolYear,
   schoolLogoUrl,
   schoolWatermarkOpacity,
+  notifications = [],
+  unreadNotifications = 0,
 }: StudentShellProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [liveUnread, setLiveUnread] = useState(unreadNotifications)
 
   const initials = studentName
     .split(' ')
@@ -80,6 +94,10 @@ export function StudentShell({
     .toUpperCase()
 
   const pageTitle = getPageTitle(pathname)
+
+  useEffect(() => {
+    setLiveUnread(unreadNotifications)
+  }, [unreadNotifications])
 
   useEffect(() => {
     if (!mobileOpen) return
@@ -225,15 +243,19 @@ export function StudentShell({
       )}
 
       <div className="flex min-h-[100dvh] min-w-0 w-full flex-1 flex-col lg:ml-[240px]">
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-slate-200/80 bg-white/95 px-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-md sm:px-4 lg:hidden">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-slate-200/80 bg-white/95 px-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-md sm:px-4">
           <button
             type="button"
             aria-label="Ouvrir le menu"
             onClick={() => setMobileOpen(true)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100 lg:hidden"
           >
             <Menu className="h-5 w-5" />
           </button>
+          <StudentNotificationBell
+            unreadCount={liveUnread}
+            onClick={() => setNotifOpen(true)}
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-gray-900">{pageTitle}</p>
             <p className="truncate text-[11px] text-muted-foreground">
@@ -241,6 +263,15 @@ export function StudentShell({
             </p>
           </div>
         </header>
+
+        <StudentNotificationsPanel
+          open={notifOpen}
+          onOpenChange={setNotifOpen}
+          userId={userId}
+          initialNotifications={notifications}
+          initialUnreadCount={unreadNotifications}
+          onUnreadChange={setLiveUnread}
+        />
 
         <main className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-5 lg:px-8 lg:py-7">
           <WatermarkBackground logoUrl={schoolLogoUrl} opacity={schoolWatermarkOpacity} />

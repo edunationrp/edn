@@ -10,8 +10,12 @@ import {
   trialReminderEmail,
   welcomeDirectorEmail,
   registrationCompleteEmail,
+  parentRegistrationOtpEmail,
+  parentCredentialsEmail,
   type AccountCreatedEmailData,
   type RegistrationCompleteEmailData,
+  type ParentOtpEmailData,
+  type ParentCredentialsEmailData,
   type NotificationEmailData,
   type PaymentReceiptEmailData,
   type StaffInviteEmailData,
@@ -112,5 +116,21 @@ export async function sendPaymentReceiptEmail(
   payload: PaymentReceiptEmailData
 ): Promise<SendEmailResult> {
   const { subject, html } = paymentReceiptEmail(payload)
+  return sendEmail(to, subject, html)
+}
+
+export async function sendParentRegistrationOtpEmail(
+  to: string,
+  payload: ParentOtpEmailData,
+): Promise<SendEmailResult> {
+  const { subject, html } = parentRegistrationOtpEmail(payload)
+  return sendEmail(to, subject, html)
+}
+
+export async function sendParentCredentialsEmail(
+  to: string,
+  payload: ParentCredentialsEmailData,
+): Promise<SendEmailResult> {
+  const { subject, html } = parentCredentialsEmail(payload)
   return sendEmail(to, subject, html)
 }

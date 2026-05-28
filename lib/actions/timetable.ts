@@ -8,15 +8,42 @@ import {
 } from '@/lib/timetable/access'
 import { getActiveSchoolYearId } from '@/lib/timetable/data'
 import { dispatchNotification } from '@/lib/notifications/dispatch'
+import { notifyClassStudents, notifySchoolYearStudents } from '@/lib/notifications/notify-students'
 import type { CalendarEventType } from '@/lib/timetable/types'
 
 const TIMETABLE_PATH = '/dashboard/timetable'
 const STUDENT_TIMETABLE_PATH = '/eleve/emploi-du-temps'
+const STUDENT_HOME_PATH = '/eleve'
 
 function revalidateTimetableViews() {
   revalidatePath(TIMETABLE_PATH)
   revalidatePath('/dashboard')
   revalidatePath(STUDENT_TIMETABLE_PATH)
+  revalidatePath(STUDENT_HOME_PATH)
+}
+
+async function notifyClassTimetableUpdate(schoolId: string, classId: string, detail: string) {
+  await notifyClassStudents({
+    schoolId,
+    classId,
+    title: 'Emploi du temps modifié',
+    body: detail,
+    type: 'timetable',
+    actionPath: STUDENT_TIMETABLE_PATH,
+  })
+  revalidatePath(STUDENT_HOME_PATH)
+}
+
+async function notifySchoolTimetableBreaksUpdate(schoolId: string, schoolYearId: string) {
+  await notifySchoolYearStudents({
+    schoolId,
+    schoolYearId,
+    title: 'Emploi du temps mis à jour',
+    body: 'Les pauses ou horaires de l\'établissement ont été modifiés. Consultez votre emploi du temps.',
+    type: 'timetable',
+    actionPath: STUDENT_TIMETABLE_PATH,
+  })
+  revalidatePath(STUDENT_HOME_PATH)
 }
 
 type SlotTimeInput = {
@@ -60,12 +87,12 @@ export async function updateTimetableSlot(slotId: string, input: SlotTimeInput) 
 
   const { data: slotRaw } = await supabase
     .from('timetable_slots')
-    .select('id, school_id')
+    .select('id, school_id, class_id')
     .eq('id', slotId)
     .eq('school_id', schoolId)
     .maybeSingle()
 
-  const slot = slotRaw as { id: string; school_id: string } | null
+  const slot = slotRaw as { id: string; school_id: string; class_id: string } | null
   if (!slot) return { error: 'Créneau introuvable.' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -82,6 +109,14 @@ export async function updateTimetableSlot(slotId: string, input: SlotTimeInput) 
     .eq('school_id', schoolId)
 
   if (error) return { error: error.message }
+
+  if (slot.class_id) {
+    await notifyClassTimetableUpdate(
+      schoolId,
+      slot.class_id,
+      'Un créneau de cours de votre classe a été modifié.',
+    )
+  }
 
   revalidateTimetableViews()
   return { success: true }
@@ -122,6 +157,12 @@ export async function createTimetableSlot(input: {
   })
 
   if (error) return { error: error.message }
+
+  await notifyClassTimetableUpdate(
+    schoolId,
+    input.classId,
+    'Un nouveau cours a été ajouté à l\'emploi du temps de votre classe.',
+  )
 
   revalidateTimetableViews()
   return { success: true }
@@ -176,6 +217,16 @@ export async function deleteTimetableSlot(slotId: string) {
   if ('error' in access) return { error: access.error }
 
   const { supabase, schoolId } = access
+
+  const { data: slotRaw } = await supabase
+    .from('timetable_slots')
+    .select('class_id')
+    .eq('id', slotId)
+    .eq('school_id', schoolId)
+    .maybeSingle()
+
+  const slotMeta = slotRaw as { class_id: string } | null
+
   const { error } = await supabase
     .from('timetable_slots')
     .delete()
@@ -183,6 +234,14 @@ export async function deleteTimetableSlot(slotId: string) {
     .eq('school_id', schoolId)
 
   if (error) return { error: error.message }
+
+  if (slotMeta?.class_id) {
+    await notifyClassTimetableUpdate(
+      schoolId,
+      slotMeta.class_id,
+      'Un créneau a été retiré de l\'emploi du temps de votre classe.',
+    )
+  }
 
   revalidateTimetableViews()
   return { success: true }
@@ -236,6 +295,21 @@ export async function reviewTimetableChangeRequest(
       .eq('school_id', schoolId)
 
     if (slotError) return { error: slotError.message }
+
+    const { data: slotRaw } = await supabase
+      .from('timetable_slots')
+      .select('class_id')
+      .eq('id', request.timetable_slot_id)
+      .maybeSingle()
+
+    const approvedSlot = slotRaw as { class_id: string } | null
+    if (approvedSlot?.class_id) {
+      await notifyClassTimetableUpdate(
+        schoolId,
+        approvedSlot.class_id,
+        'L\'emploi du temps de votre classe a été mis à jour.',
+      )
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -298,6 +372,8 @@ export async function saveTimetableBreaks(
 
   const { error } = await db.from('timetable_breaks').insert(rows)
   if (error) return { error: error.message }
+
+  await notifySchoolTimetableBreaksUpdate(schoolId, schoolYearId)
 
   revalidateTimetableViews()
   return { success: true }
