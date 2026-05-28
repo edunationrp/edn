@@ -374,6 +374,39 @@ export interface Database {
           sync_status?: string | null
         }
       }
+      attendance_justifications: {
+        Row: {
+          id: string
+          school_id: string
+          attendance_record_id: string
+          parent_user_id: string | null
+          reason: string
+          attachment_url: string | null
+          status: 'pending' | 'approved' | 'rejected'
+          reviewed_by: string | null
+          reviewed_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          attendance_record_id: string
+          parent_user_id?: string | null
+          reason: string
+          attachment_url?: string | null
+          status?: 'pending' | 'approved' | 'rejected'
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          reason?: string
+          attachment_url?: string | null
+          status?: 'pending' | 'approved' | 'rejected'
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+        }
+      }
       payments: {
         Row: {
           id: string
@@ -825,6 +858,47 @@ export interface Database {
           contact_email?: string | null
           registration_channel?: 'phone' | 'gmail'
           auth_email?: string
+          updated_at?: string
+        }
+      }
+      parent_convocations: {
+        Row: {
+          id: string
+          school_id: string
+          student_id: string
+          parent_user_id: string
+          title: string
+          message: string
+          convocation_date: string | null
+          location: string | null
+          sent_by: string | null
+          read_at: string | null
+          acknowledged_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          school_id: string
+          student_id: string
+          parent_user_id: string
+          title: string
+          message: string
+          convocation_date?: string | null
+          location?: string | null
+          sent_by?: string | null
+          read_at?: string | null
+          acknowledged_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          title?: string
+          message?: string
+          convocation_date?: string | null
+          location?: string | null
+          read_at?: string | null
+          acknowledged_at?: string | null
           updated_at?: string
         }
       }

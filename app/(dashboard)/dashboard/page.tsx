@@ -31,6 +31,27 @@ export default async function DashboardPage() {
     redirect('/eleve')
   }
 
+  const { data: parentAccountRaw } = await supabase
+    .from('parent_accounts')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const { data: profileForRoleRaw } = await supabase
+    .from('profiles')
+    .select('default_role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const parentRole = (profileForRoleRaw as { default_role: string | null } | null)?.default_role
+  if (
+    parentAccountRaw
+    || parentRole === 'PARENT'
+    || parentRole === 'PARENT_ILLETRE'
+  ) {
+    redirect('/parent')
+  }
+
   const { data: profileRaw } = await supabase
     .from('profiles')
     .select('id, full_name, default_role, is_active')

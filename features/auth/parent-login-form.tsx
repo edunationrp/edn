@@ -46,7 +46,7 @@ export function ParentLoginForm() {
       return
     }
 
-    router.push('/dashboard')
+    router.push('/parent')
     router.refresh()
   }
 

@@ -247,6 +247,96 @@ export async function getPlatformSchoolById(schoolId: string) {
       staff: staff.count ?? 0,
     },
     schoolYears: (years.data ?? []) as Array<{ id: string; name: string; is_active: boolean }>,
+    leadership: await getPlatformSchoolLeadership(admin, schoolId),
+  }
+}
+
+export async function getPlatformSchoolLeadership(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  schoolId: string,
+) {
+  const { data: schoolMetaRaw } = await admin
+    .from('schools')
+    .select('founder_id')
+    .eq('id', schoolId)
+    .limit(1)
+
+  const founderId =
+    (schoolMetaRaw as Array<{ founder_id: string | null }> | null)?.[0]?.founder_id ?? null
+
+  const [leadersRes, staffRes, invitesRes] = await Promise.all([
+    admin
+      .from('user_school_roles')
+      .select(`
+        id, user_id, role_code, is_active,
+        profiles ( full_name, email )
+      `)
+      .eq('school_id', schoolId)
+      .eq('is_active', true)
+      .in('role_code', ['PROVISEUR', 'FONDATEUR', 'DIRECTEUR_ADJOINT'])
+      .order('role_code'),
+    admin
+      .from('user_school_roles')
+      .select(`
+        id, user_id, role_code,
+        profiles ( full_name, email )
+      `)
+      .eq('school_id', schoolId)
+      .eq('is_active', true)
+      .not('role_code', 'in', '("PROVISEUR","FONDATEUR","DIRECTEUR_ADJOINT")')
+      .order('role_code'),
+    admin
+      .from('staff_invitations')
+      .select('id, invited_email, invited_name, expires_at, status')
+      .eq('school_id', schoolId)
+      .eq('role_code', 'PROVISEUR')
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString())
+      .order('expires_at', { ascending: false }),
+  ])
+
+  const leaders = ((leadersRes.data ?? []) as Array<{
+    id: string
+    user_id: string
+    role_code: string
+    profiles: { full_name: string | null; email: string | null } | null
+  }>).map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    roleCode: row.role_code,
+    fullName: row.profiles?.full_name ?? null,
+    email: row.profiles?.email ?? null,
+    isFounder: founderId === row.user_id,
+  }))
+
+  const staffCandidates = ((staffRes.data ?? []) as Array<{
+    user_id: string
+    role_code: string
+    profiles: { full_name: string | null; email: string | null } | null
+  }>).map(row => ({
+    userId: row.user_id,
+    fullName: row.profiles?.full_name ?? null,
+    email: row.profiles?.email ?? null,
+    roleCode: row.role_code,
+  }))
+
+  const pendingInvites = ((invitesRes.data ?? []) as Array<{
+    id: string
+    invited_email: string | null
+    invited_name: string | null
+    expires_at: string
+  }>).map(row => ({
+    id: row.id,
+    invitedEmail: row.invited_email,
+    invitedName: row.invited_name,
+    expiresAt: row.expires_at,
+  }))
+
+  return {
+    leaders,
+    staffCandidates,
+    pendingInvites,
   }
 }
 

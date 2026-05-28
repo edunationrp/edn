@@ -1,3 +1,26 @@
+export type PlatformSchoolLeaderRow = {
+  id: string
+  userId: string
+  roleCode: string
+  fullName: string | null
+  email: string | null
+  isFounder: boolean
+}
+
+export type PlatformSchoolStaffCandidateRow = {
+  userId: string
+  fullName: string | null
+  email: string | null
+  roleCode: string
+}
+
+export type PlatformPendingProviseurInviteRow = {
+  id: string
+  invitedEmail: string | null
+  invitedName: string | null
+  expiresAt: string
+}
+
 export type PlatformSchoolRow = {
   id: string
   name: string

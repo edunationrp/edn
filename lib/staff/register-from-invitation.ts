@@ -10,6 +10,7 @@ import {
   findStaffUserIdAtSchool,
   isStaffContactEmailUsedAtSchool,
 } from '@/lib/staff/membership-auth'
+import { syncSchoolLeadershipOwnership } from '@/lib/platform/school-leadership'
 
 type StaffInvitationRow = {
   id: string
@@ -116,6 +117,11 @@ async function finalizeStaffSchoolMembership(
     .eq('id', invitation.id)
 
   if (inviteError) return { error: inviteError.message }
+
+  if (invitation.role_code === 'PROVISEUR' || invitation.role_code === 'FONDATEUR') {
+    const ownership = await syncSchoolLeadershipOwnership(admin, invitation.school_id, userId)
+    if (ownership.error) return { error: ownership.error }
+  }
 
   return {}
 }

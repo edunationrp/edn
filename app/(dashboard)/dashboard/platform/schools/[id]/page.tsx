@@ -10,6 +10,7 @@ import { getPlatformSchoolById } from '@/lib/platform/queries'
 import { SCHOOL_TYPES } from '@/lib/onboarding/constants'
 import { formatDate } from '@/lib/utils'
 import { PlatformSchoolStatusToggle } from '@/features/platform/platform-school-status-toggle'
+import { PlatformSchoolLeadershipPanel } from '@/features/platform/platform-school-leadership-panel'
 import type { Metadata } from 'next'
 
 type PageProps = {
@@ -128,6 +129,14 @@ export default async function PlatformSchoolDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
       </div>
+
+      <PlatformSchoolLeadershipPanel
+        schoolId={school.id}
+        schoolName={school.name}
+        leaders={data.leadership.leaders}
+        staffCandidates={data.leadership.staffCandidates}
+        pendingInvites={data.leadership.pendingInvites}
+      />
 
       {data.schoolYears.length > 0 && (
         <Card>

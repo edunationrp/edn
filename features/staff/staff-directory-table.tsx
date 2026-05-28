@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Mail, Phone, Search, Trash2, UserPlus, Users } from 'lucide-react'
+import { Mail, Phone, Search, Settings2, Trash2, UserPlus, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -14,6 +14,7 @@ import {
   FilterSelect,
 } from '@/components/dashboard/filter-bar'
 import { removeStaffMemberFromSchool } from '@/lib/actions/staff'
+import { StaffMemberManageDialog } from '@/features/staff/staff-member-manage-dialog'
 import { canRemoveStaffMember } from '@/lib/staff/member-removal'
 import { notify } from '@/lib/feedback/toast'
 import { ROLE_COLORS, ROLE_LABELS, STAFF_ROLES } from '@/types/roles'
@@ -90,12 +91,14 @@ function MobileStaffRow({
   member,
   canRemove,
   onRequestRemove,
+  onManageMember,
   isPending,
   pendingKey,
 }: {
   member: StaffDirectoryRow
   canRemove: boolean
   onRequestRemove: (memberId: string, memberName: string) => void
+  onManageMember: (member: StaffDirectoryRow) => void
   isPending: boolean
   pendingKey: string | null
 }) {
@@ -137,17 +140,30 @@ function MobileStaffRow({
             </div>
           </dl>
           {removable && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-3 w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-              disabled={isPending || pendingKey === `remove-${member.id}`}
-              onClick={() => onRequestRemove(member.id, member.fullName)}
-            >
-              <Trash2 className="h-4 w-4" />
-              Retirer de l&apos;établissement
-            </Button>
+            <div className="mt-3 flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                disabled={isPending}
+                onClick={() => onManageMember(member)}
+              >
+                <Settings2 className="h-4 w-4" />
+                Gérer
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                disabled={isPending || pendingKey === `remove-${member.id}`}
+                onClick={() => onRequestRemove(member.id, member.fullName)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Retirer
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -159,12 +175,14 @@ function DesktopStaffRow({
   member,
   canRemove,
   onRequestRemove,
+  onManageMember,
   isPending,
   pendingKey,
 }: {
   member: StaffDirectoryRow
   canRemove: boolean
   onRequestRemove: (memberId: string, memberName: string) => void
+  onManageMember: (member: StaffDirectoryRow) => void
   isPending: boolean
   pendingKey: string | null
 }) {
@@ -196,17 +214,29 @@ function DesktopStaffRow({
       {canRemove && (
         <td className="px-4 py-3.5 text-right sm:px-5">
           {removable ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              title="Retirer de l'établissement"
-              className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-              disabled={isPending || pendingKey === `remove-${member.id}`}
-              onClick={() => onRequestRemove(member.id, member.fullName)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                title="Gérer classes et départ"
+                disabled={isPending}
+                onClick={() => onManageMember(member)}
+              >
+                <Settings2 className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                title="Retirer de l'établissement"
+                className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                disabled={isPending || pendingKey === `remove-${member.id}`}
+                onClick={() => onRequestRemove(member.id, member.fullName)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           ) : (
             <span className="text-xs text-slate-400">—</span>
           )}
@@ -221,6 +251,7 @@ export function StaffDirectoryTable({ members, canRemove }: StaffDirectoryTableP
   const [isPending, startTransition] = useTransition()
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null)
+  const [manageMember, setManageMember] = useState<StaffDirectoryRow | null>(null)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -254,16 +285,16 @@ export function StaffDirectoryTable({ members, canRemove }: StaffDirectoryTableP
     setPendingKey(`remove-${removeTarget.id}`)
     startTransition(async () => {
       try {
-        const result = await removeStaffMemberFromSchool(removeTarget.id)
+        const result = await removeStaffMemberFromSchool(removeTarget.id, {
+          deleteAccount: false,
+        })
         if (result.error) {
           notify.error(result.error)
           return
         }
-        notify.success(
-          result.accountDeleted
-            ? 'Membre supprimé de cet établissement'
-            : 'Membre retiré de cet établissement',
-        )
+        notify.success('Membre retiré de cet établissement', {
+          description: 'Utilisez « Gérer » pour un départ avec suppression du compte.',
+        })
         setRemoveTarget(null)
         router.refresh()
       } finally {
@@ -331,6 +362,7 @@ export function StaffDirectoryTable({ members, canRemove }: StaffDirectoryTableP
               member={member}
               canRemove={canRemove}
               onRequestRemove={(id, name) => setRemoveTarget({ id, name })}
+              onManageMember={setManageMember}
               isPending={isPending}
               pendingKey={pendingKey}
             />
@@ -367,6 +399,7 @@ export function StaffDirectoryTable({ members, canRemove }: StaffDirectoryTableP
                   member={member}
                   canRemove={canRemove}
                   onRequestRemove={(id, name) => setRemoveTarget({ id, name })}
+                  onManageMember={setManageMember}
                   isPending={isPending}
                   pendingKey={pendingKey}
                 />
@@ -398,14 +431,35 @@ export function StaffDirectoryTable({ members, canRemove }: StaffDirectoryTableP
         description={
           removeTarget
             ? members.find(m => m.id === removeTarget.id)?.roleCode === 'PROFESSEUR'
-              ? `${removeTarget.name} sera retiré(e) de cet établissement uniquement. Ses affectations seront supprimées ici ; son compte dans les autres établissements reste intact.`
-              : `${removeTarget.name} sera supprimé(e) de cet établissement uniquement. Les autres établissements ne sont pas affectés.`
+              ? `${removeTarget.name} perdra l'accès à cet établissement. Les notes saisies restent archivées. Utilisez « Gérer » pour inviter un remplaçant ou supprimer le compte.`
+              : `${removeTarget.name} perdra l'accès à cet établissement. Les données enregistrées restent dans le système.`
             : ''
         }
         confirmLabel="Retirer de l'établissement"
         variant="destructive"
         loading={!!pendingKey && !!removeTarget}
         onConfirm={handleConfirmRemove}
+      />
+
+      <StaffMemberManageDialog
+        member={manageMember ? {
+          id: manageMember.id,
+          userId: manageMember.userId,
+          roleCode: manageMember.roleCode,
+          fullName: manageMember.fullName,
+          email: manageMember.email ?? '',
+        } : null}
+        open={Boolean(manageMember)}
+        onOpenChange={open => {
+          if (!open) setManageMember(null)
+        }}
+        teacherMembers={members.map(member => ({
+          id: member.id,
+          userId: member.userId,
+          roleCode: member.roleCode,
+          fullName: member.fullName,
+          email: member.email ?? '',
+        }))}
       />
     </>
   )

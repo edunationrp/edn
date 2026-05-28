@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { formatDate, getInitials, getStatusColor, getStatusLabel } from '@/lib/utils'
 import { StudentActivationCodeButton } from '@/features/students/student-activation-code-button'
+import { SendParentConvocationForm } from '@/features/parent/send-parent-convocation-form'
 import { canAccessStudentRegistry } from '@/lib/students/registry-access'
 import type { Metadata } from 'next'
 
@@ -79,6 +80,24 @@ export default async function StudentDetailPage({
 
   const enrollment = student.student_enrollments?.[0]
 
+  const { data: linkedParentsRaw } = await (supabase as any)
+    .from('parent_student_relations')
+    .select('parent_user_id, relation_type, profiles:parent_user_id(full_name)')
+    .eq('student_id', student.id)
+    .eq('school_id', ctx.school_id)
+
+  const linkedParents = ((linkedParentsRaw ?? []) as Array<{
+    parent_user_id: string
+    relation_type: string
+    profiles: { full_name: string | null } | null
+  }>).map(row => ({
+    parentUserId: row.parent_user_id,
+    fullName: row.profiles?.full_name ?? 'Parent',
+    relationType: row.relation_type,
+  }))
+
+  const canSendConvocation = ['SECRETAIRE', 'PROVISEUR', 'DIRECTEUR_ADJOINT', 'VIE_SCOLAIRE', 'CONSEILLER', 'CENSEUR'].includes(ctx.role_code)
+
   return (
     <div className="mx-auto max-w-3xl space-y-4 animate-fade-in sm:space-y-6">
       <PageHeader
@@ -147,6 +166,20 @@ export default async function StudentDetailPage({
               Générez un code d&apos;activation à remettre à l&apos;élève pour qu&apos;il puisse créer son mot de passe.
             </p>
             <StudentActivationCodeButton studentId={student.id} />
+          </CardContent>
+        </Card>
+      )}
+
+      {canSendConvocation && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Convoquer un parent</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Envoyez une convocation au parent rattaché. Il la recevra dans son espace parent et par notification.
+            </p>
+            <SendParentConvocationForm studentId={student.id} parents={linkedParents} />
           </CardContent>
         </Card>
       )}

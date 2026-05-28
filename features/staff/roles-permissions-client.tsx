@@ -35,9 +35,10 @@ import {
 } from '@/lib/permissions/catalog'
 import type { Permission } from '@/types/permissions'
 import type { UserRole } from '@/types/roles'
-import type { RolesPermissionsPayload } from '@/features/staff/roles-permissions-types'
+import type { RolesPermissionsPayload, StaffMemberRow } from '@/features/staff/roles-permissions-types'
 import { StaffInvitationsPanel } from '@/features/staff/staff-invitations-panel'
 import { StaffTeamTable } from '@/features/staff/staff-team-table'
+import { StaffMemberManageDialog } from '@/features/staff/staff-member-manage-dialog'
 import {
   cancelStaffInvitation,
   createStaffInvitation,
@@ -146,6 +147,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
 
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null)
   const [confirmState, setConfirmState] = useState<ConfirmState>(null)
+  const [manageMember, setManageMember] = useState<StaffMemberRow | null>(null)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const [roleDetailOpen, setRoleDetailOpen] = useState(false)
 
@@ -284,7 +286,9 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
       runAction(
         `remove-${confirmState.memberId}`,
         async () => {
-          const result = await removeStaffMemberFromSchool(confirmState.memberId)
+          const result = await removeStaffMemberFromSchool(confirmState.memberId, {
+            deleteAccount: false,
+          })
           if ('error' in result && result.error) return { error: result.error }
           return {
             success: true,
@@ -627,6 +631,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
             onRequestRemove={(memberId, memberName) =>
               setConfirmState({ type: 'remove', memberId, memberName })
             }
+            onManageMember={data.canRemove ? setManageMember : undefined}
             onActivate={memberId =>
               runAction(
                 `active-${memberId}`,
@@ -814,8 +819,8 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
         description={
           confirmState?.type === 'remove'
             ? confirmState.memberName && data.members.find(m => m.id === confirmState.memberId)?.roleCode === 'PROFESSEUR'
-              ? `${confirmState.memberName} sera retiré(e) de cet établissement uniquement. Ses affectations seront supprimées ici ; son accès aux autres établissements reste intact.`
-              : `${confirmState.memberName} sera supprimé(e) de cet établissement uniquement. Les autres établissements ne sont pas affectés.`
+              ? `${confirmState.memberName} perdra l'accès à cet établissement. Les notes déjà saisies restent archivées. Le compte utilisateur n'est pas supprimé — utilisez « Gérer » pour un départ définitif avec suppression du compte.`
+              : `${confirmState.memberName} perdra l'accès à cet établissement. Les données déjà enregistrées restent dans le système. Utilisez « Gérer » pour supprimer aussi le compte.`
             : confirmState?.type === 'deactivate'
             ? `${confirmState.memberName} ne pourra plus accéder à l'établissement tant que son compte est inactif.`
             : confirmState?.type === 'cancel-invite'
@@ -836,6 +841,21 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
         variant={confirmState?.type === 'deactivate' || confirmState?.type === 'remove' || confirmState?.type === 'cancel-invite' ? 'destructive' : 'default'}
         loading={!!pendingKey && !!confirmState}
         onConfirm={handleConfirmAction}
+      />
+
+      <StaffMemberManageDialog
+        member={manageMember}
+        open={Boolean(manageMember)}
+        onOpenChange={open => {
+          if (!open) setManageMember(null)
+        }}
+        teacherMembers={data.members.map(member => ({
+          id: member.id,
+          userId: member.userId,
+          roleCode: member.roleCode,
+          fullName: member.fullName,
+          email: member.email,
+        }))}
       />
 
       <Dialog open={roleDetailOpen} onOpenChange={setRoleDetailOpen}>

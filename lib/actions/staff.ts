@@ -30,6 +30,14 @@ import {
   registerStaffFromInvitationCore,
   staffAccountExistsAtSchool,
 } from '@/lib/staff/register-from-invitation'
+import {
+  listTeacherAssignmentRows,
+  removeTeacherClassAssignments,
+  toTeacherInviteAssignments,
+  transferTeacherClassAssignments,
+  type TeacherAssignmentRow,
+} from '@/lib/staff/teacher-assignments'
+import { syncSchoolLeadershipOwnership } from '@/lib/platform/school-leadership'
 
 export type StaffInviteActionResult =
   | {
@@ -396,7 +404,10 @@ export async function setStaffMemberActive(memberRoleId: string, isActive: boole
   return { success: true }
 }
 
-export async function removeStaffMemberFromSchool(memberRoleId: string) {
+export async function removeStaffMemberFromSchool(
+  memberRoleId: string,
+  options?: { deleteAccount?: boolean },
+) {
   const base = await requireStaffAccess('staff:deactivate')
   if ('error' in base) return base
 
@@ -504,7 +515,7 @@ export async function removeStaffMemberFromSchool(memberRoleId: string) {
   }
 
   let accountDeleted = false
-  if (admin) {
+  if (admin && options?.deleteAccount) {
     const purge = await deleteStaffSchoolAccountIfEmpty(admin, member.user_id, base.schoolId)
     if (purge.error) {
       return { error: purge.error }
@@ -545,6 +556,14 @@ export async function updateStaffMemberRole(memberRoleId: string, newRoleCode: s
     return { error: 'Impossible de modifier le rôle d\'un directeur.' }
   }
 
+  const oldRole = normalizeRole(member.role_code)
+  const newRole = normalizeRole(newRoleCode)
+
+  if (oldRole === 'PROFESSEUR' && newRole !== 'PROFESSEUR') {
+    const cleanup = await cleanupTeacherSchoolMembership(db, base.schoolId, member.user_id)
+    if (cleanup.error) return { error: cleanup.error }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (db as any)
     .from('user_school_roles')
@@ -558,6 +577,232 @@ export async function updateStaffMemberRole(memberRoleId: string, newRoleCode: s
     }
     return { error: error.message }
   }
+
+  revalidatePath('/dashboard/staff/roles-permissions')
+  revalidatePath('/dashboard/staff')
+  return { success: true }
+}
+
+async function requireStaffMember(
+  base: StaffAccessOk,
+  memberRoleId: string,
+  options?: { requireFullAuthority?: boolean },
+) {
+  if (options?.requireFullAuthority && !isSchoolFullAuthority(base.role)) {
+    return { error: 'Seul le proviseur peut effectuer cette action.' as const }
+  }
+
+  const db = getWritableDb(base)
+  const { data: memberRaw } = await db
+    .from('user_school_roles')
+    .select('id, user_id, role_code, is_active')
+    .eq('id', memberRoleId)
+    .eq('school_id', base.schoolId)
+    .limit(1)
+
+  const member = (memberRaw as Array<{
+    id: string
+    user_id: string
+    role_code: string
+    is_active: boolean
+  }> | null)?.[0]
+
+  if (!member) return { error: 'Membre introuvable.' as const }
+
+  return { db, member }
+}
+
+export async function getStaffMemberTeacherAssignments(
+  memberRoleId: string,
+): Promise<{ assignments: TeacherAssignmentRow[] } | { error: string }> {
+  const base = await requireStaffAccess('staff:read')
+  if ('error' in base) return base
+
+  const resolved = await requireStaffMember(base, memberRoleId)
+  if ('error' in resolved) return { error: resolved.error ?? 'Erreur.' }
+
+  if (normalizeRole(resolved.member.role_code) !== 'PROFESSEUR') {
+    return { assignments: [] }
+  }
+
+  const assignments = await listTeacherAssignmentRows(
+    resolved.db,
+    base.schoolId,
+    resolved.member.user_id,
+  )
+
+  return { assignments }
+}
+
+export async function removeTeacherFromClass(
+  assignmentId: string,
+): Promise<{ success: true } | { error: string }> {
+  const base = await requireStaffAccess('staff:deactivate')
+  if ('error' in base) return base
+  if (!isSchoolFullAuthority(base.role)) {
+    return { error: 'Seul le proviseur peut retirer un professeur d\'une classe.' }
+  }
+
+  const db = getWritableDb(base)
+
+  const { data: rowRaw } = await db
+    .from('teacher_assignments')
+    .select('id, teacher_id')
+    .eq('id', assignmentId)
+    .eq('school_id', base.schoolId)
+    .limit(1)
+
+  const row = (rowRaw as Array<{ id: string; teacher_id: string }> | null)?.[0]
+  if (!row) return { error: 'Affectation introuvable.' }
+
+  const removed = await removeTeacherClassAssignments(
+    db,
+    base.schoolId,
+    row.teacher_id,
+    [assignmentId],
+  )
+  if (removed.error) return { error: removed.error }
+
+  revalidatePath('/dashboard/staff/roles-permissions')
+  revalidatePath('/dashboard/staff')
+  return { success: true }
+}
+
+export async function inviteTeacherReplacement(data: {
+  outgoingMemberRoleId: string
+  assignmentIds: string[]
+  invitedEmail: string
+  invitedName?: string
+  sendEmail?: boolean
+  removeFromSchoolAfter?: boolean
+  deleteAccountAfter?: boolean
+}): Promise<StaffInviteActionResult> {
+  const base = await requireStaffAccess('staff:invite')
+  if ('error' in base) return base
+  if (!isSchoolFullAuthority(base.role)) {
+    return { error: 'Seul le proviseur peut inviter un remplaçant.' }
+  }
+
+  const resolved = await requireStaffMember(base, data.outgoingMemberRoleId)
+  if ('error' in resolved) return { error: resolved.error ?? 'Erreur.' }
+
+  if (normalizeRole(resolved.member.role_code) !== 'PROFESSEUR') {
+    return { error: 'Le remplacement par invitation concerne les professeurs.' }
+  }
+
+  if (!data.assignmentIds.length) {
+    return { error: 'Sélectionnez au moins une classe à transférer.' }
+  }
+
+  const rows = await listTeacherAssignmentRows(
+    resolved.db,
+    base.schoolId,
+    resolved.member.user_id,
+    data.assignmentIds,
+  )
+
+  if (!rows.length) {
+    return { error: 'Aucune affectation valide sélectionnée.' }
+  }
+
+  const teacherAssignments = toTeacherInviteAssignments(rows)
+  const validation = await validateTeacherInviteAssignments(
+    base.supabase,
+    base.schoolId,
+    teacherAssignments,
+  )
+  if (validation.error) return { error: validation.error }
+
+  const adminResult = requireAdminDb()
+  if ('error' in adminResult) return adminResult
+  const db = adminResult.admin
+
+  const removed = await removeTeacherClassAssignments(
+    db,
+    base.schoolId,
+    resolved.member.user_id,
+    rows.map(row => row.id),
+  )
+  if (removed.error) return { error: removed.error }
+
+  const invite = await createStaffInvitation({
+    roleCode: 'PROFESSEUR',
+    invitedEmail: data.invitedEmail,
+    invitedName: data.invitedName,
+    sendEmail: data.sendEmail,
+    teacherAssignments,
+  })
+
+  if ('error' in invite) {
+    return invite
+  }
+
+  if (data.removeFromSchoolAfter) {
+    const remaining = await listTeacherAssignmentRows(
+      db,
+      base.schoolId,
+      resolved.member.user_id,
+    )
+
+    if (remaining.length === 0) {
+      const removal = await removeStaffMemberFromSchool(data.outgoingMemberRoleId, {
+        deleteAccount: data.deleteAccountAfter,
+      })
+      if ('error' in removal) {
+        return {
+          success: true,
+          inviteUrl: invite.inviteUrl,
+          emailSent: invite.emailSent,
+          emailWarning:
+            (invite.emailWarning ? `${invite.emailWarning} ` : '') +
+            `Invitation créée, mais retrait du personnel incomplet : ${removal.error}`,
+        }
+      }
+    }
+  }
+
+  revalidatePath('/dashboard/staff/roles-permissions')
+  return invite
+}
+
+export async function reassignTeacherClassesToMember(data: {
+  outgoingMemberRoleId: string
+  incomingMemberRoleId: string
+  assignmentIds: string[]
+}): Promise<{ success: true } | { error: string }> {
+  const base = await requireStaffAccess('staff:activate')
+  if ('error' in base) return base
+  if (!isSchoolFullAuthority(base.role)) {
+    return { error: 'Seul le proviseur peut réassigner les classes.' }
+  }
+
+  const outgoing = await requireStaffMember(base, data.outgoingMemberRoleId)
+  if ('error' in outgoing) return { error: outgoing.error ?? 'Erreur.' }
+
+  const incoming = await requireStaffMember(base, data.incomingMemberRoleId)
+  if ('error' in incoming) return { error: incoming.error ?? 'Erreur.' }
+
+  if (normalizeRole(outgoing.member.role_code) !== 'PROFESSEUR') {
+    return { error: 'Seul un professeur sortant peut transférer ses classes.' }
+  }
+
+  if (normalizeRole(incoming.member.role_code) !== 'PROFESSEUR') {
+    return { error: 'Le remplaçant doit être professeur dans cet établissement.' }
+  }
+
+  if (!data.assignmentIds.length) {
+    return { error: 'Sélectionnez au moins une classe à transférer.' }
+  }
+
+  const db = getWritableDb(base)
+  const transferred = await transferTeacherClassAssignments(db, {
+    schoolId: base.schoolId,
+    fromTeacherUserId: outgoing.member.user_id,
+    toTeacherUserId: incoming.member.user_id,
+    assignmentIds: data.assignmentIds,
+  })
+
+  if (transferred.error) return { error: transferred.error }
 
   revalidatePath('/dashboard/staff/roles-permissions')
   revalidatePath('/dashboard/staff')
@@ -689,6 +934,11 @@ export async function acceptStaffInvitation(token: string) {
       .from('profiles')
       .update({ default_role: invitation.role_code })
       .eq('id', user.id)
+  }
+
+  if (invitation.role_code === 'PROVISEUR' || invitation.role_code === 'FONDATEUR') {
+    const ownership = await syncSchoolLeadershipOwnership(admin, invitation.school_id, user.id)
+    if (ownership.error) return { error: ownership.error }
   }
 
   revalidatePath('/dashboard')

@@ -76,14 +76,21 @@ export default async function AttendancePage() {
         title="Absences & Présences"
         description="Suivi des présences, absences et retards"
         actions={
-          canTakeAttendance ? (
-            <Button size="sm" asChild className="w-full sm:w-auto">
-              <Link href="/dashboard/attendance/take">
-                <Plus className="h-4 w-4 mr-1" />
-                Faire l&apos;appel
-              </Link>
-            </Button>
-          ) : undefined
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {['PROVISEUR', 'CENSEUR', 'SECRETAIRE', 'VIE_SCOLAIRE', 'SURVEILLANT_GENERAL', 'CONSEILLER', 'DIRECTEUR_ADJOINT', 'FONDATEUR'].includes(ctx?.role_code ?? '') && (
+              <Button size="sm" variant="outline" asChild className="w-full sm:w-auto">
+                <Link href="/dashboard/attendance/justifications">Justifications parents</Link>
+              </Button>
+            )}
+            {canTakeAttendance ? (
+              <Button size="sm" asChild className="w-full sm:w-auto">
+                <Link href="/dashboard/attendance/take">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Faire l&apos;appel
+                </Link>
+              </Button>
+            ) : null}
+          </div>
         }
       />
 

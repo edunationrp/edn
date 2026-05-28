@@ -22,6 +22,8 @@ export async function markAllNotificationsRead() {
   revalidatePath('/dashboard/notifications')
   revalidatePath('/eleve')
   revalidatePath('/eleve/notifications')
+  revalidatePath('/parent')
+  revalidatePath('/parent/notifications')
   return { success: true }
 }
 
@@ -41,5 +43,7 @@ export async function markNotificationRead(notificationId: string) {
   revalidatePath('/dashboard/notifications')
   revalidatePath('/eleve')
   revalidatePath('/eleve/notifications')
+  revalidatePath('/parent')
+  revalidatePath('/parent/notifications')
   return { success: true }
 }

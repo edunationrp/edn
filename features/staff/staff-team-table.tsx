@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Search, Trash2, Users } from 'lucide-react'
+import { Search, Settings2, Trash2, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -35,6 +35,7 @@ type StaffTeamTableProps = {
   }) => void
   onRequestDeactivate: (memberId: string, memberName: string) => void
   onRequestRemove: (memberId: string, memberName: string) => void
+  onManageMember?: (member: StaffMemberRow) => void
   onActivate: (memberId: string) => void
 }
 
@@ -69,6 +70,7 @@ export function StaffTeamTable({
   onRoleChange,
   onRequestDeactivate,
   onRequestRemove,
+  onManageMember,
   onActivate,
 }: StaffTeamTableProps) {
   const [filter, setFilter] = useState<TeamFilter>('all')
@@ -171,6 +173,7 @@ export function StaffTeamTable({
                       onRoleChange={onRoleChange}
                       onRequestDeactivate={onRequestDeactivate}
                       onRequestRemove={onRequestRemove}
+                      onManageMember={onManageMember}
                       onActivate={onActivate}
                     />
                   ))}
@@ -192,6 +195,7 @@ export function StaffTeamTable({
                 onRoleChange={onRoleChange}
                 onRequestDeactivate={onRequestDeactivate}
                 onRequestRemove={onRequestRemove}
+                onManageMember={onManageMember}
                 onActivate={onActivate}
               />
             ))}
@@ -266,6 +270,7 @@ function MemberActions({
   onRoleChange,
   onRequestDeactivate,
   onRequestRemove,
+  onManageMember,
   onActivate,
   layout,
 }: {
@@ -278,6 +283,7 @@ function MemberActions({
   onRoleChange: StaffTeamTableProps['onRoleChange']
   onRequestDeactivate: StaffTeamTableProps['onRequestDeactivate']
   onRequestRemove: StaffTeamTableProps['onRequestRemove']
+  onManageMember?: StaffTeamTableProps['onManageMember']
   onActivate: StaffTeamTableProps['onActivate']
   layout: 'desktop' | 'mobile'
 }) {
@@ -344,6 +350,21 @@ function MemberActions({
         </>
       )}
 
+      {removable && onManageMember && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          title="Gérer classes et départ"
+          className="h-9 shrink-0"
+          disabled={isPending}
+          onClick={() => onManageMember(member)}
+        >
+          <Settings2 className="h-4 w-4" />
+          {layout === 'mobile' && <span>Gérer</span>}
+        </Button>
+      )}
+
       {removable && (
         <Button
           type="button"
@@ -372,6 +393,7 @@ function DesktopMemberRow({
   onRoleChange,
   onRequestDeactivate,
   onRequestRemove,
+  onManageMember,
   onActivate,
 }: {
   member: StaffMemberRow
@@ -383,6 +405,7 @@ function DesktopMemberRow({
   onRoleChange: StaffTeamTableProps['onRoleChange']
   onRequestDeactivate: StaffTeamTableProps['onRequestDeactivate']
   onRequestRemove: StaffTeamTableProps['onRequestRemove']
+  onManageMember?: StaffTeamTableProps['onManageMember']
   onActivate: StaffTeamTableProps['onActivate']
 }) {
   const showActions =
@@ -421,6 +444,7 @@ function DesktopMemberRow({
             onRoleChange={onRoleChange}
             onRequestDeactivate={onRequestDeactivate}
             onRequestRemove={onRequestRemove}
+            onManageMember={onManageMember}
             onActivate={onActivate}
             layout="desktop"
           />
@@ -440,6 +464,7 @@ function MobileMemberRow({
   onRoleChange,
   onRequestDeactivate,
   onRequestRemove,
+  onManageMember,
   onActivate,
 }: {
   member: StaffMemberRow
@@ -451,6 +476,7 @@ function MobileMemberRow({
   onRoleChange: StaffTeamTableProps['onRoleChange']
   onRequestDeactivate: StaffTeamTableProps['onRequestDeactivate']
   onRequestRemove: StaffTeamTableProps['onRequestRemove']
+  onManageMember?: StaffTeamTableProps['onManageMember']
   onActivate: StaffTeamTableProps['onActivate']
 }) {
   const editable = canEditMember(member, canActivate, canDeactivate)
@@ -488,6 +514,7 @@ function MobileMemberRow({
             onRoleChange={onRoleChange}
             onRequestDeactivate={onRequestDeactivate}
             onRequestRemove={onRequestRemove}
+            onManageMember={onManageMember}
             onActivate={onActivate}
             layout="mobile"
           />

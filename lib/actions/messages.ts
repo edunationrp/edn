@@ -249,6 +249,7 @@ export async function getOrCreateConversation(
   ])
 
   revalidatePath('/dashboard/messages')
+  revalidatePath('/parent/messages')
   return { conversationId }
 }
 
@@ -293,6 +294,7 @@ export async function sendChatMessage(input: {
   }
 
   revalidatePath('/dashboard/messages')
+  revalidatePath('/parent/messages')
   return { message: messageRaw as ChatMessageRow }
 }
 
@@ -312,6 +314,7 @@ export async function markConversationRead(conversationId: string) {
   if (upsertError) return { error: upsertError.message }
   revalidatePath('/dashboard/messages')
   revalidatePath('/dashboard', 'layout')
+  revalidatePath('/parent/messages')
   return { success: true }
 }
 
