@@ -21,9 +21,68 @@ const GMAIL_REGEX = /^[^\s@]+@(gmail|googlemail)\.com$/i
 
 type RegistrationChannel = 'phone' | 'gmail'
 
+type AdminClient = ReturnType<typeof createAdminClient>
+
 function getAdminDb() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return createAdminClient() as any
+}
+
+function normalizeGmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+async function getAuthUserIdByEmail(admin: AdminClient, email: string): Promise<string | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (admin as any).rpc('get_auth_user_id_by_email', {
+    p_email: email.trim().toLowerCase(),
+  })
+  if (error || !data) return null
+  return String(data)
+}
+
+async function findParentAccountByContactEmail(
+  db: ReturnType<typeof getAdminDb>,
+  email: string,
+) {
+  const normalized = normalizeGmail(email)
+  const { data } = await db
+    .from('parent_accounts')
+    .select('id, parent_code')
+    .eq('contact_email', normalized)
+    .maybeSingle()
+  return data as { id: string; parent_code: string } | null
+}
+
+async function finalizeParentProfile(
+  admin: AdminClient,
+  userId: string,
+  profile: { fullName: string; email: string; phone: string },
+): Promise<string | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).rpc('finalize_parent_profile', {
+    p_user_id: userId,
+    p_full_name: profile.fullName,
+    p_email: profile.email,
+    p_phone: profile.phone,
+  })
+  return error?.message ?? null
+}
+
+async function deleteOrphanParentAuthUser(
+  admin: AdminClient,
+  db: ReturnType<typeof getAdminDb>,
+  userId: string,
+): Promise<void> {
+  const { data: account } = await db
+    .from('parent_accounts')
+    .select('id')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (account) return
+
+  await admin.auth.admin.deleteUser(userId)
 }
 
 async function invalidatePendingSessions(
@@ -103,9 +162,15 @@ export async function sendParentRegistrationOtp(input: {
     return { success: true as const, sessionId: result.sessionId }
   }
 
-  const email = input.email?.trim().toLowerCase() ?? ''
+  const email = normalizeGmail(input.email ?? '')
   if (!GMAIL_REGEX.test(email)) {
     return { error: 'Adresse Gmail invalide (ex. nom@gmail.com).' }
+  }
+
+  const db = getAdminDb()
+  const existingParent = await findParentAccountByContactEmail(db, email)
+  if (existingParent) {
+    return { error: 'Un compte parent existe déjà avec cet email. Connectez-vous.' }
   }
 
   const result = await createOtpSession('gmail', { email })
@@ -176,6 +241,137 @@ export async function verifyParentRegistrationOtp(formData: {
   return { success: true as const, sessionId: session.id as string }
 }
 
+type RegistrationSession = {
+  id: string
+  channel: RegistrationChannel
+  phone: string | null
+  email: string | null
+  otp_verified: boolean
+  expires_at: string
+  consumed_at: string | null
+  pending_auth_user_id: string | null
+  pending_parent_code: string | null
+  pending_auth_email: string | null
+}
+
+async function resolveParentAuthUser(params: {
+  admin: AdminClient
+  db: ReturnType<typeof getAdminDb>
+  session: RegistrationSession
+  sessionId: string
+  fullName: string
+  phonePrimary: string
+  contactEmail: string | null
+  password: string
+}): Promise<
+  | { userId: string; parentCode: string; authEmail: string; createdNewAuthUser: boolean }
+  | { error: string }
+> {
+  const { admin, db, session, sessionId, fullName, phonePrimary, contactEmail, password } = params
+
+  if (session.pending_auth_user_id && session.pending_parent_code && session.pending_auth_email) {
+    const pendingUserId = session.pending_auth_user_id as string
+    const { data: existingAccount } = await db
+      .from('parent_accounts')
+      .select('id')
+      .eq('id', pendingUserId)
+      .maybeSingle()
+
+    if (existingAccount) {
+      return { error: 'Inscription déjà finalisée. Connectez-vous avec vos identifiants.' }
+    }
+
+    const { error: updateErr } = await admin.auth.admin.updateUserById(pendingUserId, {
+      password,
+      user_metadata: {
+        full_name: fullName,
+        default_role: 'PARENT',
+        parent_code: session.pending_parent_code,
+        phone: phonePrimary,
+        ...(contactEmail ? { contact_email: contactEmail } : {}),
+      },
+    })
+
+    if (updateErr) {
+      await deleteOrphanParentAuthUser(admin, db, pendingUserId)
+      await db
+        .from('parent_registration_sessions')
+        .update({
+          pending_auth_user_id: null,
+          pending_parent_code: null,
+          pending_auth_email: null,
+        })
+        .eq('id', sessionId)
+      return { error: updateErr.message }
+    }
+
+    return {
+      userId: pendingUserId,
+      parentCode: session.pending_parent_code as string,
+      authEmail: session.pending_auth_email as string,
+      createdNewAuthUser: false,
+    }
+  }
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    let parentCode = generateParentCode()
+    for (let codeAttempt = 0; codeAttempt < 8; codeAttempt += 1) {
+      const { data: existingCode } = await db
+        .from('parent_accounts')
+        .select('id')
+        .eq('parent_code', parentCode)
+        .maybeSingle()
+      if (!existingCode) break
+      parentCode = generateParentCode()
+    }
+
+    const authEmail = parentCodeToAuthEmail(parentCode)
+    const orphanId = await getAuthUserIdByEmail(admin, authEmail)
+    if (orphanId) {
+      await deleteOrphanParentAuthUser(admin, db, orphanId)
+    }
+
+    const { data: authData, error: authErr } = await admin.auth.admin.createUser({
+      email: authEmail,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        default_role: 'PARENT',
+        parent_code: parentCode,
+        phone: phonePrimary,
+        ...(contactEmail ? { contact_email: contactEmail } : {}),
+      },
+    })
+
+    if (authErr || !authData.user) {
+      const message = authErr?.message ?? 'Erreur lors de la création du compte.'
+      if (/duplicate|already|registered|exists|profiles_pkey/i.test(message) && attempt < 7) {
+        continue
+      }
+      return { error: message }
+    }
+
+    await db
+      .from('parent_registration_sessions')
+      .update({
+        pending_auth_user_id: authData.user.id,
+        pending_parent_code: parentCode,
+        pending_auth_email: authEmail,
+      })
+      .eq('id', sessionId)
+
+    return {
+      userId: authData.user.id,
+      parentCode,
+      authEmail,
+      createdNewAuthUser: true,
+    }
+  }
+
+  return { error: 'Impossible de créer le compte parent. Réessayez dans quelques instants.' }
+}
+
 // ----------------------------------------------------------------
 // 3. Finaliser l'inscription (profil + identifiants)
 // ----------------------------------------------------------------
@@ -210,7 +406,9 @@ export async function completeParentRegistration(formData: {
 
   const { data: session, error: sessionErr } = await db
     .from('parent_registration_sessions')
-    .select('id, channel, phone, email, otp_verified, expires_at, consumed_at')
+    .select(
+      'id, channel, phone, email, otp_verified, expires_at, consumed_at, pending_auth_user_id, pending_parent_code, pending_auth_email',
+    )
     .eq('id', parsed.data.sessionId)
     .maybeSingle()
 
@@ -223,6 +421,14 @@ export async function completeParentRegistration(formData: {
 
   const phonePrimary = parsed.data.phonePrimary
   const phoneSecondary = parsed.data.phoneSecondary || null
+  const contactEmail = session.channel === 'gmail' ? normalizeGmail(session.email as string) : null
+
+  if (contactEmail) {
+    const existingParent = await findParentAccountByContactEmail(db, contactEmail)
+    if (existingParent) {
+      return { error: 'Un compte parent existe déjà avec cet email. Connectez-vous.' }
+    }
+  }
 
   const { data: phoneTaken } = await db
     .from('parent_accounts')
@@ -234,60 +440,48 @@ export async function completeParentRegistration(formData: {
     return { error: 'Ce numéro de téléphone est déjà utilisé par un compte parent.' }
   }
 
-  let parentCode = generateParentCode()
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const { data: existingCode } = await db
-      .from('parent_accounts')
-      .select('id')
-      .eq('parent_code', parentCode)
-      .maybeSingle()
-    if (!existingCode) break
-    parentCode = generateParentCode()
-  }
-
   const password = generateParentPassword(10)
-  const authEmail = parentCodeToAuthEmail(parentCode)
   const fullName = `${parsed.data.firstName} ${parsed.data.lastName}`
-  const contactEmail = session.channel === 'gmail' ? (session.email as string) : null
 
-  const { data: authData, error: authErr } = await admin.auth.admin.createUser({
-    email: authEmail,
+  const authResult = await resolveParentAuthUser({
+    admin,
+    db,
+    session: session as RegistrationSession,
+    sessionId: parsed.data.sessionId,
+    fullName,
+    phonePrimary,
+    contactEmail,
     password,
-    email_confirm: true,
-    phone: phonePrimary,
-    user_metadata: {
-      full_name: fullName,
-      default_role: 'PARENT',
-      parent_code: parentCode,
-      phone: phonePrimary,
-      ...(contactEmail ? { contact_email: contactEmail } : {}),
-    },
   })
 
-  if (authErr || !authData.user) {
-    return { error: authErr?.message ?? 'Erreur lors de la création du compte.' }
+  if ('error' in authResult) {
+    return { error: authResult.error }
   }
 
-  // Le trigger handle_new_user crée déjà la ligne profiles — upsert pour éviter profiles_pkey
-  const { error: profileErr } = await db.from('profiles').upsert(
-    {
-      id: authData.user.id,
-      full_name: fullName,
-      email: contactEmail ?? authEmail,
-      phone: phonePrimary,
-      default_role: 'PARENT',
-      is_active: true,
-    },
-    { onConflict: 'id' },
-  )
+  const { userId, parentCode, authEmail, createdNewAuthUser } = authResult
+  const profileErr = await finalizeParentProfile(admin, userId, {
+    fullName,
+    email: contactEmail ?? authEmail,
+    phone: phonePrimary,
+  })
 
   if (profileErr) {
-    await admin.auth.admin.deleteUser(authData.user.id)
-    return { error: profileErr.message }
+    if (createdNewAuthUser) {
+      await deleteOrphanParentAuthUser(admin, db, userId)
+      await db
+        .from('parent_registration_sessions')
+        .update({
+          pending_auth_user_id: null,
+          pending_parent_code: null,
+          pending_auth_email: null,
+        })
+        .eq('id', parsed.data.sessionId)
+    }
+    return { error: profileErr }
   }
 
   const { error: accountErr } = await db.from('parent_accounts').insert({
-    id: authData.user.id,
+    id: userId,
     parent_code: parentCode,
     first_name: parsed.data.firstName,
     last_name: parsed.data.lastName,
@@ -300,14 +494,32 @@ export async function completeParentRegistration(formData: {
   })
 
   if (accountErr) {
-    await db.from('profiles').delete().eq('id', authData.user.id)
-    await admin.auth.admin.deleteUser(authData.user.id)
+    if (createdNewAuthUser) {
+      await deleteOrphanParentAuthUser(admin, db, userId)
+    }
+    await db
+      .from('parent_registration_sessions')
+      .update({
+        pending_auth_user_id: null,
+        pending_parent_code: null,
+        pending_auth_email: null,
+      })
+      .eq('id', parsed.data.sessionId)
+
+    if (/contact_email|parent_accounts_contact_email/i.test(accountErr.message)) {
+      return { error: 'Un compte parent existe déjà avec cet email. Connectez-vous.' }
+    }
     return { error: accountErr.message }
   }
 
   await db
     .from('parent_registration_sessions')
-    .update({ consumed_at: new Date().toISOString() })
+    .update({
+      consumed_at: new Date().toISOString(),
+      pending_auth_user_id: null,
+      pending_parent_code: null,
+      pending_auth_email: null,
+    })
     .eq('id', parsed.data.sessionId)
 
   const credentialsPayload = {
@@ -316,9 +528,7 @@ export async function completeParentRegistration(formData: {
     password,
   }
 
-  if (session.channel === 'gmail' && contactEmail) {
-    await sendParentCredentialsEmail(contactEmail, credentialsPayload)
-  } else if (contactEmail) {
+  if (contactEmail) {
     await sendParentCredentialsEmail(contactEmail, credentialsPayload)
   } else {
     console.info(`[DEV] Identifiants parent SMS ${phonePrimary}: ${parentCode} / ${password}`)

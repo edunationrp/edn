@@ -839,6 +839,9 @@ export interface Database {
           otp_attempts: number
           expires_at: string
           consumed_at: string | null
+          pending_auth_user_id: string | null
+          pending_parent_code: string | null
+          pending_auth_email: string | null
           created_at: string
         }
         Insert: {
@@ -851,6 +854,9 @@ export interface Database {
           otp_attempts?: number
           expires_at: string
           consumed_at?: string | null
+          pending_auth_user_id?: string | null
+          pending_parent_code?: string | null
+          pending_auth_email?: string | null
           created_at?: string
         }
         Update: {
@@ -859,6 +865,9 @@ export interface Database {
           otp_attempts?: number
           expires_at?: string
           consumed_at?: string | null
+          pending_auth_user_id?: string | null
+          pending_parent_code?: string | null
+          pending_auth_email?: string | null
         }
       }
       sms_verification_codes: {
@@ -1191,6 +1200,19 @@ export interface Database {
       }
       increment_sms_attempts: {
         Args: { p_phone: string; p_purpose: string }
+        Returns: undefined
+      }
+      get_auth_user_id_by_email: {
+        Args: { p_email: string }
+        Returns: string | null
+      }
+      finalize_parent_profile: {
+        Args: {
+          p_user_id: string
+          p_full_name: string
+          p_email: string
+          p_phone: string
+        }
         Returns: undefined
       }
     }
