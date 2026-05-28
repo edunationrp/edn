@@ -44,11 +44,15 @@ export async function submitAbsenceJustification(formData: {
     return { error: 'Seules les absences et retards peuvent être justifiés.' }
   }
 
-  const { data: existing } = await supabase
+  const { data: existingRaw } = await supabase
     .from('attendance_justifications')
     .select('id, status')
     .eq('attendance_record_id', record.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
+
+  const existing = existingRaw as { id: string; status: 'pending' | 'approved' | 'rejected' } | null
 
   if (existing?.status === 'pending') {
     return { error: 'Une demande de justification est déjà en cours pour cette absence.' }
