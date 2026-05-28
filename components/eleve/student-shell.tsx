@@ -2,12 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
-import {
-  Home, BookOpen, FileText, UserX, Calendar, Settings, GraduationCap, LogOut
-} from 'lucide-react'
+import { BrandLockupDark, LogoSVG } from '@/components/brand/logo'
+import { LogOut, Menu, ChevronDown } from 'lucide-react'
+import { WatermarkBackground } from '@/components/schools/watermark-background'
 import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import {
+  Home, BookOpen, FileText, UserX, Calendar, Settings, GraduationCap,
+} from 'lucide-react'
 
 const NAV_ITEMS = [
   { href: '/eleve', label: 'Accueil', icon: Home, exact: true },
@@ -26,6 +30,13 @@ type StudentShellProps = {
   className: string | null
   schoolName: string
   schoolYear: string | null
+  schoolLogoUrl?: string | null
+  schoolWatermarkOpacity?: number | null
+}
+
+function isNavActive(pathname: string, href: string, exact?: boolean) {
+  if (exact) return pathname === href
+  return pathname === href || pathname.startsWith(`${href}/`)
 }
 
 export function StudentShell({
@@ -35,103 +46,176 @@ export function StudentShell({
   className,
   schoolName,
   schoolYear,
+  schoolLogoUrl,
+  schoolWatermarkOpacity,
 }: StudentShellProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const initials = studentName
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login/eleve')
   }
 
-  return (
-    <div className="flex min-h-dvh bg-gray-50">
-      {/* Sidebar desktop */}
-      <aside className="hidden w-56 shrink-0 flex-col border-r bg-white lg:flex">
-        <div className="flex h-14 items-center gap-2 border-b px-4">
-          <GraduationCap className="h-5 w-5 text-[#1B3A6B]" />
-          <span className="text-sm font-bold text-[#1B3A6B]">EduNation</span>
+  function sidebarContent(collapsed = false) {
+    return (
+      <>
+        <div className={cn('flex-shrink-0 border-b border-white/10', collapsed ? 'px-2 py-4' : 'px-5 pt-5 pb-4')}>
+          <Link
+            href="/eleve"
+            title="EduNation"
+            className={cn('rounded-xl transition-opacity hover:opacity-90', collapsed && 'flex justify-center p-1')}
+            onClick={() => setMobileOpen(false)}
+          >
+            {collapsed ? (
+              <div className="rounded-xl bg-white/15 p-2">
+                <LogoSVG width={26} height={26} />
+              </div>
+            ) : (
+              <BrandLockupDark />
+            )}
+          </Link>
         </div>
 
-        <div className="border-b px-4 py-3">
-          <p className="truncate text-sm font-semibold text-gray-900">{studentName}</p>
-          <p className="truncate text-[11px] text-muted-foreground">{iun}</p>
-          {className && (
-            <span className="mt-1 inline-block rounded bg-[#1B3A6B]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#1B3A6B]">
-              {className}
-            </span>
+        {!collapsed && (
+          <div className="mx-3 mt-3 mb-1 flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#7AB832]/40 bg-[#7AB832]/20">
+              {schoolLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={schoolLogoUrl} alt="" className="h-full w-full object-contain p-0.5" />
+              ) : (
+                <span className="text-xs font-black text-[#7AB832]">
+                  {schoolName.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs font-semibold leading-tight text-white">{schoolName}</div>
+              <div className="text-[10px] leading-tight text-white/50">
+                {schoolYear ? `Année ${schoolYear}` : 'Année scolaire'}
+              </div>
+            </div>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/40" />
+          </div>
+        )}
+
+        <nav className={cn('flex-1 space-y-0.5 overflow-y-auto py-2', collapsed ? 'px-2' : 'px-3')}>
+          {!collapsed && (
+            <div className="select-none px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-white/35">
+              Mon espace
+            </div>
           )}
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-2 py-3">
           {NAV_ITEMS.map(item => {
-            const active = item.exact ? pathname === item.href : pathname.startsWith(item.href)
+            const active = isNavActive(pathname, item.href, item.exact)
+            const Icon = item.icon
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                title={collapsed ? item.label : undefined}
+                onClick={() => setMobileOpen(false)}
                 className={cn(
-                  'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
+                  'flex items-center rounded-lg text-sm font-medium transition-all',
+                  collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-3 py-2',
                   active
-                    ? 'bg-[#1B3A6B] text-white'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-[#7AB832] text-white shadow-sm'
+                    : 'text-white/70 hover:bg-white/10 hover:text-white',
                 )}
               >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
+                <Icon className={cn('shrink-0', collapsed ? 'h-5 w-5' : 'h-4 w-4', active ? 'text-white' : 'text-white/60')} />
+                {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
               </Link>
             )
           })}
         </nav>
 
-        <div className="border-t px-2 py-3">
-          <p className="truncate px-3 text-[10px] text-muted-foreground">{schoolName}</p>
-          {schoolYear && (
-            <p className="truncate px-3 text-[10px] text-muted-foreground">A.S. {schoolYear}</p>
-          )}
-          <button
-            onClick={handleLogout}
-            className="mt-2 flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
+        <div className={cn('flex-shrink-0 space-y-1 border-t border-white/10', collapsed ? 'p-2' : 'p-3')}>
+          <div
+            className={cn(
+              'flex items-center rounded-lg',
+              collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-2 py-2',
+            )}
+            title={collapsed ? studentName : undefined}
           >
-            <LogOut className="h-4 w-4 shrink-0" />
-            Déconnexion
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7AB832] to-[#5F941F] text-xs font-bold text-white shadow-sm">
+              {initials}
+            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-semibold leading-tight text-white">{studentName}</div>
+                <div className="truncate text-[10px] leading-tight text-white/40">
+                  {className ? `${className} · ${iun}` : iun}
+                </div>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            title={collapsed ? 'Déconnexion' : undefined}
+            className={cn(
+              'flex w-full items-center rounded-lg text-xs font-medium text-white/50 transition-all hover:bg-red-500/10 hover:text-red-400',
+              collapsed ? 'justify-center px-2 py-2' : 'gap-2 px-3 py-1.5',
+            )}
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            {!collapsed && <span>Déconnexion</span>}
           </button>
         </div>
+      </>
+    )
+  }
+
+  return (
+    <div className="flex min-h-screen bg-[#F0F4F8]">
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-30 flex w-[min(88vw,240px)] flex-col overflow-y-auto bg-[#1B3A6B] text-white shadow-xl transition-transform duration-200 lg:translate-x-0',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+        )}
+      >
+        {sidebarContent(false)}
       </aside>
 
-      {/* Mobile bottom nav */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-white lg:hidden">
-        <nav className="flex items-center justify-around px-2 py-1">
-          {NAV_ITEMS.slice(0, 5).map(item => {
-            const active = item.exact ? pathname === item.href : pathname.startsWith(item.href)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px] transition-colors',
-                  active ? 'text-[#1B3A6B]' : 'text-gray-500'
-                )}
-              >
-                <item.icon className={cn('h-5 w-5', active && 'fill-[#1B3A6B]/10')} />
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
-      </div>
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Fermer le menu"
+          className="fixed inset-0 z-20 bg-black/40 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
 
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
-        {/* Mobile header */}
-        <header className="sticky top-0 z-30 flex h-12 items-center border-b bg-white px-4 lg:hidden">
-          <GraduationCap className="mr-2 h-4 w-4 text-[#1B3A6B]" />
-          <span className="text-sm font-bold text-[#1B3A6B]">EduNation</span>
-          <span className="ml-auto text-xs text-muted-foreground">{iun}</span>
+      <div className="flex min-h-screen flex-1 flex-col lg:ml-[240px]">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-slate-200/80 bg-white/95 px-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-md sm:px-4 lg:hidden">
+          <button
+            type="button"
+            aria-label="Ouvrir le menu"
+            onClick={() => setMobileOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-gray-900">{studentName}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{className ?? iun}</p>
+          </div>
         </header>
-        <div className="p-4 sm:p-6">{children}</div>
-      </main>
+
+        <main className="relative flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:px-8 lg:py-7">
+          <WatermarkBackground logoUrl={schoolLogoUrl} opacity={schoolWatermarkOpacity} />
+          <div className="relative z-[1]">{children}</div>
+        </main>
+      </div>
     </div>
   )
 }

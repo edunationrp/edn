@@ -100,6 +100,30 @@ export async function getSchoolTimetableSlots(
   return ((data ?? []) as SlotRow[]).map(mapSlotRow)
 }
 
+export async function getClassTimetableSlots(
+  schoolId: string,
+  schoolYearId: string,
+  classId: string,
+): Promise<TimetableSlotView[]> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('timetable_slots')
+    .select(`
+      id, school_id, school_year_id, class_id, subject_id, teacher_id,
+      room, description, day_of_week, start_time, end_time,
+      classes(name), subjects(name),
+      profiles:teacher_id(full_name)
+    `)
+    .eq('school_id', schoolId)
+    .eq('school_year_id', schoolYearId)
+    .eq('class_id', classId)
+    .order('day_of_week')
+    .order('start_time')
+
+  return ((data ?? []) as SlotRow[]).map(mapSlotRow)
+}
+
 export async function getTeacherTimetableSlots(
   schoolId: string,
   schoolYearId: string,

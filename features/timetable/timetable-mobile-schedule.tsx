@@ -32,6 +32,7 @@ type TimetableMobileScheduleProps = {
   canRequestChanges: boolean
   teacherSlotIds: Set<string>
   getSubjectStyle: (subject: string) => SubjectStyle
+  viewOnly?: boolean
   onSlotClick: (slot: TimetableSlotView) => void
   onAddSlot: (day: number, start: string, end: string) => void
 }
@@ -49,6 +50,7 @@ export function TimetableMobileSchedule({
   canRequestChanges,
   teacherSlotIds,
   getSubjectStyle,
+  viewOnly = false,
   onSlotClick,
   onAddSlot,
 }: TimetableMobileScheduleProps) {
@@ -118,7 +120,9 @@ export function TimetableMobileSchedule({
                       const style = getSubjectStyle(slot.subjectName)
                       const Icon = style.icon
                       const isOwnSlot = teacherSlotIds.has(slot.id)
-                      const clickable = (canManage && scheduleView === 'class') || (canRequestChanges && isOwnSlot)
+                      const clickable = viewOnly
+                        ? cellSlots.length > 0
+                        : (canManage && scheduleView === 'class') || (canRequestChanges && isOwnSlot)
                       const hasConflict = conflictSlotIds.has(slot.id)
                       return (
                         <button

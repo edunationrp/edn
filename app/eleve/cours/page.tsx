@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileDown } from 'lucide-react'
+import { getStudentEnrollmentContext } from '@/lib/eleve/student-context'
+import { extractCourseResourceStoragePath } from '@/lib/eleve/course-resources'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Cours & ressources — EduNation' }
@@ -15,74 +17,111 @@ const TYPE_LABELS: Record<string, string> = {
   autre: 'Autre',
 }
 
+type ResourceRow = {
+  id: string
+  title: string
+  description: string | null
+  file_url: string
+  file_name: string
+  type: string
+  published_at: string | null
+  subject_id: string | null
+  subjects: { name: string } | null
+}
+
 export default async function EleveCoursPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login/eleve')
 
-  const { data: studentRaw } = await supabase
-    .from('students')
-    .select('id, student_enrollments(class_id, school_year_id, school_years(is_active))')
-    .eq('user_id', user.id)
-    .single()
-
-  const student = studentRaw as any
-  if (!student) redirect('/login/eleve')
-
-  const activeEnrollment = student.student_enrollments?.find((e: any) => e.school_years?.is_active)
-  const classId = activeEnrollment?.class_id
-  const schoolYearId = activeEnrollment?.school_year_id
-
-  let resources: Array<{
-    id: string
-    title: string
-    description: string | null
-    file_url: string
-    file_name: string
-    type: string
-    published_at: string | null
-    subjects: { name: string } | null
-    profiles: { full_name: string | null } | null
-  }> = []
-
-  if (classId && schoolYearId) {
-    const { data } = await supabase
-      .from('course_resources')
-      .select('id, title, description, file_url, file_name, type, published_at, subjects(name), profiles(full_name)')
-      .eq('class_id', classId)
-      .eq('school_year_id', schoolYearId)
-      .eq('is_published', true)
-      .order('published_at', { ascending: false })
-    resources = (data ?? []) as typeof resources
+  const ctx = await getStudentEnrollmentContext(user.id)
+  if (!ctx) {
+    return (
+      <div className="space-y-5">
+        <h1 className="text-xl font-bold text-gray-900">Cours & ressources</h1>
+        <p className="text-sm text-muted-foreground">
+          Aucune inscription active trouvée. Contactez le secrétariat de votre établissement.
+        </p>
+      </div>
+    )
   }
 
-  // Grouper par matière
+  const { data: slotsRaw } = await supabase
+    .from('timetable_slots')
+    .select('subject_id')
+    .eq('school_id', ctx.schoolId)
+    .eq('school_year_id', ctx.schoolYearId)
+    .eq('class_id', ctx.classId)
+
+  const classSubjectIds = new Set(
+    ((slotsRaw ?? []) as Array<{ subject_id: string | null }>)
+      .map(row => row.subject_id)
+      .filter((id): id is string => !!id),
+  )
+
+  const { data: resourcesRaw } = await supabase
+    .from('course_resources')
+    .select('id, title, description, file_url, file_name, type, published_at, subject_id, subjects(name)')
+    .eq('class_id', ctx.classId)
+    .eq('school_year_id', ctx.schoolYearId)
+    .eq('is_published', true)
+    .order('published_at', { ascending: false })
+
+  const filtered = ((resourcesRaw ?? []) as ResourceRow[]).filter(resource => {
+    if (!resource.subject_id) return true
+    if (classSubjectIds.size === 0) return true
+    return classSubjectIds.has(resource.subject_id)
+  })
+
+  const resources = await Promise.all(
+    filtered.map(async resource => {
+      const storagePath = extractCourseResourceStoragePath(resource.file_url)
+      let downloadUrl = resource.file_url
+
+      if (storagePath) {
+        const { data: signed } = await supabase.storage
+          .from('course-resources')
+          .createSignedUrl(storagePath, 3600)
+        if (signed?.signedUrl) downloadUrl = signed.signedUrl
+      }
+
+      return { ...resource, downloadUrl }
+    }),
+  )
+
   const bySubject: Record<string, typeof resources> = {}
-  for (const r of resources) {
-    const key = r.subjects?.name ?? 'Général'
+  for (const resource of resources) {
+    const key = resource.subjects?.name ?? 'Général'
     if (!bySubject[key]) bySubject[key] = []
-    bySubject[key].push(r)
+    bySubject[key].push(resource)
   }
+
+  const subjectKeys = Object.keys(bySubject).sort((a, b) => a.localeCompare(b, 'fr'))
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold text-gray-900">Cours & ressources</h1>
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">Cours & ressources</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Documents publiés par vos professeurs pour {ctx.className}.
+        </p>
+      </div>
 
       {resources.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Aucune ressource disponible pour le moment.
+          Aucune ressource publiée pour votre classe pour le moment.
         </p>
       ) : (
-        Object.entries(bySubject).map(([subject, items]) => (
+        subjectKeys.map(subject => (
           <Card key={subject}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">{subject}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {items.map(item => (
+              {bySubject[subject].map(item => (
                 <a
                   key={item.id}
-                  href={item.file_url}
+                  href={item.downloadUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   download={item.file_name}
@@ -94,9 +133,6 @@ export default async function EleveCoursPage() {
                     {item.description && (
                       <p className="truncate text-xs text-muted-foreground">{item.description}</p>
                     )}
-                    <p className="text-[10px] text-muted-foreground">
-                      {item.profiles?.full_name ?? ''}
-                    </p>
                   </div>
                   <Badge variant="secondary" className="shrink-0 text-[10px]">
                     {TYPE_LABELS[item.type] ?? item.type}

@@ -11,6 +11,13 @@ import { dispatchNotification } from '@/lib/notifications/dispatch'
 import type { CalendarEventType } from '@/lib/timetable/types'
 
 const TIMETABLE_PATH = '/dashboard/timetable'
+const STUDENT_TIMETABLE_PATH = '/eleve/emploi-du-temps'
+
+function revalidateTimetableViews() {
+  revalidatePath(TIMETABLE_PATH)
+  revalidatePath('/dashboard')
+  revalidatePath(STUDENT_TIMETABLE_PATH)
+}
 
 type SlotTimeInput = {
   dayOfWeek: number
@@ -76,8 +83,7 @@ export async function updateTimetableSlot(slotId: string, input: SlotTimeInput) 
 
   if (error) return { error: error.message }
 
-  revalidatePath(TIMETABLE_PATH)
-  revalidatePath('/dashboard')
+  revalidateTimetableViews()
   return { success: true }
 }
 
@@ -117,8 +123,7 @@ export async function createTimetableSlot(input: {
 
   if (error) return { error: error.message }
 
-  revalidatePath(TIMETABLE_PATH)
-  revalidatePath('/dashboard')
+  revalidateTimetableViews()
   return { success: true }
 }
 
@@ -162,8 +167,7 @@ export async function createTimetableChangeRequest(slotId: string, input: SlotTi
   })
   if (error) return { error: error.message }
 
-  revalidatePath(TIMETABLE_PATH)
-  revalidatePath('/dashboard')
+  revalidateTimetableViews()
   return { success: true }
 }
 
@@ -180,7 +184,7 @@ export async function deleteTimetableSlot(slotId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath(TIMETABLE_PATH)
+  revalidateTimetableViews()
   return { success: true }
 }
 
@@ -259,8 +263,7 @@ export async function reviewTimetableChangeRequest(
     actionPath: '/dashboard/timetable',
   })
 
-  revalidatePath(TIMETABLE_PATH)
-  revalidatePath('/dashboard')
+  revalidateTimetableViews()
   return { success: true }
 }
 
@@ -279,7 +282,7 @@ export async function saveTimetableBreaks(
   await db.from('timetable_breaks').delete().eq('school_id', schoolId).eq('school_year_id', schoolYearId)
 
   if (breaks.length === 0) {
-    revalidatePath(TIMETABLE_PATH)
+    revalidateTimetableViews()
     return { success: true }
   }
 
@@ -296,7 +299,7 @@ export async function saveTimetableBreaks(
   const { error } = await db.from('timetable_breaks').insert(rows)
   if (error) return { error: error.message }
 
-  revalidatePath(TIMETABLE_PATH)
+  revalidateTimetableViews()
   return { success: true }
 }
 
@@ -344,7 +347,7 @@ export async function createCalendarEvent(input: {
   })
 
   if (error) return { error: error.message }
-  revalidatePath(TIMETABLE_PATH)
+  revalidateTimetableViews()
   return { success: true }
 }
 
@@ -393,7 +396,7 @@ export async function updateCalendarEvent(
     .eq('school_id', access.schoolId)
 
   if (error) return { error: error.message }
-  revalidatePath(TIMETABLE_PATH)
+  revalidateTimetableViews()
   return { success: true }
 }
 
@@ -409,7 +412,7 @@ export async function deleteCalendarEvent(eventId: string) {
     .eq('school_id', access.schoolId)
 
   if (error) return { error: error.message }
-  revalidatePath(TIMETABLE_PATH)
+  revalidateTimetableViews()
   return { success: true }
 }
 

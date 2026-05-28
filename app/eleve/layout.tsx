@@ -27,11 +27,18 @@ export default async function EleveLayout({ children }: { children: React.ReactN
 
   const { data: schoolRaw } = await supabase
     .from('schools')
-    .select('id, name, type, city')
+    .select('id, name, type, city, logo_url, logo_watermark_opacity')
     .eq('id', student.school_id)
     .single()
 
-  const school = schoolRaw as { id: string; name: string; type: string; city: string | null } | null
+  const school = schoolRaw as {
+    id: string
+    name: string
+    type: string
+    city: string | null
+    logo_url: string | null
+    logo_watermark_opacity: number | null
+  } | null
 
   const activeEnrollment = (student.student_enrollments as any[])?.find(
     (e: any) => e.school_years?.is_active
@@ -46,6 +53,8 @@ export default async function EleveLayout({ children }: { children: React.ReactN
       className={className}
       schoolName={school?.name ?? ''}
       schoolYear={schoolYear}
+      schoolLogoUrl={school?.logo_url ?? null}
+      schoolWatermarkOpacity={school?.logo_watermark_opacity ?? null}
     >
       {children}
     </StudentShell>
