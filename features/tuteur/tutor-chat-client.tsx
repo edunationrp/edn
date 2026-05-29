@@ -62,6 +62,7 @@ export type TutorChatClientProps = {
   aiConfigured: boolean
   isAuthenticated?: boolean
   embedded?: boolean
+  inDialog?: boolean
 }
 
 function makeId() {
@@ -93,6 +94,7 @@ export function TutorChatClient({
   aiConfigured,
   isAuthenticated = false,
   embedded = false,
+  inDialog = false,
 }: TutorChatClientProps) {
   const isGuest = mode === 'guest'
 
@@ -457,16 +459,21 @@ export function TutorChatClient({
     )
   }
 
-  const rootClass = embedded
-    ? 'flex min-h-[min(68dvh,680px)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm'
-    : 'flex min-h-[calc(100dvh-10rem)] flex-col sm:min-h-[calc(100dvh-11rem)]'
+  const rootClass = cn(
+    'flex min-h-0 flex-1 flex-col overflow-hidden bg-white',
+    inDialog && 'h-full min-h-[min(480px,85dvh)]',
+    embedded &&
+      !inDialog &&
+      'min-h-[min(68dvh,680px)] rounded-2xl border border-slate-200/80 shadow-sm',
+    !embedded && !inDialog && 'min-h-[calc(100dvh-10rem)] sm:min-h-[calc(100dvh-11rem)]',
+  )
 
   return (
     <div className={rootClass}>
       <div
         className={cn(
           'shrink-0 bg-gradient-to-br from-[#1B3A6B] via-[#234a82] to-[#1B3A6B] px-4 text-white',
-          embedded ? 'rounded-t-2xl py-3' : 'rounded-t-2xl border border-slate-200/80 py-4 shadow-sm',
+          inDialog ? 'py-3 pr-12' : embedded ? 'rounded-t-2xl py-3' : 'rounded-t-2xl border border-slate-200/80 py-4 shadow-sm',
         )}
       >
         <div className="flex items-center gap-3">
@@ -483,7 +490,12 @@ export function TutorChatClient({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              {!embedded && <h1 className="text-lg font-bold tracking-tight">EduBot</h1>}
+              {!embedded && !inDialog && (
+                <h1 className="text-lg font-bold tracking-tight">EduBot</h1>
+              )}
+              {inDialog && (
+                <h2 className="text-base font-bold tracking-tight">EduBot</h2>
+              )}
               <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium">
                 <Shield className="h-3 w-3" />
                 Cadre scolaire uniquement
@@ -510,15 +522,27 @@ export function TutorChatClient({
         </div>
       </div>
 
-      {isGuest && !isAuthenticated && !embedded && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-x border-slate-200/80 bg-[#7AB832]/10 px-4 py-2.5 text-sm text-[#1B3A6B]">
+      {isGuest && !isAuthenticated && (inDialog || !embedded) && (
+        <div
+          className={cn(
+            'flex shrink-0 flex-wrap items-center justify-between gap-2 bg-[#7AB832]/10 text-[#1B3A6B]',
+            inDialog ? 'border-b border-[#7AB832]/20 px-3 py-2 text-xs' : 'border-x border-slate-200/80 px-4 py-2.5 text-sm',
+          )}
+        >
           <span>
-            Connecte-toi pour lier EduBot à ta classe, tes matières et tes notes.
+            {inDialog
+              ? 'Connecte-toi pour ton contexte scolaire'
+              : 'Connecte-toi pour lier EduBot à ta classe, tes matières et tes notes.'}
           </span>
-          <Button asChild size="sm" variant="outline" className="shrink-0 border-[#1B3A6B]/30 bg-white">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="shrink-0 border-[#1B3A6B]/30 bg-white h-7 text-xs"
+          >
             <Link href="/login/eleve">
-              <LogIn className="mr-1 h-3.5 w-3.5" />
-              Connexion élève
+              <LogIn className="mr-1 h-3 w-3" />
+              Connexion
             </Link>
           </Button>
         </div>
@@ -527,7 +551,11 @@ export function TutorChatClient({
       <div
         className={cn(
           'relative flex min-h-0 flex-1 flex-col bg-white',
-          embedded ? 'rounded-b-2xl' : 'rounded-b-2xl border border-t-0 border-slate-200/80 shadow-sm',
+          inDialog
+            ? 'min-h-0 flex-1'
+            : embedded
+              ? 'rounded-b-2xl'
+              : 'rounded-b-2xl border border-t-0 border-slate-200/80 shadow-sm',
         )}
       >
         {historyOpen && (
@@ -616,8 +644,13 @@ export function TutorChatClient({
 
                   {!aiConfigured && (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
-                      L&apos;assistant IA n&apos;est pas encore activé. Ajoutez{' '}
-                      <code className="text-xs">OPENAI_API_KEY</code> au serveur.
+                      <p className="font-medium">L&apos;assistant IA n&apos;est pas encore activé sur ce serveur.</p>
+                      <p className="mt-1 text-xs leading-relaxed">
+                        Ajoutez <code className="rounded bg-amber-100 px-1">OPENAI_API_KEY</code> dans{' '}
+                        <code className="rounded bg-amber-100 px-1">.env.local</code> (local) ou dans les
+                        variables Vercel (production), puis redémarrez le serveur (
+                        <code className="rounded bg-amber-100 px-1">npm run dev</code>).
+                      </p>
                     </div>
                   )}
                 </div>
