@@ -8,11 +8,11 @@ export function formatTutorResponse(text: string): string {
   s = s.replace(/^#{1,6}\s+/gm, '')
 
   // Gras / italique (ordre : triple, double, simple)
-  s = s.replace(/\*\*\*(.+?)\*\*\*/gs, '$1')
-  s = s.replace(/\*\*(.+?)\*\*/gs, '$1')
-  s = s.replace(/__(.+?)__/gs, '$1')
-  s = s.replace(/\*(.+?)\*/gs, '$1')
-  s = s.replace(/_(.+?)_/gs, '$1')
+  s = s.replace(/\*\*\*(.+?)\*\*\*/g, '$1')
+  s = s.replace(/\*\*(.+?)\*\*/g, '$1')
+  s = s.replace(/__(.+?)__/g, '$1')
+  s = s.replace(/\*(.+?)\*/g, '$1')
+  s = s.replace(/_(.+?)_/g, '$1')
 
   // Listes markdown → puces françaises
   s = s.replace(/^\s*[-*+]\s+/gm, '   • ')
