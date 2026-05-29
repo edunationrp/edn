@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
-  Home, BookOpen, FileText, UserX, Calendar, Settings, GraduationCap,
+  Home, BookOpen, FileText, UserX, Calendar, Settings, GraduationCap, Sparkles,
 } from 'lucide-react'
 import {
   StudentNotificationBell,
@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { href: '/eleve/bulletins', label: 'Bulletins', icon: FileText },
   { href: '/eleve/absences', label: 'Absences', icon: UserX },
   { href: '/eleve/cours', label: 'Cours', icon: GraduationCap },
+  { href: '/eleve/tuteur', label: 'EduBot', icon: Sparkles },
   { href: '/eleve/emploi-du-temps', label: 'Emploi du temps', icon: Calendar },
   { href: '/eleve/parametres', label: 'Paramètres', icon: Settings },
 ]
@@ -34,6 +35,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/eleve/bulletins': 'Bulletins',
   '/eleve/absences': 'Absences',
   '/eleve/cours': 'Cours',
+  '/eleve/tuteur': 'EduBot',
   '/eleve/emploi-du-temps': 'Emploi du temps',
   '/eleve/parametres': 'Paramètres',
   '/eleve/notifications': 'Notifications',

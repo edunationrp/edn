@@ -40,6 +40,7 @@ export async function updateSession(request: NextRequest) {
   const isJoinRoute = pathname.startsWith('/join')
   const isSuperAdminSetupRoute = pathname === '/superadmin'
   const isParentSimpleRoute = pathname.startsWith('/parent-simple')
+  const isTuteurRoute = pathname === '/tuteur' || pathname.startsWith('/tuteur/')
   const isApiRoute = pathname.startsWith('/api')
   const isDashboardRoute = pathname.startsWith('/dashboard')
   const isEleveRoute = pathname.startsWith('/eleve')
@@ -48,7 +49,7 @@ export async function updateSession(request: NextRequest) {
   const isParentLoginRoute = pathname.startsWith('/login/parent')
   const isAllowedPublic =
     isPublicRoute || isRegisterRoute || isJoinRoute ||
-    isSuperAdminSetupRoute || isParentSimpleRoute || isApiRoute ||
+    isSuperAdminSetupRoute || isParentSimpleRoute || isTuteurRoute || isApiRoute ||
     isStudentLoginRoute || isParentLoginRoute
 
   // Protéger /dashboard/* et /eleve/* si non authentifié
@@ -61,7 +62,10 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && isEleveRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login/eleve'
+    url.pathname =
+      pathname === '/eleve/tuteur' || pathname.startsWith('/eleve/tuteur/')
+        ? '/tuteur'
+        : '/login/eleve'
     return NextResponse.redirect(url)
   }
 

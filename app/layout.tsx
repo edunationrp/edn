@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { AppToaster } from '@/components/providers/app-toaster'
+import { EduBotFloatingButton } from '@/components/tuteur/edubot-floating-button'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -46,6 +47,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
+        <EduBotFloatingButton />
         <AppToaster />
       </body>
     </html>

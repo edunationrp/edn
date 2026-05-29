@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BookOpen, UserX, FileText, Calendar } from 'lucide-react'
+import Link from 'next/link'
+import { BookOpen, UserX, FileText, Calendar, Sparkles, ArrowRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -63,6 +65,28 @@ export default async function EleveDashboardPage() {
           Bonjour, {student.first_name} 👋
         </h1>
         <p className="text-sm text-muted-foreground">Voici un résumé de votre scolarité</p>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[#7AB832]/30 bg-gradient-to-br from-[#1B3A6B] to-[#234a82] p-4 text-white shadow-md sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#7AB832] shadow">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-semibold">EduBot — ton assistant scolaire</p>
+              <p className="mt-0.5 text-sm text-white/80">
+                Explications, astuces de révision et méthodes de travail, dans le cadre de ton école.
+              </p>
+            </div>
+          </div>
+          <Button asChild className="shrink-0 bg-[#7AB832] hover:bg-[#6aa32b] text-white">
+            <Link href="/eleve/tuteur">
+              Discuter avec EduBot
+              <ArrowRight className="ml-1 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">

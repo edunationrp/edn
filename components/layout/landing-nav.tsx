@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowRight,
   BookOpen,
+  Bot,
   Building2,
   GraduationCap,
   LogIn,
@@ -19,6 +20,13 @@ import { LogoSVG } from '@/components/brand/logo'
 import { cn } from '@/lib/utils'
 
 const NAV_LINKS = [
+  {
+    href: '/tuteur',
+    label: 'EduBot',
+    description: 'Assistant scolaire IA · gratuit',
+    icon: Bot,
+    isPage: true,
+  },
   {
     href: '/cours-sujets',
     label: 'Cours & Sujets gratuits',
