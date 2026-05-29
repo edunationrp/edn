@@ -18,19 +18,25 @@ export function LandingStatsSection() {
           </h2>
         </ScrollReveal>
 
-        <ScrollStagger className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
+        <ScrollStagger className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
           {LANDING_STATS.map(stat => {
             const Icon = stat.icon
             return (
               <ScrollItem key={stat.label}>
-                <article className="group h-full rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#7AB832]/25 hover:shadow-lg hover:shadow-[#1a4d2e]/8 sm:p-6">
+                <article className="group flex h-full items-start gap-3 rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#7AB832]/25 hover:shadow-md hover:shadow-[#1a4d2e]/8 sm:p-4">
                   <div
-                    className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl ${stat.iconBg} transition group-hover:scale-105`}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${stat.iconBg} transition group-hover:scale-105`}
                   >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-4 w-4" />
                   </div>
-                  <p className={`text-2xl font-black sm:text-3xl ${stat.accent}`}>{stat.value}</p>
-                  <p className="mt-2 text-sm leading-snug text-gray-600">{stat.label}</p>
+                  <div className="min-w-0 py-0.5">
+                    <p className={`text-lg font-black leading-tight sm:text-xl ${stat.accent}`}>
+                      {stat.value}
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-gray-600 sm:text-xs">
+                      {stat.label}
+                    </p>
+                  </div>
                 </article>
               </ScrollItem>
             )
