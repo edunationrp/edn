@@ -130,7 +130,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'attendance:read', 'attendance:manage',
     'report_cards:read', 'report_cards:validate',
     'messages:read', 'messages:send',
-    'announcements:read',
+    'announcements:read', 'announcements:create',
     'reports:read', 'reports:academic',
   ],
   CENSEUR: [
@@ -182,7 +182,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'report_cards:read', 'report_cards:generate',
     'documents:read', 'documents:generate',
     'messages:read', 'messages:send',
-    'announcements:read',
+    'announcements:read', 'announcements:create',
     'reports:read',
   ],
   VIE_SCOLAIRE: [
@@ -192,7 +192,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'discipline:read',
     'timetable:read',
     'messages:read', 'messages:send',
-    'announcements:read',
+    'announcements:read', 'announcements:create',
     'reports:read',
   ],
   SURVEILLANT_GENERAL: [
@@ -202,7 +202,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'discipline:read',
     'timetable:read',
     'messages:read', 'messages:send',
-    'announcements:read',
+    'announcements:read', 'announcements:create',
     'reports:read',
   ],
   PROFESSEUR: [

@@ -24,27 +24,19 @@ export default async function ParentCommunicationsPage() {
   }
 
   const [announcements, meetings, convocations] = await Promise.all([
-    getParentAnnouncements(activeChild.schoolId, activeChild.classId),
-    getParentMeetings(activeChild.schoolId, activeChild.classId),
+    getParentAnnouncements(activeChild.schoolId, activeChild.classId, user.id, activeChild.studentId),
+    getParentMeetings(activeChild.schoolId, activeChild.classId, user.id, activeChild.studentId),
     getParentConvocations(user.id, activeChild.studentId),
   ])
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-lg font-bold text-gray-900 sm:text-xl">Communications</h1>
-        <p className="text-sm text-muted-foreground">
-          Annonces, réunions et convocations pour {activeChild.fullName} · {activeChild.schoolName}
-        </p>
-      </div>
-
-      <ParentCommunicationsView
-        announcements={announcements}
-        meetings={meetings}
-        convocations={convocations}
-        schoolName={activeChild.schoolName}
-        childName={activeChild.fullName}
-      />
-    </div>
+    <ParentCommunicationsView
+      studentId={activeChild.studentId}
+      announcements={announcements}
+      meetings={meetings}
+      convocations={convocations}
+      schoolName={activeChild.schoolName}
+      childName={activeChild.fullName}
+    />
   )
 }

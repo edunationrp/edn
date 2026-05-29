@@ -209,25 +209,27 @@ export function ParentShell({
           >
             <Menu className="h-5 w-5" />
           </button>
-          <ParentNotificationBell
-            unreadCount={liveUnread}
-            onClick={() => setNotifOpen(true)}
-          />
-          <div className="min-w-0 flex-1 lg:hidden">
-            <ChildSwitcher linkedChildren={parentChildren} activeChild={activeChild} compact />
+          <div className="min-w-0 flex-1">
+            <div className="lg:hidden">
+              <ChildSwitcher linkedChildren={parentChildren} activeChild={activeChild} compact />
+            </div>
+            <div className="hidden lg:block">
+              <p className="truncate text-sm font-semibold text-gray-900">{pageTitle}</p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {activeChild
+                  ? `${activeChild.fullName} · ${activeChild.schoolName}`
+                  : 'Aucun enfant sélectionné'}
+              </p>
+            </div>
           </div>
-          <div className="hidden min-w-0 flex-1 lg:block">
-            <p className="truncate text-sm font-semibold text-gray-900">{pageTitle}</p>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {activeChild
-                ? `${activeChild.fullName} · ${activeChild.schoolName}`
-                : 'Aucun enfant sélectionné'}
-            </p>
-          </div>
-          <div className="hidden shrink-0 lg:flex">
-            <div className="rounded-lg bg-[#1B3A6B]/5 px-2.5 py-1">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <div className="hidden rounded-lg bg-[#1B3A6B]/5 px-2.5 py-1 lg:flex">
               <LogoSVG width={22} height={22} />
             </div>
+            <ParentNotificationBell
+              unreadCount={liveUnread}
+              onClick={() => setNotifOpen(true)}
+            />
           </div>
         </header>
 

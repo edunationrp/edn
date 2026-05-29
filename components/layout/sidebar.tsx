@@ -14,6 +14,7 @@ import {
   ChevronDown, Folder, Award,
   UserCheck, BookMarked, Send, Book, Compass, Heart,
   Home, Clock, Grid, Archive,
+  Megaphone,
 } from 'lucide-react'
 import { LogoSVG } from '@/components/brand/logo'
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -47,6 +48,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   user: <GraduationCap className="h-4 w-4" />,
   clock: <Clock className="h-4 w-4" />,
   archive: <Archive className="h-4 w-4" />,
+  megaphone: <Megaphone className="h-4 w-4" />,
 }
 
 // Configurations des rôles (identiques au HTML)
@@ -96,6 +98,9 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       { group: 'Système', items: [
         { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/audit-logs' },
       ]},
+      { group: 'Communication', items: [
+        { id: 'announcements', label: 'Annonces', icon: 'megaphone', href: '/dashboard/communications/announcements' },
+      ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
         { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
@@ -117,6 +122,9 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       { group: 'Pédagogie', items: [
         { id: 'notes', label: 'Notes', icon: 'fileCheck', href: '/dashboard/grades' },
         { id: 'bulletins', label: 'Bulletins', icon: 'award', href: '/dashboard/report-cards' },
+      ]},
+      { group: 'Communication', items: [
+        { id: 'announcements-da', label: 'Annonces', icon: 'megaphone', href: '/dashboard/communications/announcements' },
       ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'mail', href: '/dashboard/messages' },
@@ -205,6 +213,9 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       { group: 'Documents', items: [
         { id: 'attestations', label: 'Attestations', icon: 'fileCheck', href: '/dashboard/report-cards' },
       ]},
+      { group: 'Communication', items: [
+        { id: 'announcements-sec', label: 'Annonces', icon: 'megaphone', href: '/dashboard/communications/announcements' },
+      ]},
       { group: 'Espace personnel', items: [
         { id: 'messages', label: 'Messagerie', icon: 'send', href: '/dashboard/messages' },
         { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/settings' },
@@ -222,6 +233,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'appel', label: 'Faire l\'appel', icon: 'userCheck', href: '/dashboard/attendance/take' },
       ]},
       { group: 'Communication', items: [
+        { id: 'announcements-v', label: 'Annonces', icon: 'megaphone', href: '/dashboard/communications/announcements' },
         { id: 'notif-parents', label: 'Notifications parents', icon: 'mail', href: '/dashboard/messages' },
       ]},
       { group: 'Espace personnel', items: [

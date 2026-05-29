@@ -676,26 +676,41 @@ export interface Database {
           school_id: string
           title: string
           content: string
+          category: 'general' | 'event' | 'info' | 'urgent'
+          cover_image_url: string | null
+          attachment_url: string | null
+          attachment_name: string | null
           target_type: 'all' | 'class' | 'parents' | 'staff' | 'students'
           target_id: string | null
           published_by: string
           published_at: string
+          updated_at: string | null
         }
         Insert: {
           id?: string
           school_id: string
           title: string
           content: string
+          category?: 'general' | 'event' | 'info' | 'urgent'
+          cover_image_url?: string | null
+          attachment_url?: string | null
+          attachment_name?: string | null
           target_type: 'all' | 'class' | 'parents' | 'staff' | 'students'
           target_id?: string | null
           published_by: string
           published_at?: string
+          updated_at?: string | null
         }
         Update: {
           title?: string
           content?: string
+          category?: 'general' | 'event' | 'info' | 'urgent'
+          cover_image_url?: string | null
+          attachment_url?: string | null
+          attachment_name?: string | null
           target_type?: 'all' | 'class' | 'parents' | 'staff' | 'students'
           target_id?: string | null
+          updated_at?: string | null
         }
       }
       parent_link_requests: {
@@ -859,6 +874,27 @@ export interface Database {
           registration_channel?: 'phone' | 'gmail'
           auth_email?: string
           updated_at?: string
+        }
+      }
+      parent_communication_hides: {
+        Row: {
+          id: string
+          parent_user_id: string
+          student_id: string
+          item_type: 'announcement' | 'convocation' | 'meeting'
+          item_id: string
+          hidden_at: string
+        }
+        Insert: {
+          id?: string
+          parent_user_id: string
+          student_id: string
+          item_type: 'announcement' | 'convocation' | 'meeting'
+          item_id: string
+          hidden_at?: string
+        }
+        Update: {
+          hidden_at?: string
         }
       }
       parent_convocations: {

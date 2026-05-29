@@ -1,11 +1,18 @@
 import { createClient } from '@/lib/supabase/server'
 
+export type ParentCommunicationItemType = 'announcement' | 'convocation' | 'meeting'
+
 export type ParentAnnouncement = {
   id: string
   title: string
   content: string
+  category: 'general' | 'event' | 'info' | 'urgent'
+  cover_image_url: string | null
+  attachment_url: string | null
+  attachment_name: string | null
   target_type: string
   published_at: string
+  updated_at: string | null
   authorName: string | null
 }
 
@@ -31,15 +38,47 @@ export type ParentConvocation = {
   senderName: string | null
 }
 
+async function getHiddenItemIds(
+  parentUserId: string,
+  studentId: string,
+): Promise<Record<ParentCommunicationItemType, Set<string>>> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('parent_communication_hides')
+    .select('item_type, item_id')
+    .eq('parent_user_id', parentUserId)
+    .eq('student_id', studentId)
+
+  const hidden: Record<ParentCommunicationItemType, Set<string>> = {
+    announcement: new Set(),
+    convocation: new Set(),
+    meeting: new Set(),
+  }
+
+  for (const row of (data ?? []) as Array<{ item_type: ParentCommunicationItemType; item_id: string }>) {
+    hidden[row.item_type]?.add(row.item_id)
+  }
+
+  return hidden
+}
+
 export async function getParentAnnouncements(
   schoolId: string,
   classId: string | null,
+  parentUserId?: string,
+  studentId?: string,
 ): Promise<ParentAnnouncement[]> {
   const supabase = await createClient()
 
+  const hidden =
+    parentUserId && studentId
+      ? await getHiddenItemIds(parentUserId, studentId)
+      : null
+
   const { data: rowsRaw } = await supabase
     .from('announcements')
-    .select('id, title, content, target_type, target_id, published_at, profiles:published_by(full_name)')
+    .select('id, title, content, category, cover_image_url, attachment_url, attachment_name, target_type, target_id, published_at, updated_at, profiles:published_by(full_name)')
     .eq('school_id', schoolId)
     .in('target_type', ['all', 'parents', 'class'])
     .order('published_at', { ascending: false })
@@ -49,14 +88,20 @@ export async function getParentAnnouncements(
     id: string
     title: string
     content: string
+    category: 'general' | 'event' | 'info' | 'urgent' | null
+    cover_image_url: string | null
+    attachment_url: string | null
+    attachment_name: string | null
     target_type: string
     target_id: string | null
     published_at: string
+    updated_at: string | null
     profiles: { full_name: string | null } | null
   }>
 
   return rows
     .filter(row => {
+      if (hidden?.announcement.has(row.id)) return false
       if (row.target_type === 'all' || row.target_type === 'parents') return true
       if (row.target_type === 'class' && classId && row.target_id === classId) return true
       return false
@@ -65,8 +110,13 @@ export async function getParentAnnouncements(
       id: row.id,
       title: row.title,
       content: row.content,
+      category: row.category ?? 'general',
+      cover_image_url: row.cover_image_url,
+      attachment_url: row.attachment_url,
+      attachment_name: row.attachment_name,
       target_type: row.target_type,
       published_at: row.published_at,
+      updated_at: row.updated_at,
       authorName: row.profiles?.full_name ?? null,
     }))
 }
@@ -74,8 +124,15 @@ export async function getParentAnnouncements(
 export async function getParentMeetings(
   schoolId: string,
   classId: string | null,
+  parentUserId?: string,
+  studentId?: string,
 ): Promise<ParentMeeting[]> {
   const supabase = await createClient()
+
+  const hidden =
+    parentUserId && studentId
+      ? await getHiddenItemIds(parentUserId, studentId)
+      : null
 
   const { data: rowsRaw } = await supabase
     .from('calendar_events')
@@ -97,7 +154,10 @@ export async function getParentMeetings(
   }>
 
   return rows
-    .filter(row => !row.class_id || (classId && row.class_id === classId))
+    .filter(row => {
+      if (hidden?.meeting.has(row.id)) return false
+      return !row.class_id || (classId && row.class_id === classId)
+    })
     .map(row => ({
       id: row.id,
       title: row.title,
@@ -114,6 +174,7 @@ export async function getParentConvocations(
   studentId: string,
 ): Promise<ParentConvocation[]> {
   const supabase = await createClient()
+  const hidden = await getHiddenItemIds(parentUserId, studentId)
 
   const { data: rowsRaw } = await supabase
     .from('parent_convocations')
@@ -133,17 +194,19 @@ export async function getParentConvocations(
     acknowledged_at: string | null
     created_at: string
     profiles: { full_name: string | null } | null
-  }>).map(row => ({
-    id: row.id,
-    title: row.title,
-    message: row.message,
-    convocation_date: row.convocation_date,
-    location: row.location,
-    read_at: row.read_at,
-    acknowledged_at: row.acknowledged_at,
-    created_at: row.created_at,
-    senderName: row.profiles?.full_name ?? null,
-  }))
+  }>)
+    .filter(row => !hidden.convocation.has(row.id))
+    .map(row => ({
+      id: row.id,
+      title: row.title,
+      message: row.message,
+      convocation_date: row.convocation_date,
+      location: row.location,
+      read_at: row.read_at,
+      acknowledged_at: row.acknowledged_at,
+      created_at: row.created_at,
+      senderName: row.profiles?.full_name ?? null,
+    }))
 }
 
 export async function countUnreadParentConvocations(
@@ -151,12 +214,14 @@ export async function countUnreadParentConvocations(
   studentId: string,
 ): Promise<number> {
   const supabase = await createClient()
-  const { count } = await supabase
+  const hidden = await getHiddenItemIds(parentUserId, studentId)
+
+  const { data: rows } = await supabase
     .from('parent_convocations')
-    .select('*', { count: 'exact', head: true })
+    .select('id')
     .eq('parent_user_id', parentUserId)
     .eq('student_id', studentId)
     .is('read_at', null)
 
-  return count ?? 0
+  return ((rows ?? []) as Array<{ id: string }>).filter(row => !hidden.convocation.has(row.id)).length
 }
