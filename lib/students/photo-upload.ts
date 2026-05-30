@@ -25,7 +25,17 @@ function extensionFor(file: File) {
 export function getStudentPhotoPublicUrl(path: string) {
   const supabase = createClient()
   const { data } = supabase.storage.from(STUDENT_PHOTOS_BUCKET).getPublicUrl(path)
-  return data.publicUrl
+  return data.publicUrl.split('?')[0]
+}
+
+export function studentPhotoDisplayUrl(
+  photoUrl: string | null,
+  cacheKey?: string | number | null,
+) {
+  if (!photoUrl) return null
+  const base = photoUrl.split('?')[0]
+  if (cacheKey == null || cacheKey === '') return base
+  return `${base}?v=${encodeURIComponent(String(cacheKey))}`
 }
 
 export async function uploadStudentPhoto(
@@ -42,11 +52,11 @@ export async function uploadStudentPhoto(
 
   const supabase = createClient()
   const ext = extensionFor(file)
-  const path = `${schoolId}/${studentId}/id.${ext}`
+  const path = `${schoolId}/${studentId}/${Date.now()}.${ext}`
 
   const { error } = await supabase.storage.from(STUDENT_PHOTOS_BUCKET).upload(path, file, {
-    cacheControl: '3600',
-    upsert: true,
+    cacheControl: '60',
+    upsert: false,
     contentType: file.type || `image/${ext}`,
   })
 

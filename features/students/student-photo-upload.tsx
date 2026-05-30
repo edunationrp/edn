@@ -1,17 +1,21 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import Image from 'next/image'
 import { Camera, Loader2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { notify } from '@/lib/feedback/toast'
-import { uploadStudentPhoto } from '@/lib/students/photo-upload'
+import {
+  studentPhotoDisplayUrl,
+  uploadStudentPhoto,
+} from '@/lib/students/photo-upload'
 import { updateStudentPhotoUrl } from '@/lib/actions/student-photo'
 
 type Props = {
   schoolId: string
   studentId: string
   photoUrl: string | null
+  photoUpdatedAt?: string | null
   studentName: string
   canEdit?: boolean
 }
@@ -20,12 +24,21 @@ export function StudentPhotoUpload({
   schoolId,
   studentId,
   photoUrl,
+  photoUpdatedAt,
   studentName,
   canEdit = true,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [currentUrl, setCurrentUrl] = useState(photoUrl)
+  const [cacheKey, setCacheKey] = useState(photoUpdatedAt ?? '')
   const [pending, startTransition] = useTransition()
+
+  useEffect(() => {
+    setCurrentUrl(photoUrl)
+    if (photoUpdatedAt) setCacheKey(photoUpdatedAt)
+  }, [photoUrl, photoUpdatedAt])
+
+  const displayUrl = studentPhotoDisplayUrl(currentUrl, cacheKey || null)
 
   function handleSelect(file: File | null) {
     if (!file || !canEdit) return
@@ -44,6 +57,8 @@ export function StudentPhotoUpload({
       }
 
       setCurrentUrl(uploaded.publicUrl)
+      setCacheKey(result.updatedAt ?? String(Date.now()))
+      if (inputRef.current) inputRef.current.value = ''
       notify.success('Photo d\'identité enregistrée.')
     })
   }
@@ -51,9 +66,10 @@ export function StudentPhotoUpload({
   return (
     <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
       <div className="relative h-28 w-24 overflow-hidden rounded-lg border-2 border-slate-200 bg-slate-50">
-        {currentUrl ? (
+        {displayUrl ? (
           <Image
-            src={currentUrl}
+            key={displayUrl}
+            src={displayUrl}
             alt={`Photo de ${studentName}`}
             fill
             className="object-cover"

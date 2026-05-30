@@ -52,7 +52,7 @@ export default async function StudentDetailPage({
   const { data: studentRaw } = await supabase
     .from('students')
     .select(`
-      id, iun, first_name, last_name, birth_date, birth_place, gender, phone, status, photo_url, created_at,
+      id, iun, first_name, last_name, birth_date, birth_place, gender, phone, status, photo_url, created_at, updated_at,
       user_id, activation_code_expires_at,
       student_enrollments(class_id, classes(name), school_years(name))
     `)
@@ -73,6 +73,7 @@ export default async function StudentDetailPage({
       photo_url: string | null
       status: string
       created_at: string
+      updated_at: string
       user_id: string | null
       activation_code_expires_at: string | null
       student_enrollments: Array<{
@@ -128,6 +129,7 @@ export default async function StudentDetailPage({
             schoolId={ctx.school_id}
             studentId={student.id}
             photoUrl={student.photo_url}
+            photoUpdatedAt={student.updated_at}
             studentName={`${student.first_name} ${student.last_name}`}
             canEdit={canManageStudent}
           />
