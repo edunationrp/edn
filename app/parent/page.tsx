@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { requireParentPortalAccess } from '@/lib/parent/parent-context'
 import { countUnreadParentConvocations } from '@/lib/parent/communications'
+import type { BulletinSnapshot } from '@/lib/report-cards/snapshot-types'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -120,7 +121,7 @@ export default async function ParentHomePage() {
     recentGrades = (gradesRaw ?? []) as typeof recentGrades
   }
 
-  const [{ count: absenceCount }, { count: bulletinCount }, { data: paymentsRaw }] = await Promise.all([
+  const [{ count: absenceCount }, { data: latestBulletinRaw }, { data: paymentsRaw }] = await Promise.all([
     supabase
       .from('attendance_records')
       .select('*', { count: 'exact', head: true })
@@ -128,9 +129,12 @@ export default async function ParentHomePage() {
       .eq('status', 'absent'),
     supabase
       .from('report_cards')
-      .select('*', { count: 'exact', head: true })
+      .select('average, snapshot_json, is_published, status, generated_at')
       .eq('student_id', studentId)
-      .eq('status', 'published'),
+      .or('is_published.eq.true,status.eq.published')
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     supabase
       .from('payments')
       .select('amount, status')
@@ -139,20 +143,38 @@ export default async function ParentHomePage() {
       .in('status', ['pending', 'partial', 'overdue']),
   ])
 
+  const { count: bulletinCount } = await supabase
+    .from('report_cards')
+    .select('*', { count: 'exact', head: true })
+    .eq('student_id', studentId)
+    .or('is_published.eq.true,status.eq.published')
+
+  const latestBulletin = latestBulletinRaw as {
+    average: number | null
+    snapshot_json: BulletinSnapshot | null
+    is_published: boolean | null
+    status: string | null
+  } | null
+
+  const bulletinAverage =
+    latestBulletin?.average
+    ?? latestBulletin?.snapshot_json?.generalAverage
+    ?? null
+
   const pendingAmount = ((paymentsRaw ?? []) as Array<{ amount: number; status: string }>)
     .reduce((sum, payment) => sum + payment.amount, 0)
 
-  const moyenne = recentGrades.length > 0
-    ? (
-      recentGrades.reduce(
-        (acc, grade) => acc + (grade.max_value > 0 ? (grade.value / grade.max_value) * 20 : 0),
-        0,
-      ) / recentGrades.length
-    ).toFixed(1)
+  const moyenneFromNotes = recentGrades.length > 0
+    ? recentGrades.reduce(
+      (acc, grade) => acc + (grade.max_value > 0 ? (grade.value / grade.max_value) * 20 : 0),
+      0,
+    ) / recentGrades.length
     : null
 
+  const displayedAverage = bulletinAverage ?? moyenneFromNotes
+
   const statValues: Record<(typeof STAT_CARDS)[number]['key'], string> = {
-    moyenne: moyenne ? `${moyenne}/20` : '—',
+    moyenne: displayedAverage !== null ? `${displayedAverage.toFixed(1)}/20` : '—',
     absences: String(absenceCount ?? 0),
     bulletins: String(bulletinCount ?? 0),
     paiements: pendingAmount > 0 ? `${Math.round(pendingAmount).toLocaleString('fr-FR')}` : '—',
@@ -250,7 +272,9 @@ export default async function ParentHomePage() {
                     {statValues[card.key]}
                   </p>
                   <p className="mt-auto pt-3 text-[11px] text-slate-500 sm:text-xs">
-                    {card.hint}
+                    {card.key === 'moyenne' && bulletinAverage !== null
+                      ? 'D\'après le bulletin publié'
+                      : card.hint}
                   </p>
                 </CardContent>
               </Card>

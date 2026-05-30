@@ -17,6 +17,7 @@ import {
   StudentNotificationsPanel,
   type StudentNotificationItem,
 } from '@/features/eleve/student-notifications-panel'
+import { EduBotFloatingButton } from '@/components/tuteur/edubot-floating-button'
 
 const NAV_ITEMS = [
   { href: '/eleve', label: 'Accueil', icon: Home, exact: true },
@@ -279,6 +280,7 @@ export function StudentShell({
           <WatermarkBackground logoUrl={schoolLogoUrl} opacity={schoolWatermarkOpacity} />
           <div className="relative z-[1] mx-auto w-full min-w-0 max-w-4xl">{children}</div>
         </main>
+        <EduBotFloatingButton />
       </div>
     </div>
   )

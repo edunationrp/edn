@@ -502,10 +502,14 @@ export async function decideAdmission(
 
   if (current.student_id) {
     // Legacy : élève déjà créé
+    const photoUrl = meta.document_files?.student_photo?.url ?? null
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: studentError } = await (db as any)
       .from('students')
-      .update({ status: 'active' })
+      .update({
+        status: 'active',
+        ...(photoUrl ? { photo_url: photoUrl } : {}),
+      })
       .eq('id', current.student_id)
 
     if (studentError) return { error: studentError.message }
@@ -539,6 +543,15 @@ export async function decideAdmission(
 
     if (studentError || !studentRaw) {
       return { error: studentError?.message ?? 'Erreur création élève.' }
+    }
+
+    const photoUrl = meta.document_files?.student_photo?.url ?? null
+    if (photoUrl) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any)
+        .from('students')
+        .update({ photo_url: photoUrl })
+        .eq('id', studentRaw.id)
     }
 
     const { data: classRaw } = await db

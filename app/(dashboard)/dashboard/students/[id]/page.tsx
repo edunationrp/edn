@@ -6,8 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { formatDate, getInitials, getStatusColor, getStatusLabel } from '@/lib/utils'
+import { formatDate, getStatusColor, getStatusLabel } from '@/lib/utils'
 import { StudentActivationCodeButton } from '@/features/students/student-activation-code-button'
+import { StudentPhotoUpload } from '@/features/students/student-photo-upload'
+import { StudentConductPanel } from '@/features/students/student-conduct-panel'
+import { getStudentConductDeductions } from '@/lib/actions/conduct'
+import { hasPermission } from '@/types/permissions'
+import type { UserRole } from '@/types/roles'
 import { SendParentConvocationForm } from '@/features/parent/send-parent-convocation-form'
 import { canAccessStudentRegistry } from '@/lib/students/registry-access'
 import type { Metadata } from 'next'
@@ -47,7 +52,7 @@ export default async function StudentDetailPage({
   const { data: studentRaw } = await supabase
     .from('students')
     .select(`
-      id, iun, first_name, last_name, birth_date, gender, phone, status, created_at,
+      id, iun, first_name, last_name, birth_date, birth_place, gender, phone, status, photo_url, created_at,
       user_id, activation_code_expires_at,
       student_enrollments(class_id, classes(name), school_years(name))
     `)
@@ -62,8 +67,10 @@ export default async function StudentDetailPage({
       first_name: string
       last_name: string
       birth_date: string
+      birth_place: string | null
       gender: 'M' | 'F'
       phone: string | null
+      photo_url: string | null
       status: string
       created_at: string
       user_id: string | null
@@ -97,6 +104,8 @@ export default async function StudentDetailPage({
   }))
 
   const canSendConvocation = ['SECRETAIRE', 'PROVISEUR', 'DIRECTEUR_ADJOINT', 'VIE_SCOLAIRE', 'CONSEILLER', 'CENSEUR'].includes(ctx.role_code)
+  const canManageStudent = hasPermission(ctx.role_code as UserRole, 'students:update')
+  const conductDeductions = await getStudentConductDeductions(student.id)
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 animate-fade-in sm:space-y-6">
@@ -115,17 +124,13 @@ export default async function StudentDetailPage({
           <CardTitle className="text-base">Informations</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-              {getInitials(`${student.first_name} ${student.last_name}`)}
-            </div>
-            <div>
-              <Badge className={getStatusColor(student.status)}>{getStatusLabel(student.status)}</Badge>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Inscrit le {formatDate(student.created_at)}
-              </p>
-            </div>
-          </div>
+          <StudentPhotoUpload
+            schoolId={ctx.school_id}
+            studentId={student.id}
+            photoUrl={student.photo_url}
+            studentName={`${student.first_name} ${student.last_name}`}
+            canEdit={canManageStudent}
+          />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
             <div>
@@ -152,9 +157,32 @@ export default async function StudentDetailPage({
               <p className="text-muted-foreground">Compte élève</p>
               <p className="font-medium">{student.user_id ? '✅ Activé' : '⏳ Non activé'}</p>
             </div>
+            <div>
+              <p className="text-muted-foreground">Statut</p>
+              <Badge className={getStatusColor(student.status)}>{getStatusLabel(student.status)}</Badge>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Inscrit le</p>
+              <p className="font-medium">{formatDate(student.created_at)}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {canManageStudent && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Retraits de points (conduite)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StudentConductPanel
+              studentId={student.id}
+              initialDeductions={conductDeductions}
+              canManage={canManageStudent}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {!student.user_id && student.status === 'active' && (
         <Card>

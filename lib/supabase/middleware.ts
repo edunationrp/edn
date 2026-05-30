@@ -62,10 +62,7 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && isEleveRoute) {
     const url = request.nextUrl.clone()
-    url.pathname =
-      pathname === '/eleve/tuteur' || pathname.startsWith('/eleve/tuteur/')
-        ? '/tuteur'
-        : '/login/eleve'
+    url.pathname = '/login/eleve'
     return NextResponse.redirect(url)
   }
 

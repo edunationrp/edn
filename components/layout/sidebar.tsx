@@ -95,6 +95,9 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'budget', label: 'Synthèse finance', icon: 'wallet', href: '/dashboard/finance' },
         { id: 'tuition-official', label: 'Tarifs officiels', icon: 'fileText', href: '/dashboard/finance/tuition' },
       ]},
+      { group: 'Validation', items: [
+        { id: 'bulletins-validation', label: 'Validation bulletins', icon: 'award', href: '/dashboard/report-cards' },
+      ]},
       { group: 'Système', items: [
         { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/audit-logs' },
       ]},
@@ -211,7 +214,8 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'link-requests', label: 'Rattachements parents', icon: 'link', href: '/dashboard/parents/link-requests' },
       ]},
       { group: 'Documents', items: [
-        { id: 'attestations', label: 'Attestations', icon: 'fileCheck', href: '/dashboard/report-cards' },
+        { id: 'bulletins', label: 'Bulletins', icon: 'fileCheck', href: '/dashboard/report-cards' },
+        { id: 'saisie-notes-sec', label: 'Saisie des notes', icon: 'fileCheck', href: '/dashboard/grades/entry' },
       ]},
       { group: 'Communication', items: [
         { id: 'announcements-sec', label: 'Annonces', icon: 'megaphone', href: '/dashboard/communications/announcements' },

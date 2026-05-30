@@ -15,6 +15,17 @@ export function isPdfFile(file: File) {
   return file.type === 'application/pdf' || name.endsWith('.pdf')
 }
 
+export function isIdentityPhotoFile(file: File) {
+  const name = file.name.toLowerCase()
+  return (
+    file.type.startsWith('image/')
+    || name.endsWith('.jpg')
+    || name.endsWith('.jpeg')
+    || name.endsWith('.png')
+    || name.endsWith('.webp')
+  )
+}
+
 export async function uploadAdmissionDocumentPdf(
   schoolId: string,
   requestId: string,
@@ -31,7 +42,11 @@ export async function uploadAdmissionDocumentPdf(
     }
   | { error: string }
 > {
-  if (!isPdfFile(file)) {
+  if (documentKey === 'student_photo') {
+    if (!isIdentityPhotoFile(file)) {
+      return { error: 'Photo d\'identité : JPG, PNG ou WebP uniquement.' }
+    }
+  } else if (!isPdfFile(file)) {
     return { error: 'Seuls les fichiers PDF sont acceptés.' }
   }
   if (file.size > MAX_BYTES) {
@@ -40,12 +55,16 @@ export async function uploadAdmissionDocumentPdf(
 
   const supabase = createClient()
   const safeName = file.name.replace(/[^\w.\-() ]+/g, '_').slice(0, 80)
-  const path = `${schoolId}/${requestId}/${documentKey}-${crypto.randomUUID()}.pdf`
+  const ext =
+    documentKey === 'student_photo'
+      ? safeName.split('.').pop()?.toLowerCase() || 'jpg'
+      : 'pdf'
+  const path = `${schoolId}/${requestId}/${documentKey}-${crypto.randomUUID()}.${ext}`
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     cacheControl: '3600',
     upsert: false,
-    contentType: 'application/pdf',
+    contentType: documentKey === 'student_photo' ? file.type || `image/${ext}` : 'application/pdf',
   })
 
   if (error) return { error: error.message }
@@ -54,7 +73,7 @@ export async function uploadAdmissionDocumentPdf(
     path,
     url: getAdmissionDocumentPublicUrl(path),
     name: safeName,
-    mime: 'application/pdf',
+    mime: documentKey === 'student_photo' ? file.type || `image/${ext}` : 'application/pdf',
     size: file.size,
     uploadedAt: new Date().toISOString(),
   }

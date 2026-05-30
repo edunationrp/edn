@@ -26,11 +26,16 @@ export async function insertRecord<T = Record<string, unknown>>(
 
 export async function upsertRecord(
   table: string,
-  record: Record<string, unknown>
+  record: Record<string, unknown>,
+  options?: { onConflict?: string },
 ): Promise<{ error: { message: string } | null }> {
   const supabase = createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from(table).upsert(record)
+  let query = (supabase as any).from(table).upsert(record)
+  if (options?.onConflict) {
+    query = query.onConflict(options.onConflict)
+  }
+  const { error } = await query
   return { error }
 }
 

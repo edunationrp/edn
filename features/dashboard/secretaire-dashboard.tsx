@@ -43,6 +43,7 @@ export async function SecretaireDashboard({ schoolId, userName = 'Secrétaire' }
   const quickLinks = [
     { href: '/dashboard/admissions/to-process', label: 'Dossiers à traiter', icon: ClipboardList, desc: `${stats.toComplete} en cours` },
     { href: '/dashboard/students', label: 'Liste des élèves', icon: Users, desc: `${studentCount} actif(s)` },
+    { href: '/dashboard/report-cards', label: 'Bulletins', icon: FolderOpen, desc: 'Générer et publier' },
     { href: '/dashboard/admissions/admitted', label: 'Suivi finance', icon: Wallet, desc: 'Lecture seule' },
   ]
 

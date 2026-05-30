@@ -1,9 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
-import { BookOpen, UserX, FileText, Calendar, Sparkles, ArrowRight } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { BookOpen, UserX, FileText, Sparkles, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  fetchPublishedStudentGrades,
+  latestPublishedTermAverage,
+  recentPublishedGradeEntries,
+} from '@/lib/grades/published-notes'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -17,46 +22,49 @@ export default async function EleveDashboardPage() {
 
   const { data: studentRaw } = await supabase
     .from('students')
-    .select('id, first_name, school_id, student_enrollments(class_id, school_year_id, school_years(is_active))')
+    .select('id, first_name')
     .eq('user_id', user.id)
     .single()
 
-  const student = studentRaw as any
+  const student = studentRaw as { id: string; first_name: string } | null
   if (!student) redirect('/login/eleve')
 
-  const activeEnrollment = student.student_enrollments?.find((e: any) => e.school_years?.is_active)
-  const classId = activeEnrollment?.class_id
-  const schoolYearId = activeEnrollment?.school_year_id
-
-  // Récupérer les dernières notes
-  let recentGrades: Array<{ value: number; max_value: number; subjects: { name: string } | null }> = []
-  if (classId && schoolYearId) {
-    const { data: gradesRaw } = await supabase
-      .from('grades')
-      .select('value, max_value, subjects(name)')
+  const [publishedTerms, { count: absenceCount }, { count: bulletinCount }, { data: latestBulletinRaw }] = await Promise.all([
+    fetchPublishedStudentGrades(supabase, student.id),
+    supabase
+      .from('attendance_records')
+      .select('*', { count: 'exact', head: true })
       .eq('student_id', student.id)
-      .eq('school_year_id', schoolYearId)
-      .order('created_at', { ascending: false })
-      .limit(5)
-    recentGrades = (gradesRaw ?? []) as typeof recentGrades
-  }
+      .eq('status', 'absent'),
+    supabase
+      .from('report_cards')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_id', student.id)
+      .or('is_published.eq.true,status.eq.published'),
+    supabase
+      .from('report_cards')
+      .select('average, snapshot_json')
+      .eq('student_id', student.id)
+      .or('is_published.eq.true,status.eq.published')
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
 
-  // Compter les absences
-  const { count: absenceCount } = await supabase
-    .from('attendance_records')
-    .select('*', { count: 'exact', head: true })
-    .eq('student_id', student.id)
-    .eq('status', 'absent')
+  const recentGrades = recentPublishedGradeEntries(publishedTerms, 5)
+  const moyenneFromNotes = latestPublishedTermAverage(publishedTerms)
 
-  // Compter les bulletins disponibles
-  const { count: bulletinCount } = await supabase
-    .from('report_cards')
-    .select('*', { count: 'exact', head: true })
-    .eq('student_id', student.id)
+  const latestBulletin = latestBulletinRaw as {
+    average: number | null
+    snapshot_json: { generalAverage: number | null } | null
+  } | null
 
-  const moyennes = recentGrades.length > 0
-    ? (recentGrades.reduce((acc, g) => acc + (g.max_value > 0 ? (g.value / g.max_value) * 20 : 0), 0) / recentGrades.length).toFixed(1)
-    : null
+  const bulletinAverage =
+    latestBulletin?.average
+    ?? latestBulletin?.snapshot_json?.generalAverage
+    ?? null
+
+  const displayedAverage = bulletinAverage ?? moyenneFromNotes
 
   return (
     <div className="w-full min-w-0 space-y-4 sm:space-y-6">
@@ -89,12 +97,16 @@ export default async function EleveDashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
         <Card>
           <CardContent className="flex flex-col items-center px-2 py-3 sm:py-4">
             <BookOpen className="mb-1 h-5 w-5 text-[#1B3A6B] sm:h-6 sm:w-6" />
-            <p className="text-xl font-bold text-[#1B3A6B] sm:text-2xl">{moyennes ?? '—'}</p>
-            <p className="text-center text-[10px] text-muted-foreground sm:text-[11px]">Moyenne récente</p>
+            <p className="text-xl font-bold text-[#1B3A6B] sm:text-2xl">
+              {displayedAverage !== null ? displayedAverage.toFixed(1) : '—'}
+            </p>
+            <p className="text-center text-[10px] text-muted-foreground sm:text-[11px]">
+              {bulletinAverage !== null ? 'Moy. bulletin' : 'Moyenne publiée'}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -111,26 +123,28 @@ export default async function EleveDashboardPage() {
             <p className="text-center text-[10px] text-muted-foreground sm:text-[11px]">Bulletins</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex flex-col items-center px-2 py-3 sm:py-4">
-            <Calendar className="mb-1 h-5 w-5 text-purple-600 sm:h-6 sm:w-6" />
-            <p className="text-xl font-bold text-purple-600 sm:text-2xl">{recentGrades.length}</p>
-            <p className="text-center text-[10px] text-muted-foreground sm:text-[11px]">Notes récentes</p>
-          </CardContent>
-        </Card>
       </div>
 
       {recentGrades.length > 0 && (
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Dernières notes</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-sm">Dernières notes publiées</CardTitle>
+            <Button variant="ghost" size="sm" className="h-8 gap-1 px-2" asChild>
+              <Link href="/eleve/notes">
+                Tout voir
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent className="space-y-2">
-            {recentGrades.map((g, i) => (
-              <div key={i} className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">{g.subjects?.name ?? 'Matière inconnue'}</span>
-                <span className="font-semibold text-[#1B3A6B]">
-                  {g.value} / {g.max_value}
+            {recentGrades.map((grade, index) => (
+              <div key={index} className="flex items-center justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <span className="text-gray-700">{grade.subjectName}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">{grade.slotLabel}</span>
+                </div>
+                <span className="shrink-0 font-semibold text-[#1B3A6B]">
+                  {grade.value.toFixed(2).replace(/\.?0+$/, '')} / 20
                 </span>
               </div>
             ))}

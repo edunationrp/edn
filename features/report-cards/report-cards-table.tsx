@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { CheckCircle, Clock, FileText, Lock, QrCode, Search } from 'lucide-react'
+import { CheckCircle, Clock, FileText, MessageSquareWarning, QrCode, Search } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,6 +15,10 @@ import {
   formatListFooter,
   filterBySearch,
 } from '@/components/dashboard/data-table'
+import {
+  REPORT_CARD_STATUS_LABELS,
+  type ReportCardWorkflowStatus,
+} from '@/lib/report-cards/workflow'
 
 export type ReportCardRow = {
   id: string
@@ -23,6 +27,7 @@ export type ReportCardRow = {
   rank: number | null
   is_locked: boolean
   is_published: boolean
+  workflowStatus: ReportCardWorkflowStatus
   hash: string | null
   studentName: string
 }
@@ -38,26 +43,34 @@ const COLUMNS = [
 ]
 
 function ReportCardStatus({ row }: { row: ReportCardRow }) {
-  if (row.is_published) {
+  if (row.workflowStatus === 'published') {
     return (
       <Badge className="bg-emerald-100 text-emerald-800">
         <CheckCircle className="mr-1 h-3 w-3" />
-        Publié
+        {REPORT_CARD_STATUS_LABELS.published}
       </Badge>
     )
   }
-  if (row.is_locked) {
+  if (row.workflowStatus === 'validated') {
     return (
       <Badge className="bg-blue-100 text-blue-800">
-        <Lock className="mr-1 h-3 w-3" />
-        Verrouillé
+        <CheckCircle className="mr-1 h-3 w-3" />
+        {REPORT_CARD_STATUS_LABELS.validated}
+      </Badge>
+    )
+  }
+  if (row.workflowStatus === 'correction_requested') {
+    return (
+      <Badge className="bg-amber-100 text-amber-900">
+        <MessageSquareWarning className="mr-1 h-3 w-3" />
+        {REPORT_CARD_STATUS_LABELS.correction_requested}
       </Badge>
     )
   }
   return (
     <Badge variant="outline" className="border-orange-300 text-orange-600">
       <Clock className="mr-1 h-3 w-3" />
-      En attente
+      {REPORT_CARD_STATUS_LABELS[row.workflowStatus] ?? 'En attente'}
     </Badge>
   )
 }
@@ -68,9 +81,11 @@ export function ReportCardsTable({ reportCards }: { reportCards: ReportCardRow[]
 
   const filtered = useMemo(() => {
     let rows = filterBySearch(reportCards, search, rc => [rc.studentName, rc.term].join(' '))
-    if (statusFilter === 'published') rows = rows.filter(r => r.is_published)
-    if (statusFilter === 'locked') rows = rows.filter(r => r.is_locked && !r.is_published)
-    if (statusFilter === 'pending') rows = rows.filter(r => !r.is_locked && !r.is_published)
+    if (statusFilter === 'published') rows = rows.filter(r => r.workflowStatus === 'published')
+    if (statusFilter === 'validated') rows = rows.filter(r => r.workflowStatus === 'validated')
+    if (statusFilter === 'pending') rows = rows.filter(
+      r => r.workflowStatus === 'generated' || r.workflowStatus === 'correction_requested',
+    )
     return rows
   }, [reportCards, search, statusFilter])
 
@@ -94,8 +109,8 @@ export function ReportCardsTable({ reportCards }: { reportCards: ReportCardRow[]
           <FilterSelect value={statusFilter} onChange={setStatusFilter} className="w-full sm:w-44">
             <option value="all">Tous les statuts</option>
             <option value="published">Publiés</option>
-            <option value="locked">Verrouillés</option>
-            <option value="pending">En attente</option>
+            <option value="validated">Validés</option>
+            <option value="pending">En attente proviseur</option>
           </FilterSelect>
         </FilterBar>
       }

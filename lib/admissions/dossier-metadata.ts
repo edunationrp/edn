@@ -47,7 +47,7 @@ export type AdmissionDossierMetadata = {
 
 export const DOCUMENT_LABELS: Record<DocumentKey, string> = {
   birth_certificate: 'Acte de naissance (PDF)',
-  student_photo: 'Photo d\'identité (PDF)',
+  student_photo: 'Photo d\'identité (JPG/PNG)',
   parent_id: 'Pièce d\'identité du parent (PDF)',
 }
 
@@ -75,15 +75,26 @@ export function isDossierIdentityComplete(meta: AdmissionDossierMetadata) {
   )
 }
 
-export function hasPdfDocument(meta: AdmissionDossierMetadata, key: DocumentKey) {
+export function hasDocument(meta: AdmissionDossierMetadata, key: DocumentKey) {
   const file = meta.document_files?.[key]
-  return Boolean(file?.url && (file.mime === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')))
+  if (!file?.url) return false
+  if (key === 'student_photo') {
+    return (
+      file.mime.startsWith('image/')
+      || /\.(jpe?g|png|webp)$/i.test(file.name)
+    )
+  }
+  return file.mime === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+}
+
+export function hasPdfDocument(meta: AdmissionDossierMetadata, key: DocumentKey) {
+  return hasDocument(meta, key) && key !== 'student_photo'
 }
 
 export function areDocumentsComplete(meta: AdmissionDossierMetadata) {
   const docs = { ...getDefaultDocuments(), ...meta.documents }
   return REQUIRED_DOCUMENTS.every(
-    key => hasPdfDocument(meta, key) && docs[key] === 'validated'
+    key => hasDocument(meta, key) && docs[key] === 'validated'
   )
 }
 

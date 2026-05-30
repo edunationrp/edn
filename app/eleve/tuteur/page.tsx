@@ -16,10 +16,10 @@ export default async function EleveTuteurPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/tuteur')
+  if (!user) redirect('/login/eleve')
 
   const ctx = await getStudentTutorContext(user.id)
-  if (!ctx) redirect('/tuteur')
+  if (!ctx) redirect('/login/eleve')
 
   const { conversations } = await listTutorConversations()
 

@@ -6,12 +6,10 @@ import { Bot, Sparkles } from 'lucide-react'
 import { Dialog, DialogTrigger } from '@/components/ui/dialog'
 import { EduBotDialogPanel } from '@/components/tuteur/edubot-dialog'
 
-const HIDDEN_PATH_PREFIXES = ['/tuteur', '/eleve/tuteur', '/dashboard']
+const HIDDEN_ON_FULL_PAGE = '/eleve/tuteur'
 
 function shouldHideFab(pathname: string) {
-  return HIDDEN_PATH_PREFIXES.some(
-    prefix => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  )
+  return pathname === HIDDEN_ON_FULL_PAGE || pathname.startsWith(`${HIDDEN_ON_FULL_PAGE}/`)
 }
 
 export function EduBotFloatingButton() {

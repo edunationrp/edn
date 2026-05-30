@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { GenerateReportCardsClient } from '@/features/report-cards/generate-report-cards-client'
 import { EmptyPanel } from '@/components/dashboard/empty-panel'
+import { hasPermission } from '@/types/permissions'
+import type { UserRole } from '@/types/roles'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Générer les bulletins' }
@@ -19,6 +21,11 @@ export default async function GenerateReportCardsPage({
 
   const ctx = await getUserSchoolContext(user.id)
   if (!ctx) redirect('/dashboard')
+
+  const role = ctx.role_code as UserRole
+  if (!hasPermission(role, 'report_cards:generate')) {
+    redirect('/dashboard/report-cards')
+  }
 
   const params = await searchParams
 

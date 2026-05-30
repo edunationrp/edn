@@ -258,7 +258,7 @@ export function GradeEntryClient({
         period: selectedTerm,
         term: selectedTerm,
         created_by: teacherId,
-      })
+      }, { onConflict: 'evaluation_id,student_id' })
 
       if (!error) {
         setGrades(prev => ({

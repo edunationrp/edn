@@ -8,7 +8,7 @@ export default async function EleveTuteurLayout({ children }: { children: React.
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) redirect('/tuteur')
+  if (!user) redirect('/login/eleve')
 
   const { data: studentRow } = await supabase
     .from('students')
@@ -17,7 +17,7 @@ export default async function EleveTuteurLayout({ children }: { children: React.
     .limit(1)
     .maybeSingle()
 
-  if (!studentRow) redirect('/tuteur')
+  if (!studentRow) redirect('/login/eleve')
 
   return <StudentPortalLayout>{children}</StudentPortalLayout>
 }

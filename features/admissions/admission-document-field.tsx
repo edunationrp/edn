@@ -78,8 +78,9 @@ export function AdmissionDocumentField({
     })
   }
 
+  const isPhoto = documentKey === 'student_photo'
   const statusLabel =
-    status === 'validated' ? 'Validé' : status === 'deposed' ? 'PDF déposé' : 'Manquant'
+    status === 'validated' ? 'Validé' : status === 'deposed' ? (isPhoto ? 'Photo déposée' : 'PDF déposé') : 'Manquant'
 
   return (
     <div className="rounded-lg border p-4 space-y-3">
@@ -97,13 +98,20 @@ export function AdmissionDocumentField({
           <Button asChild size="sm" variant="outline">
             <a href={file.url} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4" />
-              Voir le PDF
+              {isPhoto ? 'Voir la photo' : 'Voir le PDF'}
             </a>
           </Button>
         )}
       </div>
 
-      {file?.url && (
+      {file?.url && isPhoto && (
+        <div className="overflow-hidden rounded-md border bg-slate-50 p-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={file.url} alt="Photo d'identité" className="mx-auto h-40 w-32 object-cover rounded-md" />
+        </div>
+      )}
+
+      {file?.url && !isPhoto && (
         <div className="overflow-hidden rounded-md border bg-slate-50">
           <iframe
             title={DOCUMENT_LABELS[documentKey]}
@@ -118,7 +126,7 @@ export function AdmissionDocumentField({
           <input
             ref={inputRef}
             type="file"
-            accept="application/pdf,.pdf"
+            accept={isPhoto ? 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp' : 'application/pdf,.pdf'}
             className="hidden"
             onChange={e => {
               handleUpload(e.target.files?.[0] ?? null)
@@ -133,7 +141,7 @@ export function AdmissionDocumentField({
             onClick={() => inputRef.current?.click()}
           >
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            {file ? 'Remplacer le PDF' : 'Téléverser PDF'}
+            {file ? (isPhoto ? 'Remplacer la photo' : 'Remplacer le PDF') : (isPhoto ? 'Téléverser photo' : 'Téléverser PDF')}
           </Button>
           {allowValidate && file && status !== 'validated' && (
             <Button type="button" size="sm" disabled={isPending} onClick={handleValidate}>

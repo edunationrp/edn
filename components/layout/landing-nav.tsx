@@ -21,9 +21,9 @@ import { cn } from '@/lib/utils'
 
 const NAV_LINKS = [
   {
-    href: '/tuteur',
+    href: '/login/eleve',
     label: 'EduBot',
-    description: 'Assistant scolaire IA · gratuit',
+    description: 'Assistant scolaire IA · connexion élève',
     icon: Bot,
     isPage: true,
   },

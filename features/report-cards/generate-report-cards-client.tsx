@@ -48,7 +48,11 @@ export function GenerateReportCardsClient({
         notify.error(result.error, 'report_cards')
         return
       }
-      notify.success(`${result.created ?? 0} bulletin(s) préparé(s)`)
+      if ((result.created ?? 0) === 0) {
+        notify.error('Aucun bulletin n\'a pu être créé.', 'report_cards')
+        return
+      }
+      notify.success(`${result.created} bulletin(s) préparé(s) — en attente de validation proviseur`)
       router.push('/dashboard/report-cards')
       router.refresh()
     })
