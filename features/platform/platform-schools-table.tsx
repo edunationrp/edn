@@ -1,11 +1,10 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Search, Building2, ExternalLink } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import {
   DashboardDataTable,
   DashboardTableCell,
@@ -16,10 +15,9 @@ import {
   formatListFooter,
   filterBySearch,
 } from '@/components/dashboard/data-table'
-import { setPlatformSchoolActive } from '@/lib/actions/platform'
-import { notify } from '@/lib/feedback/toast'
 import { SCHOOL_TYPES } from '@/lib/onboarding/constants'
 import type { PlatformSchoolRow } from '@/lib/platform/types'
+import { PlatformSchoolStatusActions } from '@/features/platform/platform-school-status-actions'
 
 const COLUMNS = [
   { id: 'school', label: 'Établissement' },
@@ -34,7 +32,6 @@ export function PlatformSchoolsTable({ schools }: { schools: PlatformSchoolRow[]
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [isPending, startTransition] = useTransition()
 
   const filtered = useMemo(() => {
     let rows = filterBySearch(schools, search, s =>
@@ -48,19 +45,15 @@ export function PlatformSchoolsTable({ schools }: { schools: PlatformSchoolRow[]
 
   const hasFilters = !!search || typeFilter !== 'all' || statusFilter !== 'all'
 
-  function toggleActive(schoolId: string, next: boolean) {
-    startTransition(async () => {
-      const result = await setPlatformSchoolActive(schoolId, next)
-      if ('error' in result && result.error) {
-        notify.error(result.error)
-        return
-      }
-      notify.success(next ? 'Établissement activé' : 'Établissement suspendu')
-    })
+  function statusBadge(status: PlatformSchoolRow['platformStatus']) {
+    if (status === 'DISABLED') return { variant: 'destructive' as const, label: 'Désactivé' }
+    if (status === 'SUSPENDED') return { variant: 'warning' as const, label: 'Suspendu' }
+    return { variant: 'success' as const, label: 'Actif' }
   }
 
   function renderSchool(school: PlatformSchoolRow, mobile: boolean) {
     const typeLabel = SCHOOL_TYPES.find(t => t.value === school.type)?.label ?? school.type
+    const status = statusBadge(school.platformStatus)
     if (mobile) {
       return (
         <div className="px-4 py-4">
@@ -68,8 +61,8 @@ export function PlatformSchoolsTable({ schools }: { schools: PlatformSchoolRow[]
             <Link href={`/dashboard/platform/schools/${school.id}`} className="font-semibold text-[#1B3A6B]">
               {school.name}
             </Link>
-            <Badge variant={school.isActive ? 'success' : 'secondary'}>
-              {school.isActive ? 'Actif' : 'Suspendu'}
+            <Badge variant={status.variant}>
+              {status.label}
             </Badge>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -79,12 +72,11 @@ export function PlatformSchoolsTable({ schools }: { schools: PlatformSchoolRow[]
             {school.studentCount} élève(s) · {school.staffCount} accès
           </p>
           <div className="mt-3 flex items-center gap-2">
-            <Switch
-              checked={school.isActive}
-              disabled={isPending}
-              onCheckedChange={v => toggleActive(school.id, v)}
+            <PlatformSchoolStatusActions
+              schoolId={school.id}
+              currentStatus={school.platformStatus}
             />
-            <span className="text-xs text-muted-foreground">Activer / suspendre</span>
+            <span className="text-xs text-muted-foreground">Actions de statut</span>
           </div>
         </div>
       )
@@ -114,22 +106,28 @@ export function PlatformSchoolsTable({ schools }: { schools: PlatformSchoolRow[]
         </DashboardTableCell>
         <DashboardTableCell>
           <div className="flex items-center gap-2">
-            <Switch
-              checked={school.isActive}
-              disabled={isPending}
-              onCheckedChange={v => toggleActive(school.id, v)}
-            />
-            <Badge variant={school.isActive ? 'success' : 'secondary'}>
-              {school.isActive ? 'Actif' : 'Suspendu'}
+            <Badge variant={status.variant}>
+              {status.label}
             </Badge>
+            {school.suspendedUntil && (
+              <span className="text-[11px] text-muted-foreground">
+                jusqu&apos;au {new Date(school.suspendedUntil).toLocaleDateString('fr-FR')}
+              </span>
+            )}
           </div>
         </DashboardTableCell>
         <DashboardTableCell>
-          <Button size="sm" variant="ghost" asChild>
-            <Link href={`/dashboard/platform/schools/${school.id}`}>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
+          <div className="flex items-center justify-end gap-1">
+            <PlatformSchoolStatusActions
+              schoolId={school.id}
+              currentStatus={school.platformStatus}
+            />
+            <Button size="sm" variant="ghost" asChild>
+              <Link href={`/dashboard/platform/schools/${school.id}`}>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
         </DashboardTableCell>
       </DashboardTableRow>
     )

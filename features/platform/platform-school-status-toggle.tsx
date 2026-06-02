@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react'
 import { Switch } from '@/components/ui/switch'
-import { setPlatformSchoolActive } from '@/lib/actions/platform'
+import { setPlatformSchoolStatus } from '@/lib/actions/platform'
 import { notify } from '@/lib/feedback/toast'
 
 export function PlatformSchoolStatusToggle({
@@ -24,7 +24,11 @@ export function PlatformSchoolStatusToggle({
         disabled={isPending}
         onCheckedChange={next => {
           startTransition(async () => {
-            const result = await setPlatformSchoolActive(schoolId, next)
+            const result = await setPlatformSchoolStatus(
+              schoolId,
+              next ? 'ACTIVE' : 'SUSPENDED',
+              next ? 'Réactivation depuis fiche établissement' : 'Suspension depuis fiche établissement'
+            )
             if ('error' in result && result.error) notify.error(result.error)
             else notify.success(next ? 'Établissement activé' : 'Établissement suspendu')
           })

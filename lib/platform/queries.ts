@@ -50,11 +50,11 @@ export async function getPlatformOverview(): Promise<PlatformOverview> {
     signupsRes,
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (admin as any).from('schools').select('id, is_active, type, created_at'),
+    (admin as any).from('schools').select('id, is_active, type, platform_status, created_at'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin as any).from('organizations').select('id, is_active, plan_code'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (admin as any).from('profiles').select('id, is_active, created_at'),
+    (admin as any).from('profiles').select('id, is_active, account_status, suspended_until, created_at'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin as any).from('students').select('id, status'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,9 +80,14 @@ export async function getPlatformOverview(): Promise<PlatformOverview> {
       .gte('created_at', since),
   ])
 
-  const schools = (schoolsRes.data ?? []) as Array<{ id: string; is_active: boolean; type: string }>
+  const schools = (schoolsRes.data ?? []) as Array<{ id: string; is_active: boolean; type: string; platform_status?: string | null }>
   const orgs = (orgsRes.data ?? []) as Array<{ id: string; is_active: boolean; plan_code: string }>
-  const profiles = (profilesRes.data ?? []) as Array<{ id: string; is_active: boolean }>
+  const profiles = (profilesRes.data ?? []) as Array<{
+    id: string
+    is_active: boolean
+    account_status?: string | null
+    suspended_until?: string | null
+  }>
   const students = (studentsRes.data ?? []) as Array<{ id: string; status: string }>
 
   const schoolsByType = schools.reduce((acc, s) => {
@@ -99,11 +104,20 @@ export async function getPlatformOverview(): Promise<PlatformOverview> {
 
   return {
     schoolsTotal: schools.length,
-    schoolsActive: schools.filter(s => s.is_active).length,
+    schoolsActive: schools.filter(s => (s.platform_status ?? (s.is_active ? 'ACTIVE' : 'DISABLED')) === 'ACTIVE').length,
     organizationsTotal: orgs.length,
     organizationsActive: orgs.filter(o => o.is_active).length,
     usersTotal: profiles.length,
-    usersActive: profiles.filter(p => p.is_active).length,
+    usersActive: profiles.filter(p => {
+      const status = p.account_status ?? 'ACTIVE'
+      if (!p.is_active) return false
+      if (status === 'SUSPENDED_TOTAL') return false
+      if (status === 'SUSPENDED_TEMPORARY') {
+        if (!p.suspended_until) return false
+        return new Date(p.suspended_until).getTime() <= Date.now()
+      }
+      return true
+    }).length,
     studentsTotal: students.length,
     studentsActive: students.filter(s => s.status === 'active').length,
     signupsLast30Days: signupsRes.count ?? 0,
@@ -159,7 +173,7 @@ export async function getPlatformSchools(): Promise<PlatformSchoolRow[]> {
   const { data: schoolsRaw } = await (admin as any)
     .from('schools')
     .select(`
-      id, name, type, city, country, is_active, organization_id, created_at,
+      id, name, type, city, country, is_active, platform_status, suspended_until, status_reason, organization_id, created_at,
       organizations ( name )
     `)
     .order('created_at', { ascending: false })
@@ -171,6 +185,9 @@ export async function getPlatformSchools(): Promise<PlatformSchoolRow[]> {
     city: string | null
     country: string
     is_active: boolean
+    platform_status: 'ACTIVE' | 'SUSPENDED' | 'DISABLED' | null
+    suspended_until: string | null
+    status_reason: string | null
     organization_id: string | null
     created_at: string
     organizations: { name: string } | null
@@ -205,7 +222,10 @@ export async function getPlatformSchools(): Promise<PlatformSchoolRow[]> {
     type: s.type,
     city: s.city,
     country: s.country,
-    isActive: s.is_active,
+    isActive: (s.platform_status ?? (s.is_active ? 'ACTIVE' : 'DISABLED')) === 'ACTIVE',
+    platformStatus: (s.platform_status ?? (s.is_active ? 'ACTIVE' : 'DISABLED')) as 'ACTIVE' | 'SUSPENDED' | 'DISABLED',
+    suspendedUntil: s.suspended_until,
+    statusReason: s.status_reason,
     organizationId: s.organization_id,
     organizationName: s.organizations?.name ?? null,
     studentCount: studentCounts.get(s.id) ?? 0,
@@ -399,7 +419,7 @@ export async function getPlatformUsers(): Promise<PlatformUserRow[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profilesRaw } = await (admin as any)
     .from('profiles')
-    .select('id, full_name, email, default_role, is_active, created_at')
+    .select('id, full_name, email, default_role, is_active, account_status, suspended_until, suspension_reason, created_at')
     .order('created_at', { ascending: false })
     .limit(200)
 
@@ -409,6 +429,9 @@ export async function getPlatformUsers(): Promise<PlatformUserRow[]> {
     email: string | null
     default_role: string | null
     is_active: boolean
+    account_status: 'ACTIVE' | 'SUSPENDED_TOTAL' | 'SUSPENDED_TEMPORARY' | null
+    suspended_until: string | null
+    suspension_reason: string | null
     created_at: string
   }>
 
@@ -432,12 +455,20 @@ export async function getPlatformUsers(): Promise<PlatformUserRow[]> {
 
   return profiles.map(p => {
     const meta = rolesByUser.get(p.id)
+    const accountStatus = p.account_status ?? 'ACTIVE'
+    const temporaryExpired = accountStatus === 'SUSPENDED_TEMPORARY'
+      ? p.suspended_until !== null && new Date(p.suspended_until).getTime() <= Date.now()
+      : false
+
     return {
       id: p.id,
       fullName: p.full_name,
       email: p.email,
       defaultRole: p.default_role,
-      isActive: p.is_active,
+      isActive: p.is_active && (accountStatus === 'ACTIVE' || temporaryExpired),
+      accountStatus,
+      suspendedUntil: p.suspended_until,
+      suspensionReason: p.suspension_reason,
       schoolCount: meta?.schools.size ?? 0,
       roles: meta ? [...meta.roles] : [],
       createdAt: p.created_at,

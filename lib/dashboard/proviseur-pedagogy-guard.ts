@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { isProviseurPedagogyExcluded } from '@/lib/dashboard/role-scope'
 
-/** Redirige le proviseur hors des pages notes / bulletins / absences. */
+/** Redirige le proviseur hors des pages pédagogiques opérationnelles (appel, historique détaillé). */
 export async function assertProviseurNotInPedagogy() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

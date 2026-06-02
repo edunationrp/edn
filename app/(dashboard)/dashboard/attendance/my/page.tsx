@@ -7,11 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import { getTeacherAttendanceHistory } from '@/lib/attendance/teacher-attendance'
+import { assertProviseurNotInPedagogy } from '@/lib/dashboard/proviseur-pedagogy-guard'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Mes appels — Professeur' }
 
 export default async function TeacherAttendanceHistoryPage() {
+  await assertProviseurNotInPedagogy()
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')

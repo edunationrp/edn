@@ -1,6 +1,3 @@
-import { assertProviseurNotInPedagogy } from '@/lib/dashboard/proviseur-pedagogy-guard'
-
-export default async function AttendanceLayout({ children }: { children: React.ReactNode }) {
-  await assertProviseurNotInPedagogy()
+export default function AttendanceLayout({ children }: { children: React.ReactNode }) {
   return children
 }

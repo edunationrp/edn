@@ -6,6 +6,7 @@ import {
 } from '@/lib/attendance/teacher-attendance'
 import { redirect } from 'next/navigation'
 import { AttendanceTakeClient } from '@/features/attendance/attendance-take-client'
+import { assertProviseurNotInPedagogy } from '@/lib/dashboard/proviseur-pedagogy-guard'
 import type { Metadata } from 'next'
 import type { UserRole } from '@/types/roles'
 
@@ -18,6 +19,8 @@ export default async function AttendanceTakePage({
 }: {
   searchParams: Promise<{ class?: string; subject?: string }>
 }) {
+  await assertProviseurNotInPedagogy()
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')

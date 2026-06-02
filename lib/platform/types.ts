@@ -28,6 +28,9 @@ export type PlatformSchoolRow = {
   city: string | null
   country: string
   isActive: boolean
+  platformStatus: 'ACTIVE' | 'SUSPENDED' | 'DISABLED'
+  suspendedUntil: string | null
+  statusReason: string | null
   organizationId: string | null
   organizationName: string | null
   studentCount: number
@@ -53,6 +56,9 @@ export type PlatformUserRow = {
   email: string | null
   defaultRole: string | null
   isActive: boolean
+  accountStatus: 'ACTIVE' | 'SUSPENDED_TOTAL' | 'SUSPENDED_TEMPORARY'
+  suspendedUntil: string | null
+  suspensionReason: string | null
   schoolCount: number
   roles: string[]
   createdAt: string

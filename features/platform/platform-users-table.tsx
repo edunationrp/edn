@@ -1,9 +1,8 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
 import { Search, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import {
   DashboardDataTable,
   DashboardTableCell,
@@ -14,24 +13,23 @@ import {
   formatListFooter,
   filterBySearch,
 } from '@/components/dashboard/data-table'
-import { setPlatformUserActive } from '@/lib/actions/platform'
-import { notify } from '@/lib/feedback/toast'
 import { ROLE_LABELS } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 import { formatDate } from '@/lib/utils'
 import type { PlatformUserRow } from '@/lib/platform/types'
+import { PlatformUserStatusActions } from '@/features/platform/platform-user-status-actions'
 
 const COLUMNS = [
   { id: 'user', label: 'Utilisateur' },
   { id: 'role', label: 'Rôle principal' },
   { id: 'schools', label: 'Établissements' },
   { id: 'status', label: 'Statut' },
+  { id: 'actions', label: '' },
 ]
 
 export function PlatformUsersTable({ users }: { users: PlatformUserRow[] }) {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
-  const [isPending, startTransition] = useTransition()
 
   const roleOptions = useMemo(() => {
     const roles = new Set(users.map(u => u.defaultRole).filter(Boolean) as string[])
@@ -50,17 +48,20 @@ export function PlatformUsersTable({ users }: { users: PlatformUserRow[] }) {
 
   const hasFilters = !!search || roleFilter !== 'all'
 
-  function toggleActive(userId: string, next: boolean) {
-    startTransition(async () => {
-      const result = await setPlatformUserActive(userId, next)
-      if ('error' in result && result.error) notify.error(result.error)
-      else notify.success(next ? 'Compte activé' : 'Compte suspendu')
-    })
+  function getStatusBadge(user: PlatformUserRow): { label: string; variant: 'success' | 'secondary' | 'warning' } {
+    if (user.accountStatus === 'SUSPENDED_TOTAL' || !user.isActive) {
+      return { label: 'Suspendu total', variant: 'secondary' }
+    }
+    if (user.accountStatus === 'SUSPENDED_TEMPORARY') {
+      return { label: 'Suspendu temporaire', variant: 'warning' }
+    }
+    return { label: 'Actif', variant: 'success' }
   }
 
   function renderUser(user: PlatformUserRow, mobile: boolean) {
     const role = user.defaultRole as UserRole | null
     const roleLabel = role ? (ROLE_LABELS[role] ?? role) : '—'
+    const status = getStatusBadge(user)
     if (mobile) {
       return (
         <div className="px-4 py-4">
@@ -69,13 +70,17 @@ export function PlatformUsersTable({ users }: { users: PlatformUserRow[] }) {
               <p className="font-semibold text-slate-900">{user.fullName ?? '—'}</p>
               <p className="text-xs text-muted-foreground">{user.email ?? '—'}</p>
             </div>
-            <Badge variant={user.isActive ? 'success' : 'secondary'}>
-              {user.isActive ? 'Actif' : 'Suspendu'}
+            <Badge variant={status.variant}>
+              {status.label}
             </Badge>
           </div>
           <p className="mt-2 text-xs">{roleLabel} · {user.schoolCount} établ.</p>
           <div className="mt-3 flex items-center gap-2">
-            <Switch checked={user.isActive} disabled={isPending} onCheckedChange={v => toggleActive(user.id, v)} />
+            <PlatformUserStatusActions
+              userId={user.id}
+              isActive={user.isActive}
+              accountStatus={user.accountStatus}
+            />
           </div>
         </div>
       )
@@ -95,10 +100,23 @@ export function PlatformUsersTable({ users }: { users: PlatformUserRow[] }) {
         </DashboardTableCell>
         <DashboardTableCell>
           <div className="flex items-center gap-2">
-            <Switch checked={user.isActive} disabled={isPending} onCheckedChange={v => toggleActive(user.id, v)} />
-            <Badge variant={user.isActive ? 'success' : 'secondary'}>
-              {user.isActive ? 'Actif' : 'Suspendu'}
+            <Badge variant={status.variant}>
+              {status.label}
             </Badge>
+            {user.suspendedUntil && (
+              <span className="text-[11px] text-muted-foreground">
+                jusqu&apos;au {formatDate(user.suspendedUntil)}
+              </span>
+            )}
+          </div>
+        </DashboardTableCell>
+        <DashboardTableCell>
+          <div className="flex justify-end">
+            <PlatformUserStatusActions
+              userId={user.id}
+              isActive={user.isActive}
+              accountStatus={user.accountStatus}
+            />
           </div>
         </DashboardTableCell>
       </DashboardTableRow>

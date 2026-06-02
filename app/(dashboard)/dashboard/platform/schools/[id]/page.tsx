@@ -42,11 +42,16 @@ export default async function PlatformSchoolDetailPage({ params }: PageProps) {
     email: string | null
     motto: string | null
     is_active: boolean
+    platform_status?: 'ACTIVE' | 'SUSPENDED' | 'DISABLED'
+    suspended_until?: string | null
+    status_reason?: string | null
     created_at: string
     organizations: { id: string; name: string; plan_code: string } | null
   }
 
   const typeLabel = SCHOOL_TYPES.find(t => t.value === school.type)?.label ?? school.type
+  const status = school.platform_status ?? (school.is_active ? 'ACTIVE' : 'DISABLED')
+  const statusLabel = status === 'ACTIVE' ? 'Actif' : status === 'SUSPENDED' ? 'Suspendu' : 'Désactivé'
 
   return (
     <div className="space-y-4 animate-fade-in sm:space-y-6">
@@ -62,9 +67,9 @@ export default async function PlatformSchoolDetailPage({ params }: PageProps) {
       <PageHeader
         title={school.name}
         description={[school.city, school.province, school.country].filter(Boolean).join(', ') || '—'}
-        badge={school.is_active ? 'Actif' : 'Suspendu'}
+        badge={statusLabel}
         actions={
-          <PlatformSchoolStatusToggle schoolId={school.id} isActive={school.is_active} />
+          <PlatformSchoolStatusToggle schoolId={school.id} isActive={status === 'ACTIVE'} />
         }
       />
 
@@ -95,6 +100,19 @@ export default async function PlatformSchoolDetailPage({ params }: PageProps) {
             <CardTitle className="text-base">Informations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
+            <p>
+              <span className="text-muted-foreground">Statut plateforme :</span> {statusLabel}
+            </p>
+            {school.suspended_until && (
+              <p>
+                <span className="text-muted-foreground">Suspendu jusqu&apos;au :</span> {formatDate(school.suspended_until)}
+              </p>
+            )}
+            {school.status_reason && (
+              <p>
+                <span className="text-muted-foreground">Motif :</span> {school.status_reason}
+              </p>
+            )}
             {school.email && (
               <p><span className="text-muted-foreground">Email :</span> {school.email}</p>
             )}

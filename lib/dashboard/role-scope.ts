@@ -57,7 +57,7 @@ export function canAccessAuditLogs(roleCode: string) {
     AUDIT_LOG_ROLES.includes(roleCode as (typeof AUDIT_LOG_ROLES)[number])
 }
 
-/** Proviseur / fondateur : pas de gestion opérationnelle notes, bulletins ni absences. */
+/** Proviseur / fondateur : pas de gestion opérationnelle notes, bulletins ni prise d'appel. */
 export function isProviseurPedagogyExcluded(roleCode: string) {
   return isSchoolFullAuthority(roleCode)
 }

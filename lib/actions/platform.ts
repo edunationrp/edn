@@ -4,6 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePlatformAdmin } from '@/lib/platform/access'
 
+type AdminRpcResponse = { error: { message: string } | null }
+type AdminRpcClient = {
+  rpc: (fn: string, params?: Record<string, unknown>) => Promise<AdminRpcResponse>
+}
+
 async function requireAdmin() {
   const access = await requirePlatformAdmin()
   if ('error' in access) return access
@@ -19,10 +24,12 @@ export async function setPlatformSchoolActive(schoolId: string, isActive: boolea
   if ('error' in result) return result
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (result.admin as any)
-    .from('schools')
-    .update({ is_active: isActive })
-    .eq('id', schoolId)
+  const { error } = await (result.admin as any).rpc('super_admin_set_school_status', {
+    p_school_id: schoolId,
+    p_status: isActive ? 'ACTIVE' : 'SUSPENDED',
+    p_reason: isActive ? 'Réactivation par super admin' : 'Suspension par super admin',
+    p_suspended_until: null,
+  })
 
   if (error) return { error: error.message }
 
@@ -76,14 +83,75 @@ export async function setPlatformUserActive(userId: string, isActive: boolean) {
   const result = await requireAdmin()
   if ('error' in result) return result
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (result.admin as any)
-    .from('profiles')
-    .update({ is_active: isActive })
-    .eq('id', userId)
+  const admin = result.admin as unknown as AdminRpcClient
+  const { error } = isActive
+    ? await admin.rpc('super_admin_reactivate_user', {
+      p_target_user_id: userId,
+      p_reason: 'Réactivation par super admin',
+    })
+    : await admin.rpc('super_admin_suspend_user_total', {
+      p_target_user_id: userId,
+      p_reason: 'Suspension totale par super admin',
+    })
 
   if (error) return { error: error.message }
 
   revalidatePath('/dashboard/platform/users')
+  return { success: true as const }
+}
+
+export async function suspendPlatformUserTemporary(userId: string, reason: string, untilIso: string) {
+  const result = await requireAdmin()
+  if ('error' in result) return result
+
+  const until = new Date(untilIso)
+  if (Number.isNaN(until.getTime()) || until.getTime() <= Date.now()) {
+    return { error: 'Date de fin invalide.' }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (result.admin as any).rpc('super_admin_suspend_user_temporary', {
+    p_target_user_id: userId,
+    p_reason: reason.trim() || 'Suspension temporaire par super admin',
+    p_until: until.toISOString(),
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/platform/users')
+  return { success: true as const }
+}
+
+export async function setPlatformSchoolStatus(
+  schoolId: string,
+  status: 'ACTIVE' | 'SUSPENDED' | 'DISABLED',
+  reason?: string,
+  suspendedUntilIso?: string | null
+) {
+  const result = await requireAdmin()
+  if ('error' in result) return result
+
+  let suspendedUntil: string | null = null
+  if (status === 'SUSPENDED' && suspendedUntilIso) {
+    const d = new Date(suspendedUntilIso)
+    if (Number.isNaN(d.getTime()) || d.getTime() <= Date.now()) {
+      return { error: 'Date de suspension invalide.' }
+    }
+    suspendedUntil = d.toISOString()
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (result.admin as any).rpc('super_admin_set_school_status', {
+    p_school_id: schoolId,
+    p_status: status,
+    p_reason: reason?.trim() || null,
+    p_suspended_until: suspendedUntil,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/platform')
+  revalidatePath('/dashboard/platform/schools')
+  revalidatePath(`/dashboard/platform/schools/${schoolId}`)
   return { success: true as const }
 }
