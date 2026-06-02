@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { excludeMessagingNotificationTypes } from '@/lib/notifications/categories'
-import { getEffectiveUserRole, isPlatformAdmin } from '@/lib/platform/access'
+import { getEffectiveUserRole, isPlatformAdmin, isPlatformOwnerRole } from '@/lib/platform/access'
 import { ROLE_LABELS } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 
@@ -20,7 +20,7 @@ export default async function DashboardLayout({
 
   const { data: profileRaw } = await supabase
     .from('profiles')
-    .select('id, full_name, email, avatar_url, default_role, is_active')
+    .select('id, full_name, email, avatar_url, default_role, is_active, account_status, suspended_until')
     .eq('id', user.id)
     .limit(1)
 
@@ -32,10 +32,23 @@ export default async function DashboardLayout({
       avatar_url: string | null
       default_role: string | null
       is_active: boolean
+      account_status?: 'ACTIVE' | 'SUSPENDED_TOTAL' | 'SUSPENDED_TEMPORARY' | null
+      suspended_until?: string | null
     }> | null
   )?.[0]
 
   if (!profile) redirect('/login')
+
+  const accountStatus = profile.account_status ?? 'ACTIVE'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profileOperationalRaw } = await (supabase as any).rpc('is_profile_operational', {
+    p_user_id: user.id,
+  })
+  const profileOperational = Boolean(profileOperationalRaw)
+
+  if (!profile.is_active || accountStatus === 'SUSPENDED_TOTAL' || !profileOperational) {
+    redirect('/login?error=account_suspended')
+  }
 
   const { data: schoolRolesRaw } = await supabase
     .from('user_school_roles')
@@ -64,9 +77,19 @@ export default async function DashboardLayout({
     logo_watermark_opacity: number | null
   }>
 
-  const activeSchool = schools[0] ?? null
+  const roleRows = schoolRoles ?? []
+  const schoolsById = new Map(schools.map(s => [s.id, s] as const))
+  const firstOperationalRole = roleRows.find(r => {
+    const school = schoolsById.get(r.school_id)
+    return Boolean(school?.is_active)
+  })
+  const activeSchool = firstOperationalRole ? (schoolsById.get(firstOperationalRole.school_id) ?? null) : null
   const effectiveRole = await getEffectiveUserRole(user.id)
   const isPlatformOwner = isPlatformAdmin(effectiveRole)
+  const defaultIsPlatformOwner = isPlatformOwnerRole(profile.default_role)
+  if (!isPlatformOwner && !activeSchool && !defaultIsPlatformOwner) {
+    redirect('/login?error=school_suspended')
+  }
   const currentRole = (effectiveRole ?? profile.default_role ?? 'ELEVE') as UserRole
   const roleLabel = ROLE_LABELS[currentRole] ?? currentRole
 

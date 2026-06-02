@@ -1,5 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import type {
+  PlatformAccessControlSchoolRow,
+  PlatformAccessControlUserRow,
   PlatformAuditLogRow,
   PlatformOrganizationRow,
   PlatformOverview,
@@ -492,4 +494,74 @@ export async function getPlatformAuditLogs(limit = 100): Promise<PlatformAuditLo
     .limit(limit)
 
   return mapAuditRows(data)
+}
+
+export async function getPlatformAccessControlData(): Promise<{
+  suspendedUsers: PlatformAccessControlUserRow[]
+  restrictedSchools: PlatformAccessControlSchoolRow[]
+}> {
+  const admin = getAdmin()
+  if (!admin) return { suspendedUsers: [], restrictedSchools: [] }
+
+  type QueryClient = {
+    from: (table: string) => {
+      select: (columns: string) => {
+        in: (column: string, values: string[]) => {
+          order: (column: string, options: { ascending: boolean }) => Promise<{ data: unknown[] | null }>
+        }
+      }
+    }
+  }
+  const queryClient = admin as unknown as QueryClient
+
+  const [usersRes, schoolsRes] = await Promise.all([
+    queryClient
+      .from('profiles')
+      .select('id, full_name, email, default_role, account_status, suspended_until, suspension_reason')
+      .in('account_status', ['SUSPENDED_TOTAL', 'SUSPENDED_TEMPORARY'])
+      .order('updated_at', { ascending: false }),
+    queryClient
+      .from('schools')
+      .select('id, name, city, country, platform_status, suspended_until, status_reason')
+      .in('platform_status', ['SUSPENDED', 'DISABLED'])
+      .order('updated_at', { ascending: false }),
+  ])
+
+  const suspendedUsers = ((usersRes.data ?? []) as Array<{
+    id: string
+    full_name: string | null
+    email: string | null
+    default_role: string | null
+    account_status: 'ACTIVE' | 'SUSPENDED_TOTAL' | 'SUSPENDED_TEMPORARY' | null
+    suspended_until: string | null
+    suspension_reason: string | null
+  }>).map(user => ({
+    id: user.id,
+    fullName: user.full_name,
+    email: user.email,
+    accountStatus: user.account_status ?? 'ACTIVE',
+    suspendedUntil: user.suspended_until,
+    suspensionReason: user.suspension_reason,
+    defaultRole: user.default_role,
+  }))
+
+  const restrictedSchools = ((schoolsRes.data ?? []) as Array<{
+    id: string
+    name: string
+    city: string | null
+    country: string
+    platform_status: 'ACTIVE' | 'SUSPENDED' | 'DISABLED' | null
+    suspended_until: string | null
+    status_reason: string | null
+  }>).map(school => ({
+    id: school.id,
+    name: school.name,
+    city: school.city,
+    country: school.country,
+    platformStatus: school.platform_status ?? 'ACTIVE',
+    suspendedUntil: school.suspended_until,
+    statusReason: school.status_reason,
+  }))
+
+  return { suspendedUsers, restrictedSchools }
 }

@@ -98,3 +98,23 @@ export type PlatformOverview = {
   schoolsByType: Record<string, number>
   orgsByPlan: Record<string, number>
 }
+
+export type PlatformAccessControlUserRow = {
+  id: string
+  fullName: string | null
+  email: string | null
+  accountStatus: 'ACTIVE' | 'SUSPENDED_TOTAL' | 'SUSPENDED_TEMPORARY'
+  suspendedUntil: string | null
+  suspensionReason: string | null
+  defaultRole: string | null
+}
+
+export type PlatformAccessControlSchoolRow = {
+  id: string
+  name: string
+  city: string | null
+  country: string
+  platformStatus: 'ACTIVE' | 'SUSPENDED' | 'DISABLED'
+  suspendedUntil: string | null
+  statusReason: string | null
+}

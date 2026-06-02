@@ -68,6 +68,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Système', items: [
         { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/platform/audit-logs' },
+        { id: 'access-control', label: 'Contrôle d\'accès', icon: 'alert', href: '/dashboard/platform/access-control' },
         { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/platform/settings' },
       ]},
     ],

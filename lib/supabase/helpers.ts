@@ -13,14 +13,43 @@ export async function getUserSchoolContext(userId: string): Promise<UserSchoolCo
     .select('school_id, role_code')
     .eq('user_id', userId)
     .eq('is_active', true)
-    .limit(1)
+    .limit(50)
 
-  const rows = data as Array<{ school_id: string; role_code: string }> | null
-  const row = rows?.[0]
-  if (!row) return null
+  const rows = (data as Array<{ school_id: string; role_code: string }> | null) ?? []
+  if (!rows.length) return null
+
+  const schoolIds = [...new Set(rows.map(r => r.school_id))]
+  const { data: schoolRaw } = await supabase
+    .from('schools')
+    .select('id, is_active, platform_status, suspended_until')
+    .in('id', schoolIds)
+
+  const schools = (schoolRaw as Array<{
+    id: string
+    is_active: boolean
+    platform_status?: 'ACTIVE' | 'SUSPENDED' | 'DISABLED' | null
+    suspended_until?: string | null
+  }> | null) ?? []
+
+  const schoolStatusById = new Map(
+    schools.map(s => [s.id, s] as const)
+  )
+
+  const operationalRole = rows.find(row => {
+    const school = schoolStatusById.get(row.school_id)
+    if (!school) return false
+    const status = school.platform_status ?? (school.is_active ? 'ACTIVE' : 'DISABLED')
+    if (status === 'ACTIVE') return true
+    if (status === 'SUSPENDED' && school.suspended_until) {
+      return new Date(school.suspended_until).getTime() <= Date.now()
+    }
+    return false
+  })
+
+  if (!operationalRole) return null
 
   return {
-    school_id: row.school_id,
-    role_code: row.role_code,
+    school_id: operationalRole.school_id,
+    role_code: operationalRole.role_code,
   }
 }

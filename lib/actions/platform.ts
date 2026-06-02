@@ -13,7 +13,7 @@ async function requireAdmin() {
   const access = await requirePlatformAdmin()
   if ('error' in access) return access
   try {
-    return { admin: createAdminClient() }
+    return { admin: createAdminClient(), userClient: access.supabase }
   } catch {
     return { error: 'Configuration serveur incomplète (SUPABASE_SERVICE_ROLE_KEY).' }
   }
@@ -83,13 +83,13 @@ export async function setPlatformUserActive(userId: string, isActive: boolean) {
   const result = await requireAdmin()
   if ('error' in result) return result
 
-  const admin = result.admin as unknown as AdminRpcClient
+  const rpcClient = result.userClient as unknown as AdminRpcClient
   const { error } = isActive
-    ? await admin.rpc('super_admin_reactivate_user', {
+    ? await rpcClient.rpc('super_admin_reactivate_user', {
       p_target_user_id: userId,
       p_reason: 'Réactivation par super admin',
     })
-    : await admin.rpc('super_admin_suspend_user_total', {
+    : await rpcClient.rpc('super_admin_suspend_user_total', {
       p_target_user_id: userId,
       p_reason: 'Suspension totale par super admin',
     })
@@ -109,8 +109,8 @@ export async function suspendPlatformUserTemporary(userId: string, reason: strin
     return { error: 'Date de fin invalide.' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (result.admin as any).rpc('super_admin_suspend_user_temporary', {
+  const rpcClient = result.userClient as unknown as AdminRpcClient
+  const { error } = await rpcClient.rpc('super_admin_suspend_user_temporary', {
     p_target_user_id: userId,
     p_reason: reason.trim() || 'Suspension temporaire par super admin',
     p_until: until.toISOString(),
@@ -140,8 +140,8 @@ export async function setPlatformSchoolStatus(
     suspendedUntil = d.toISOString()
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (result.admin as any).rpc('super_admin_set_school_status', {
+  const rpcClient = result.userClient as unknown as AdminRpcClient
+  const { error } = await rpcClient.rpc('super_admin_set_school_status', {
     p_school_id: schoolId,
     p_status: status,
     p_reason: reason?.trim() || null,

@@ -5,6 +5,14 @@ import { MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -31,7 +39,7 @@ export function PlatformUserStatusActions({
   const [isPending, startTransition] = useTransition()
   const [confirmTotal, setConfirmTotal] = useState(false)
   const [confirmReactivate, setConfirmReactivate] = useState(false)
-  const [tempOpen, setTempOpen] = useState(false)
+  const [tempDialogOpen, setTempDialogOpen] = useState(false)
   const [tempUntil, setTempUntil] = useState('')
   const [tempReason, setTempReason] = useState('')
 
@@ -74,7 +82,7 @@ export function PlatformUserStatusActions({
         notify.error(res.error)
         return
       }
-      setTempOpen(false)
+      setTempDialogOpen(false)
       setTempReason('')
       setTempUntil('')
       notify.success('Suspension temporaire appliquée')
@@ -96,7 +104,7 @@ export function PlatformUserStatusActions({
           <DropdownMenuItem disabled={!canSuspendTotal || isPending} onSelect={() => setConfirmTotal(true)}>
             Suspension totale
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={isPending} onSelect={() => setTempOpen(true)}>
+          <DropdownMenuItem disabled={isPending} onSelect={() => setTempDialogOpen(true)}>
             Suspension temporaire
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -123,31 +131,46 @@ export function PlatformUserStatusActions({
         onConfirm={suspendTotal}
       />
 
-      <ConfirmDialog
-        open={tempOpen}
-        onOpenChange={setTempOpen}
-        title="Suspension temporaire"
-        description="Définissez une date de fin avant validation."
-        confirmLabel="Appliquer"
-        variant="destructive"
-        loading={isPending}
-        onConfirm={suspendTemporary}
-      />
-
-      {tempOpen && (
-        <div className="mt-2 grid gap-2 rounded-xl border bg-white p-3">
-          <Input
-            type="datetime-local"
-            value={tempUntil}
-            onChange={e => setTempUntil(e.target.value)}
-          />
-          <Input
-            placeholder="Motif (optionnel)"
-            value={tempReason}
-            onChange={e => setTempReason(e.target.value)}
-          />
-        </div>
-      )}
+      <Dialog open={tempDialogOpen} onOpenChange={setTempDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Suspension temporaire</DialogTitle>
+            <DialogDescription>
+              Configure la date de fin et un motif optionnel.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <Input
+              type="datetime-local"
+              value={tempUntil}
+              onChange={e => setTempUntil(e.target.value)}
+            />
+            <Input
+              placeholder="Motif (optionnel)"
+              value={tempReason}
+              onChange={e => setTempReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => setTempDialogOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              loading={isPending}
+              onClick={suspendTemporary}
+            >
+              Appliquer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

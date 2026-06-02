@@ -25,6 +25,7 @@ export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect')
+  const loginError = searchParams.get('error')
   const prefilledEmail = searchParams.get('email')?.trim() ?? ''
   const prefilledSchoolId = searchParams.get('school')?.trim() ?? ''
 
@@ -53,6 +54,16 @@ export function LoginForm() {
     if (!prefilledEmail) return
     void loadSchools(prefilledEmail)
   }, [prefilledEmail])
+
+  useEffect(() => {
+    if (loginError === 'account_suspended') {
+      notify.error('Compte suspendu. Contactez la super administration.')
+      return
+    }
+    if (loginError === 'school_suspended') {
+      notify.error('Votre établissement est suspendu ou désactivé.')
+    }
+  }, [loginError])
 
   async function loadSchools(email: string) {
     const trimmed = email.trim()

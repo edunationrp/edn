@@ -5,6 +5,14 @@ import { MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -27,7 +35,7 @@ export function PlatformSchoolStatusActions({
 }: PlatformSchoolStatusActionsProps) {
   const [isPending, startTransition] = useTransition()
   const [confirmStatus, setConfirmStatus] = useState<SchoolPlatformStatus | null>(null)
-  const [tempOpen, setTempOpen] = useState(false)
+  const [tempDialogOpen, setTempDialogOpen] = useState(false)
   const [tempUntil, setTempUntil] = useState('')
   const [reason, setReason] = useState('')
 
@@ -39,7 +47,7 @@ export function PlatformSchoolStatusActions({
         return
       }
       setConfirmStatus(null)
-      setTempOpen(false)
+      setTempDialogOpen(false)
       setTempUntil('')
       setReason('')
       notify.success(`Statut établissement: ${status}`)
@@ -58,7 +66,7 @@ export function PlatformSchoolStatusActions({
           <DropdownMenuItem disabled={currentStatus === 'ACTIVE'} onSelect={() => setConfirmStatus('ACTIVE')}>
             Activer
           </DropdownMenuItem>
-          <DropdownMenuItem disabled={currentStatus === 'SUSPENDED'} onSelect={() => setTempOpen(true)}>
+          <DropdownMenuItem disabled={currentStatus === 'SUSPENDED'} onSelect={() => setTempDialogOpen(true)}>
             Suspendre temporairement
           </DropdownMenuItem>
           <DropdownMenuItem disabled={currentStatus === 'DISABLED'} onSelect={() => setConfirmStatus('DISABLED')}>
@@ -88,36 +96,52 @@ export function PlatformSchoolStatusActions({
         onConfirm={() => applyStatus('DISABLED')}
       />
 
-      <ConfirmDialog
-        open={tempOpen}
-        onOpenChange={setTempOpen}
-        title="Suspension temporaire"
-        description="Choisissez une date de fin de suspension."
-        confirmLabel="Suspendre"
-        variant="destructive"
-        loading={isPending}
-        onConfirm={() => {
-          if (!tempUntil) {
-            notify.error('Date de fin requise.')
-            return
-          }
-          applyStatus('SUSPENDED', new Date(tempUntil).toISOString())
-        }}
-      />
-      {tempOpen && (
-        <div className="mt-2 grid gap-2 rounded-xl border bg-white p-3">
-          <Input
-            type="datetime-local"
-            value={tempUntil}
-            onChange={e => setTempUntil(e.target.value)}
-          />
-          <Input
-            placeholder="Motif (optionnel)"
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-          />
-        </div>
-      )}
+      <Dialog open={tempDialogOpen} onOpenChange={setTempDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Suspension temporaire école</DialogTitle>
+            <DialogDescription>
+              Configure la date de fin et un motif optionnel.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <Input
+              type="datetime-local"
+              value={tempUntil}
+              onChange={e => setTempUntil(e.target.value)}
+            />
+            <Input
+              placeholder="Motif (optionnel)"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => setTempDialogOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              loading={isPending}
+              onClick={() => {
+                if (!tempUntil) {
+                  notify.error('Date de fin requise.')
+                  return
+                }
+                applyStatus('SUSPENDED', new Date(tempUntil).toISOString())
+              }}
+            >
+              Suspendre
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
