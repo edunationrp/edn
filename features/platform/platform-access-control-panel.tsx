@@ -14,24 +14,28 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { notify } from '@/lib/feedback/toast'
-import { setPlatformSchoolStatus, setPlatformUserActive } from '@/lib/actions/platform'
+import { reviewSuspensionAppeal, setPlatformSchoolStatus, setPlatformUserActive } from '@/lib/actions/platform'
 import type {
   PlatformAccessControlSchoolRow,
   PlatformAccessControlUserRow,
+  SuspensionAppealRow,
 } from '@/lib/platform/types'
 import { formatDate } from '@/lib/utils'
 
 export function PlatformAccessControlPanel({
   suspendedUsers,
   restrictedSchools,
+  pendingAppeals,
 }: {
   suspendedUsers: PlatformAccessControlUserRow[]
   restrictedSchools: PlatformAccessControlSchoolRow[]
+  pendingAppeals: SuspensionAppealRow[]
 }) {
   const [isPending, startTransition] = useTransition()
   const [reactivateUserId, setReactivateUserId] = useState<string | null>(null)
   const [reactivateSchoolId, setReactivateSchoolId] = useState<string | null>(null)
   const [schoolReason, setSchoolReason] = useState('')
+  const [appealNote, setAppealNote] = useState('')
 
   function reactivateUser(userId: string) {
     startTransition(async () => {
@@ -62,8 +66,75 @@ export function PlatformAccessControlPanel({
     })
   }
 
+  function reviewAppeal(appealId: string, status: 'APPROVED' | 'REJECTED') {
+    startTransition(async () => {
+      const res = await reviewSuspensionAppeal(appealId, status, appealNote)
+      if ('error' in res && res.error) {
+        notify.error(res.error)
+        return
+      }
+      setAppealNote('')
+      notify.success(status === 'APPROVED' ? 'Demande approuvée' : 'Demande rejetée')
+    })
+  }
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      <div className="rounded-2xl border bg-white lg:col-span-2">
+        <div className="border-b px-4 py-3">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <ShieldAlert className="h-4 w-4 text-violet-600" />
+            Demandes d&apos;annulation de suspension ({pendingAppeals.length})
+          </h3>
+        </div>
+        <div className="max-h-[420px] space-y-2 overflow-auto p-3">
+          {pendingAppeals.length === 0 ? (
+            <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+              Aucune demande en attente.
+            </p>
+          ) : pendingAppeals.map(appeal => (
+            <div key={appeal.id} className="rounded-xl border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-slate-900">{appeal.requesterName ?? '—'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {appeal.requesterEmail ?? '—'} · {appeal.appealScope === 'ACCOUNT' ? 'Compte' : 'École'}
+                    {appeal.schoolName ? ` · ${appeal.schoolName}` : ''}
+                  </p>
+                </div>
+                <Badge variant="warning">En attente</Badge>
+              </div>
+              <p className="mt-2 text-sm text-slate-700">{appeal.message}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Soumise le {formatDate(appeal.createdAt)}
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                <Input
+                  placeholder="Note de revue (optionnel)"
+                  value={appealNote}
+                  onChange={e => setAppealNote(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={() => reviewAppeal(appeal.id, 'REJECTED')}
+                >
+                  Rejeter
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => reviewAppeal(appeal.id, 'APPROVED')}
+                >
+                  Approuver
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="rounded-2xl border bg-white">
         <div className="border-b px-4 py-3">
           <h3 className="flex items-center gap-2 text-sm font-semibold">

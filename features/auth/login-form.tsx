@@ -56,12 +56,8 @@ export function LoginForm() {
   }, [prefilledEmail])
 
   useEffect(() => {
-    if (loginError === 'account_suspended') {
-      notify.error('Compte suspendu. Contactez la super administration.')
-      return
-    }
-    if (loginError === 'school_suspended') {
-      notify.error('Votre établissement est suspendu ou désactivé.')
+    if (loginError === 'suspended') {
+      notify.error('Votre accès est suspendu. Consultez les détails sur l’écran dédié.')
     }
   }, [loginError])
 
@@ -105,7 +101,9 @@ export function LoginForm() {
     notify.success(TOAST_SUCCESS.login.title, { description: TOAST_SUCCESS.login.description })
 
     const destination =
-      redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//')
+      (result.redirectTo && result.redirectTo.startsWith('/') && !result.redirectTo.startsWith('//'))
+        ? result.redirectTo
+        : redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//')
         ? redirectTo
         : '/dashboard'
     router.push(destination)

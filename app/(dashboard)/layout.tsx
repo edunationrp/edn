@@ -47,7 +47,7 @@ export default async function DashboardLayout({
   const profileOperational = Boolean(profileOperationalRaw)
 
   if (!profile.is_active || accountStatus === 'SUSPENDED_TOTAL' || !profileOperational) {
-    redirect('/login?error=account_suspended')
+    redirect('/suspended')
   }
 
   const { data: schoolRolesRaw } = await supabase
@@ -88,7 +88,7 @@ export default async function DashboardLayout({
   const isPlatformOwner = isPlatformAdmin(effectiveRole)
   const defaultIsPlatformOwner = isPlatformOwnerRole(profile.default_role)
   if (!isPlatformOwner && !activeSchool && !defaultIsPlatformOwner) {
-    redirect('/login?error=school_suspended')
+    redirect('/suspended')
   }
   const currentRole = (effectiveRole ?? profile.default_role ?? 'ELEVE') as UserRole
   const roleLabel = ROLE_LABELS[currentRole] ?? currentRole

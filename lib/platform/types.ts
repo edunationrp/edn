@@ -118,3 +118,19 @@ export type PlatformAccessControlSchoolRow = {
   suspendedUntil: string | null
   statusReason: string | null
 }
+
+export type SuspensionAppealRow = {
+  id: string
+  requesterId: string
+  requesterName: string | null
+  requesterEmail: string | null
+  schoolId: string | null
+  schoolName: string | null
+  appealScope: 'ACCOUNT' | 'SCHOOL'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  message: string
+  reviewNote: string | null
+  reviewedBy: string | null
+  reviewedAt: string | null
+  createdAt: string
+}

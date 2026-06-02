@@ -6,6 +6,7 @@ import type {
   PlatformOrganizationRow,
   PlatformOverview,
   PlatformSchoolRow,
+  SuspensionAppealRow,
   PlatformUserRow,
 } from '@/lib/platform/types'
 
@@ -499,9 +500,10 @@ export async function getPlatformAuditLogs(limit = 100): Promise<PlatformAuditLo
 export async function getPlatformAccessControlData(): Promise<{
   suspendedUsers: PlatformAccessControlUserRow[]
   restrictedSchools: PlatformAccessControlSchoolRow[]
+  pendingAppeals: SuspensionAppealRow[]
 }> {
   const admin = getAdmin()
-  if (!admin) return { suspendedUsers: [], restrictedSchools: [] }
+  if (!admin) return { suspendedUsers: [], restrictedSchools: [], pendingAppeals: [] }
 
   type QueryClient = {
     from: (table: string) => {
@@ -514,7 +516,7 @@ export async function getPlatformAccessControlData(): Promise<{
   }
   const queryClient = admin as unknown as QueryClient
 
-  const [usersRes, schoolsRes] = await Promise.all([
+  const [usersRes, schoolsRes, appealsRes] = await Promise.all([
     queryClient
       .from('profiles')
       .select('id, full_name, email, default_role, account_status, suspended_until, suspension_reason')
@@ -525,6 +527,16 @@ export async function getPlatformAccessControlData(): Promise<{
       .select('id, name, city, country, platform_status, suspended_until, status_reason')
       .in('platform_status', ['SUSPENDED', 'DISABLED'])
       .order('updated_at', { ascending: false }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin as any)
+      .from('suspension_appeal_requests')
+      .select(`
+        id, requester_id, school_id, appeal_scope, status, message, review_note, reviewed_by, reviewed_at, created_at,
+        profiles!suspension_appeal_requests_requester_id_fkey ( full_name, email ),
+        schools ( name )
+      `)
+      .eq('status', 'PENDING')
+      .order('created_at', { ascending: false }),
   ])
 
   const suspendedUsers = ((usersRes.data ?? []) as Array<{
@@ -563,5 +575,34 @@ export async function getPlatformAccessControlData(): Promise<{
     statusReason: school.status_reason,
   }))
 
-  return { suspendedUsers, restrictedSchools }
+  const pendingAppeals = ((appealsRes.data ?? []) as Array<{
+    id: string
+    requester_id: string
+    school_id: string | null
+    appeal_scope: 'ACCOUNT' | 'SCHOOL'
+    status: 'PENDING' | 'APPROVED' | 'REJECTED'
+    message: string
+    review_note: string | null
+    reviewed_by: string | null
+    reviewed_at: string | null
+    created_at: string
+    profiles: { full_name: string | null; email: string | null } | null
+    schools: { name: string | null } | null
+  }>).map(row => ({
+    id: row.id,
+    requesterId: row.requester_id,
+    requesterName: row.profiles?.full_name ?? null,
+    requesterEmail: row.profiles?.email ?? null,
+    schoolId: row.school_id,
+    schoolName: row.schools?.name ?? null,
+    appealScope: row.appeal_scope,
+    status: row.status,
+    message: row.message,
+    reviewNote: row.review_note,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at,
+    createdAt: row.created_at,
+  }))
+
+  return { suspendedUsers, restrictedSchools, pendingAppeals }
 }

@@ -155,3 +155,24 @@ export async function setPlatformSchoolStatus(
   revalidatePath(`/dashboard/platform/schools/${schoolId}`)
   return { success: true as const }
 }
+
+export async function reviewSuspensionAppeal(
+  appealId: string,
+  status: 'APPROVED' | 'REJECTED',
+  note?: string
+) {
+  const result = await requireAdmin()
+  if ('error' in result) return result
+
+  const rpcClient = result.userClient as unknown as AdminRpcClient
+  const { error } = await rpcClient.rpc('review_suspension_appeal', {
+    p_request_id: appealId,
+    p_status: status,
+    p_review_note: note?.trim() || null,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/platform/access-control')
+  return { success: true as const }
+}

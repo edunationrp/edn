@@ -20,6 +20,7 @@ export default async function PlatformAccessControlPage() {
       <PlatformAccessControlPanel
         suspendedUsers={data.suspendedUsers}
         restrictedSchools={data.restrictedSchools}
+        pendingAppeals={data.pendingAppeals}
       />
     </div>
   )
