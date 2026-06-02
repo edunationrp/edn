@@ -6,6 +6,8 @@ import {
 import Link from 'next/link'
 import { EmptyPanel } from '@/components/dashboard/empty-panel'
 import { getTeacherDashboardData } from '@/lib/dashboard/teacher-dashboard-data'
+import { getTeacherTodayCourses, getTeacherWeeklyAbsenceCount } from '@/lib/attendance/teacher-attendance'
+import { TeacherTodayCourses } from '@/features/attendance/teacher-today-courses'
 
 interface ProfesseurDashboardProps {
   schoolId?: string
@@ -17,6 +19,13 @@ export async function ProfesseurDashboard({ schoolId, userId, userName = 'M. Tra
   const dashboard = schoolId
     ? await getTeacherDashboardData(schoolId, userId)
     : { assignments: [], totalStudents: 0, classCount: 0 }
+
+  const [todayCourses, weeklyAbsences] = schoolId
+    ? await Promise.all([
+        getTeacherTodayCourses(schoolId, userId),
+        getTeacherWeeklyAbsenceCount(schoolId, userId),
+      ])
+    : [[], 0]
 
   const { assignments, totalStudents, classCount } = dashboard
 
@@ -122,13 +131,17 @@ export async function ProfesseurDashboard({ schoolId, userId, userName = 'M. Tra
 
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
           <div className="flex items-start justify-between mb-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Moy. générale</p>
-            <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
-              <BookOpen className="h-4 w-4" />
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Absences (7 j)</p>
+            <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
+              <UserCheck className="h-4 w-4" />
             </div>
           </div>
-          <p className="text-3xl font-extrabold text-gray-900">—</p>
-          <p className="text-[11px] text-gray-400 mt-1">Bientôt disponible</p>
+          <p className="text-3xl font-extrabold text-gray-900">{weeklyAbsences}</p>
+          <p className="text-[11px] text-gray-400 mt-1">
+            <Link href="/dashboard/attendance/my" className="font-semibold text-[#1B3A6B] hover:underline">
+              Voir mes appels
+            </Link>
+          </p>
         </div>
       </div>
 
@@ -137,16 +150,14 @@ export async function ProfesseurDashboard({ schoolId, userId, userName = 'M. Tra
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
             <div>
-              <h3 className="font-bold text-gray-900 text-sm">Aujourd&apos;hui</h3>
+              <h3 className="font-bold text-gray-900 text-sm">Cours à appeler aujourd&apos;hui</h3>
               <p className="text-xs text-gray-400 mt-0.5">{todayStr}</p>
             </div>
             <Link href="/dashboard/timetable" className="text-xs text-[#1B3A6B] font-semibold hover:underline flex items-center gap-1">
-              Mon emploi du temps <ChevronRight className="h-3.5 w-3.5" />
+              Emploi du temps <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="divide-y divide-gray-50 px-5 py-8 text-center text-xs text-gray-500">
-            L&apos;emploi du temps sera disponible prochainement. Consultez vos classes en attendant.
-          </div>
+          <TeacherTodayCourses courses={todayCourses} />
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -167,7 +178,7 @@ export async function ProfesseurDashboard({ schoolId, userId, userName = 'M. Tra
                 {assignments.map(item => (
                   <Link
                     key={item.id}
-                    href="/dashboard/classes"
+                    href={`/dashboard/attendance/take?class=${item.classId}&subject=${item.subjectId}`}
                     className="group flex items-center gap-3 rounded-xl border border-gray-100 p-3 transition-all hover:border-[#1B3A6B]/30 hover:bg-[#1B3A6B]/3"
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF3FA] text-[#1B3A6B] text-xs font-black group-hover:bg-[#1B3A6B] group-hover:text-white">

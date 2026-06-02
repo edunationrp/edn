@@ -6,6 +6,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { EmptyPanel } from '@/components/dashboard/empty-panel'
+import { getParentStudentFinanceSummary } from '@/lib/finance/parent-student-finance'
+import { formatCurrency } from '@/lib/utils'
 
 interface ParentDashboardProps {
   schoolId?: string
@@ -77,6 +79,11 @@ export async function ParentDashboard({ schoolId, userId, userName = 'M. Ouedrao
 
   const primaryChild = displayChildren[0]
 
+  let financeSummary = null
+  if (schoolId && primaryChild) {
+    financeSummary = await getParentStudentFinanceSummary(schoolId, primaryChild.id)
+  }
+
   return (
     <div className="space-y-4 animate-fade-in sm:space-y-5">
 
@@ -105,7 +112,7 @@ export async function ParentDashboard({ schoolId, userId, userName = 'M. Ouedrao
                 </Link>
               </Button>
               <Button asChild size="sm" variant="outline" className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white">
-                <Link href="/dashboard/finance">
+                <Link href="/dashboard/finance/payments">
                   <Wallet className="h-4 w-4 mr-1.5" />
                   Mes paiements
                 </Link>
@@ -189,11 +196,23 @@ export async function ParentDashboard({ schoolId, userId, userName = 'M. Ouedrao
               <Wallet className="h-4 w-4" />
             </div>
           </div>
-          <p className="text-3xl font-extrabold text-gray-900">—</p>
+          <p className="text-3xl font-extrabold text-gray-900">
+            {financeSummary?.isSettled
+              ? 'Réglé'
+              : financeSummary && financeSummary.remaining > 0
+                ? formatCurrency(financeSummary.remaining)
+                : '—'}
+          </p>
           <p className="text-[11px] text-gray-400 mt-0.5">
-            <Link href="/dashboard/finance" className="font-semibold text-[#1B3A6B] hover:underline">
-              Voir les paiements
-            </Link>
+            {financeSummary?.isSettled
+              ? 'Tout est à jour'
+              : financeSummary && financeSummary.remaining > 0
+                ? 'Reste à payer'
+                : (
+                  <Link href="/dashboard/finance/payments" className="font-semibold text-[#1B3A6B] hover:underline">
+                    Voir les paiements
+                  </Link>
+                )}
           </p>
         </div>
       </div>

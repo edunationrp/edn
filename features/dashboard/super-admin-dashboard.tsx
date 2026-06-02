@@ -11,6 +11,7 @@ import { QuickLinkGrid } from '@/components/dashboard/quick-link-grid'
 import { getPlatformOverview } from '@/lib/platform/queries'
 import { formatRelativeDate } from '@/lib/utils'
 import { SCHOOL_TYPES } from '@/lib/onboarding/constants'
+import { SuperAdminCapabilities } from '@/features/platform/super-admin-capabilities'
 
 type SuperAdminDashboardProps = {
   userName?: string
@@ -174,6 +175,17 @@ export async function SuperAdminDashboard({ userName = 'Admin' }: SuperAdminDash
           </div>
         </SectionPanel>
       </div>
+
+      <SectionPanel
+        title="Ce que le super admin peut faire"
+        description="Vue d'ensemble des capacites disponibles et a venir"
+        actionHref="/dashboard/platform/settings"
+        actionLabel="Parametres plateforme"
+      >
+        <div className="px-5 py-5">
+          <SuperAdminCapabilities />
+        </div>
+      </SectionPanel>
     </DashboardPage>
   )
 }

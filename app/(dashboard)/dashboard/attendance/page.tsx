@@ -8,6 +8,8 @@ import { KPICard } from '@/components/cards/kpi-card'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { UserCheck, UserX, Clock, AlertTriangle, Plus } from 'lucide-react'
 import Link from 'next/link'
+import { getStudentsAbsenceAlerts, canViewAbsenceAlerts } from '@/lib/attendance/absence-alerts'
+import { AbsenceAlertsPanel } from '@/features/attendance/absence-alerts-panel'
 import { AttendanceRecordsTable } from '@/features/attendance/attendance-records-table'
 
 export default async function AttendancePage() {
@@ -19,21 +21,36 @@ export default async function AttendancePage() {
   const schoolId = ctx?.school_id
   const isTeacher = ctx?.role_code === 'PROFESSEUR'
 
-  const [recentResult, classesResult, assignmentsResult] = await Promise.all([
-    schoolId
-      ? supabase
-          .from('attendance_records')
-          .select('id, student_id, status, recorded_at, students(first_name, last_name)')
-          .eq('school_id', schoolId)
-          .order('recorded_at', { ascending: false })
-          .limit(50)
-      : Promise.resolve({ data: null }),
+  const recordsQuery = schoolId
+    ? supabase
+        .from('attendance_records')
+        .select('id, student_id, status, recorded_at, students(first_name, last_name)')
+        .eq('school_id', schoolId)
+        .order('recorded_at', { ascending: false })
+        .limit(isTeacher ? 100 : 50)
+    : null
+
+  const recordsPromise = recordsQuery
+    ? (isTeacher && user
+        ? recordsQuery.eq('teacher_id', user.id)
+        : recordsQuery)
+    : Promise.resolve({ data: null })
+
+  const canViewAlerts = canViewAbsenceAlerts(ctx?.role_code ?? '')
+
+  const alertsPromise = canViewAlerts && schoolId
+    ? getStudentsAbsenceAlerts(schoolId)
+    : Promise.resolve(null)
+
+  const [recentResult, classesResult, assignmentsResult, alertsData] = await Promise.all([
+    recordsPromise,
     schoolId
       ? supabase.from('classes').select('id, name').eq('school_id', schoolId).order('name')
       : Promise.resolve({ data: null }),
     isTeacher && schoolId
       ? getTeacherAssignments(supabase, user.id, schoolId)
       : Promise.resolve([]),
+    alertsPromise,
   ])
 
   const records = (recentResult.data as Array<{
@@ -77,6 +94,21 @@ export default async function AttendancePage() {
         description="Suivi des présences, absences et retards"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {isTeacher && (
+              <Button size="sm" variant="outline" asChild className="w-full sm:w-auto">
+                <Link href="/dashboard/attendance/my">Mes appels</Link>
+              </Button>
+            )}
+            {canViewAlerts && (
+              <Button size="sm" variant="outline" asChild className="w-full sm:w-auto">
+                <Link href="/dashboard/attendance/alerts">
+                  Alertes assiduité
+                  {alertsData && alertsData.students.length > 0
+                    ? ` (${alertsData.students.length})`
+                    : ''}
+                </Link>
+              </Button>
+            )}
             {['PROVISEUR', 'CENSEUR', 'SECRETAIRE', 'VIE_SCOLAIRE', 'SURVEILLANT_GENERAL', 'CONSEILLER', 'DIRECTEUR_ADJOINT', 'FONDATEUR'].includes(ctx?.role_code ?? '') && (
               <Button size="sm" variant="outline" asChild className="w-full sm:w-auto">
                 <Link href="/dashboard/attendance/justifications">Justifications parents</Link>
@@ -100,6 +132,14 @@ export default async function AttendancePage() {
         <KPICard title="Présents" value={presentCount} icon={<UserCheck className="h-5 w-5" />} color="green" changeLabel="Enregistrements récents" />
         <KPICard title="Total" value={totalRecords} icon={<AlertTriangle className="h-5 w-5" />} color="blue" changeLabel="50 derniers" />
       </div>
+
+      {canViewAlerts && alertsData && (
+        <AbsenceAlertsPanel
+          config={alertsData.config}
+          students={alertsData.students}
+          compact
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
         {canTakeAttendance && (
@@ -138,7 +178,7 @@ export default async function AttendancePage() {
         <div className={canTakeAttendance ? 'xl:col-span-2' : 'xl:col-span-3'}>
           <AttendanceRecordsTable
             records={recentRows}
-            title="Enregistrements récents"
+            title={isTeacher ? 'Mes absences récentes' : 'Enregistrements récents'}
             compact
           />
         </div>

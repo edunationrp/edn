@@ -1,12 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { getScopedStudentIds, canAccessFinance } from '@/lib/dashboard/role-scope'
-import { canViewFinancePages } from '@/lib/finance/access'
+import { getScopedStudentIds } from '@/lib/dashboard/role-scope'
+import { canViewFinancePages, isPersonalFinanceRole } from '@/lib/finance/access'
+import { getParentChildrenFinanceSummaries } from '@/lib/finance/parent-student-finance'
 import { redirect } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { PaymentsTable } from '@/features/finance/payments-table'
+import { ParentFinanceView } from '@/features/parent/parent-finance-view'
 import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -33,7 +35,9 @@ export default async function PaymentsListPage() {
   if (!ctx) redirect('/dashboard')
   if (!canViewFinancePages(ctx.role_code)) redirect('/dashboard')
 
+  const isParent = isPersonalFinanceRole(ctx.role_code)
   const scopedStudentIds = await getScopedStudentIds(user.id, ctx.role_code)
+
   if (scopedStudentIds !== null && scopedStudentIds.length === 0) {
     return (
       <div className="space-y-4 animate-fade-in">
@@ -43,6 +47,37 @@ export default async function PaymentsListPage() {
             Contactez l&apos;établissement pour associer votre compte à un élève.
           </CardContent>
         </Card>
+      </div>
+    )
+  }
+
+  if (isParent && scopedStudentIds) {
+    const summaries = await getParentChildrenFinanceSummaries(ctx.school_id, scopedStudentIds)
+
+    return (
+      <div className="space-y-4 animate-fade-in sm:space-y-6">
+        <PageHeader
+          title="Mes paiements"
+          description="Historique et solde restant pour vos enfants"
+        />
+
+        {summaries.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              Impossible de charger la situation financière. Contactez l&apos;établissement.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-8">
+            {summaries.map(summary => (
+              <ParentFinanceView
+                key={summary.studentId}
+                summary={summary}
+                showStudentHeader={summaries.length > 1}
+              />
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -71,22 +106,18 @@ export default async function PaymentsListPage() {
       : 'Élève',
   }))
 
-  const isStaff = canAccessFinance(ctx.role_code)
-
   return (
     <div className="space-y-4 animate-fade-in sm:space-y-6">
       <PageHeader
-        title={isStaff ? 'Tous les paiements' : 'Mes paiements'}
+        title="Tous les paiements"
         description={`${payments.length} transaction(s) récente(s)`}
         actions={
-          isStaff ? (
-            <Button size="sm" asChild className="w-full sm:w-auto">
-              <Link href="/dashboard/finance/payments/new">
-                <Plus className="h-4 w-4 mr-1" />
-                Nouveau paiement
-              </Link>
-            </Button>
-          ) : undefined
+          <Button size="sm" asChild className="w-full sm:w-auto">
+            <Link href="/dashboard/finance/payments/new">
+              <Plus className="h-4 w-4 mr-1" />
+              Nouveau paiement
+            </Link>
+          </Button>
         }
       />
 

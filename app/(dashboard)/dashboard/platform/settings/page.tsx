@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/dashboard/page-header'
 import { PlatformSettingsClient } from '@/features/platform/platform-settings-client'
+import { SuperAdminCapabilities } from '@/features/platform/super-admin-capabilities'
 import { isEmailConfigured } from '@/lib/email/client'
 import type { Metadata } from 'next'
 
@@ -22,6 +23,7 @@ export default function PlatformSettingsPage() {
         emailConfigured={emailConfigured}
         serviceRoleConfigured={serviceRoleConfigured}
       />
+      <SuperAdminCapabilities />
     </div>
   )
 }

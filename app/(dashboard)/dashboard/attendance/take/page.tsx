@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { getTeacherAssignments, teacherCanAccessClass } from '@/lib/classes/access'
+import {
+  teacherCanAccessAssignment,
+  getTeacherAssignmentOptions,
+} from '@/lib/attendance/teacher-attendance'
 import { redirect } from 'next/navigation'
 import { AttendanceTakeClient } from '@/features/attendance/attendance-take-client'
 import type { Metadata } from 'next'
@@ -13,7 +16,7 @@ export const metadata: Metadata = {
 export default async function AttendanceTakePage({
   searchParams,
 }: {
-  searchParams: Promise<{ class?: string }>
+  searchParams: Promise<{ class?: string; subject?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -27,26 +30,28 @@ export default async function AttendanceTakePage({
   const isTeacher = role === 'PROFESSEUR'
   const params = await searchParams
 
-  if (isTeacher && params.class) {
-    const canAccess = await teacherCanAccessClass(supabase, user.id, schoolId, params.class, role)
-    if (!canAccess) redirect('/dashboard/attendance')
+  if (isTeacher && params.class && params.subject) {
+    const canAccess = await teacherCanAccessAssignment(
+      supabase,
+      user.id,
+      schoolId,
+      params.class,
+      params.subject,
+    )
+    if (!canAccess) redirect('/dashboard/attendance/take')
   }
 
-  const [classesResult, subjectsResult, yearResult, assignmentsResult] = await Promise.all([
+  const [classesResult, subjectsResult, yearResult, assignments] = await Promise.all([
     supabase.from('classes').select('id, name').eq('school_id', schoolId).order('name'),
     supabase.from('subjects').select('id, name').eq('school_id', schoolId).eq('is_active', true).order('name'),
     supabase.from('school_years').select('id, name').eq('school_id', schoolId).eq('is_active', true).limit(1),
-    isTeacher ? getTeacherAssignments(supabase, user.id, schoolId) : Promise.resolve([]),
+    isTeacher ? getTeacherAssignmentOptions(supabase, user.id, schoolId) : Promise.resolve([]),
   ])
 
   const classesRaw = (classesResult.data as Array<{ id: string; name: string }> | null) ?? []
   const subjectsRaw = (subjectsResult.data as Array<{ id: string; name: string }> | null) ?? []
-  const assignedClassIds = new Set(
-    assignmentsResult.map(a => a.classId).filter(Boolean) as string[],
-  )
-  const assignedSubjectIds = new Set(
-    assignmentsResult.map(a => a.subjectId).filter(Boolean) as string[],
-  )
+  const assignedClassIds = new Set(assignments.map(a => a.classId))
+  const assignedSubjectIds = new Set(assignments.map(a => a.subjectId))
   const classes = isTeacher
     ? classesRaw.filter(cls => assignedClassIds.has(cls.id))
     : classesRaw
@@ -73,7 +78,9 @@ export default async function AttendanceTakePage({
       schoolYearId={schoolYear.id}
       classes={classes}
       subjects={subjects}
+      assignments={isTeacher ? assignments : undefined}
       initialClassId={params.class ?? ''}
+      initialSubjectId={params.subject ?? ''}
     />
   )
 }

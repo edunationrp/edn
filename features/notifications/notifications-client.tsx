@@ -24,6 +24,8 @@ const TYPE_CONFIG: Record<string, { icon: React.ReactNode; color: string; label:
   payment: { icon: <CreditCard className="h-4 w-4" />, color: 'bg-green-100 text-green-700', label: 'Paiement' },
   grade: { icon: <FileCheck className="h-4 w-4" />, color: 'bg-blue-100 text-blue-700', label: 'Notes' },
   attendance: { icon: <UserX className="h-4 w-4" />, color: 'bg-orange-100 text-orange-700', label: 'Absence' },
+  attendance_threshold: { icon: <UserX className="h-4 w-4" />, color: 'bg-red-100 text-red-700', label: 'Alerte assiduité' },
+  attendance_justification: { icon: <UserX className="h-4 w-4" />, color: 'bg-amber-100 text-amber-700', label: 'Justification' },
   announcement: { icon: <Megaphone className="h-4 w-4" />, color: 'bg-purple-100 text-purple-700', label: 'Annonce' },
   system: { icon: <Bell className="h-4 w-4" />, color: 'bg-gray-100 text-gray-700', label: 'Système' },
 }

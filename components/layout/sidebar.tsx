@@ -98,6 +98,10 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       { group: 'Validation', items: [
         { id: 'bulletins-validation', label: 'Validation bulletins', icon: 'award', href: '/dashboard/report-cards' },
       ]},
+      { group: 'Assiduité', items: [
+        { id: 'absences-p', label: 'Absences & présences', icon: 'userX', href: '/dashboard/attendance' },
+        { id: 'alertes-p', label: 'Alertes assiduité', icon: 'alert', href: '/dashboard/attendance/alerts' },
+      ]},
       { group: 'Système', items: [
         { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/audit-logs' },
       ]},
@@ -148,6 +152,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Discipline & assiduité', items: [
         { id: 'absences', label: 'Absences du jour', icon: 'userX', href: '/dashboard/attendance' },
+        { id: 'alertes-c', label: 'Alertes assiduité', icon: 'alert', href: '/dashboard/attendance/alerts' },
         { id: 'sanctions', label: 'Sanctions', icon: 'alert', href: '/dashboard/attendance' },
       ]},
       { group: 'Notes', items: [
@@ -234,6 +239,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Assiduité', items: [
         { id: 'absences-v', label: 'Absences à traiter', icon: 'userX', href: '/dashboard/attendance' },
+        { id: 'alertes-v', label: 'Alertes assiduité', icon: 'alert', href: '/dashboard/attendance/alerts' },
         { id: 'appel', label: 'Faire l\'appel', icon: 'userCheck', href: '/dashboard/attendance/take' },
       ]},
       { group: 'Communication', items: [
@@ -257,6 +263,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'classes', label: 'Mes classes', icon: 'users', href: '/dashboard/classes' },
         { id: 'saisie-notes', label: 'Saisie des notes', icon: 'fileCheck', href: '/dashboard/grades/entry' },
         { id: 'appel', label: 'Appel des élèves', icon: 'userCheck', href: '/dashboard/attendance/take' },
+        { id: 'mes-appels', label: 'Mes appels', icon: 'fileText', href: '/dashboard/attendance/my' },
         { id: 'cours', label: 'Ressources de cours', icon: 'book', href: '/dashboard/cours' },
       ]},
       { group: 'Communication', items: [

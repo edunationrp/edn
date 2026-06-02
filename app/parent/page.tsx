@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { requireParentPortalAccess } from '@/lib/parent/parent-context'
 import { countUnreadParentConvocations } from '@/lib/parent/communications'
+import { getParentStudentFinanceSummary } from '@/lib/finance/parent-student-finance'
 import type { BulletinSnapshot } from '@/lib/report-cards/snapshot-types'
 import type { Metadata } from 'next'
 
@@ -121,7 +122,7 @@ export default async function ParentHomePage() {
     recentGrades = (gradesRaw ?? []) as typeof recentGrades
   }
 
-  const [{ count: absenceCount }, { data: latestBulletinRaw }, { data: paymentsRaw }] = await Promise.all([
+  const [{ count: absenceCount }, { data: latestBulletinRaw }, financeSummary] = await Promise.all([
     supabase
       .from('attendance_records')
       .select('*', { count: 'exact', head: true })
@@ -135,12 +136,7 @@ export default async function ParentHomePage() {
       .order('generated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase
-      .from('payments')
-      .select('amount, status')
-      .eq('student_id', studentId)
-      .eq('school_id', schoolId)
-      .in('status', ['pending', 'partial', 'overdue']),
+    getParentStudentFinanceSummary(schoolId, studentId),
   ])
 
   const { count: bulletinCount } = await supabase
@@ -161,8 +157,8 @@ export default async function ParentHomePage() {
     ?? latestBulletin?.snapshot_json?.generalAverage
     ?? null
 
-  const pendingAmount = ((paymentsRaw ?? []) as Array<{ amount: number; status: string }>)
-    .reduce((sum, payment) => sum + payment.amount, 0)
+  const pendingAmount = financeSummary?.remaining ?? 0
+  const paymentsSettled = financeSummary?.isSettled ?? false
 
   const moyenneFromNotes = recentGrades.length > 0
     ? recentGrades.reduce(
@@ -177,7 +173,11 @@ export default async function ParentHomePage() {
     moyenne: displayedAverage !== null ? `${displayedAverage.toFixed(1)}/20` : '—',
     absences: String(absenceCount ?? 0),
     bulletins: String(bulletinCount ?? 0),
-    paiements: pendingAmount > 0 ? `${Math.round(pendingAmount).toLocaleString('fr-FR')}` : '—',
+    paiements: paymentsSettled
+      ? 'Réglé'
+      : pendingAmount > 0
+        ? `${Math.round(pendingAmount).toLocaleString('fr-FR')}`
+        : '—',
   }
 
   return (
