@@ -33,24 +33,13 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // Routes publiques accessibles sans auth
-  const publicRoutes = ['/', '/login', '/forgot-password', '/reset-password', '/verify-code']
-  const isPublicRoute = publicRoutes.includes(pathname)
-  const isRegisterRoute = pathname.startsWith('/register')
-  const isJoinRoute = pathname.startsWith('/join')
-  const isSuperAdminSetupRoute = pathname === '/superadmin'
-  const isParentSimpleRoute = pathname.startsWith('/parent-simple')
-  const isTuteurRoute = pathname === '/tuteur' || pathname.startsWith('/tuteur/')
   const isApiRoute = pathname.startsWith('/api')
   const isDashboardRoute = pathname.startsWith('/dashboard')
   const isEleveRoute = pathname.startsWith('/eleve')
   const isParentRoute = pathname === '/parent' || pathname.startsWith('/parent/')
   const isStudentLoginRoute = pathname.startsWith('/login/eleve')
   const isParentLoginRoute = pathname.startsWith('/login/parent')
-  const isAllowedPublic =
-    isPublicRoute || isRegisterRoute || isJoinRoute ||
-    isSuperAdminSetupRoute || isParentSimpleRoute || isTuteurRoute || isApiRoute ||
-    isStudentLoginRoute || isParentLoginRoute
+  const isSuspendedRoute = pathname === '/suspended'
 
   // Protéger /dashboard/* et /eleve/* si non authentifié
   if (!user && isDashboardRoute) {
@@ -74,6 +63,7 @@ export async function updateSession(request: NextRequest) {
 
   let isStudentAccount = false
   let isParentAccount = false
+  let isSuspendedAccount = false
 
   if (user && (isDashboardRoute || isEleveRoute || isParentRoute || isParentLoginRoute || isStudentLoginRoute)) {
     const { data: studentRow } = await supabase
@@ -87,6 +77,33 @@ export async function updateSession(request: NextRequest) {
     if (!isStudentAccount) {
       isParentAccount = await isParentPortalUser(supabase, user.id)
     }
+  }
+
+  if (user) {
+    const { data: profileRaw } = await supabase
+      .from('profiles')
+      .select('is_active, account_status, suspended_until')
+      .eq('id', user.id)
+      .limit(1)
+      .maybeSingle()
+
+    const profile = profileRaw as {
+      is_active: boolean
+      account_status?: 'ACTIVE' | 'SUSPENDED_TOTAL' | 'SUSPENDED_TEMPORARY' | null
+      suspended_until?: string | null
+    } | null
+
+    const status = profile?.account_status ?? 'ACTIVE'
+    const tempBlocked =
+      status === 'SUSPENDED_TEMPORARY' &&
+      (!profile?.suspended_until || new Date(profile.suspended_until).getTime() > Date.now())
+    isSuspendedAccount = !profile?.is_active || status === 'SUSPENDED_TOTAL' || tempBlocked
+  }
+
+  if (user && isSuspendedAccount && !isSuspendedRoute && !isApiRoute) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/suspended'
+    return NextResponse.redirect(url)
   }
 
   // Bloquer l'accès des élèves au /dashboard/*
@@ -125,7 +142,7 @@ export async function updateSession(request: NextRequest) {
   // Rediriger login standard → dashboard pour les non-élèves authentifiés
   if (user && pathname === '/login' && !isStudentLoginRoute && !isParentLoginRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = isSuspendedAccount ? '/suspended' : '/dashboard'
     return NextResponse.redirect(url)
   }
 
