@@ -49,7 +49,8 @@ export async function updateStudentPhotoUrl(studentId: string, photoUrl: string)
   const existing = existingRaw as { photo_url: string | null } | null
   if (!existing) return { error: 'Élève introuvable.' }
 
-  const { data: updatedRaw, error } = await admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: updatedRaw, error } = await (admin as any)
     .from('students')
     .update({ photo_url: cleanUrl })
     .eq('id', studentId)
