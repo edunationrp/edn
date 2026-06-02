@@ -80,24 +80,13 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
-    const { data: profileRaw } = await supabase
-      .from('profiles')
-      .select('is_active, account_status, suspended_until')
-      .eq('id', user.id)
-      .limit(1)
-      .maybeSingle()
-
-    const profile = profileRaw as {
-      is_active: boolean
-      account_status?: 'ACTIVE' | 'SUSPENDED_TOTAL' | 'SUSPENDED_TEMPORARY' | null
-      suspended_until?: string | null
-    } | null
-
-    const status = profile?.account_status ?? 'ACTIVE'
-    const tempBlocked =
-      status === 'SUSPENDED_TEMPORARY' &&
-      (!profile?.suspended_until || new Date(profile.suspended_until).getTime() > Date.now())
-    isSuspendedAccount = !profile?.is_active || status === 'SUSPENDED_TOTAL' || tempBlocked
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: suspensionCtxRaw } = await (supabase as any).rpc('get_my_suspension_context')
+    const suspensionCtx = (suspensionCtxRaw as Array<{
+      account_blocked: boolean
+      school_blocked: boolean
+    }> | null)?.[0]
+    isSuspendedAccount = Boolean(suspensionCtx?.account_blocked || suspensionCtx?.school_blocked)
   }
 
   if (user && isSuspendedAccount && !isSuspendedRoute && !isApiRoute) {
@@ -106,34 +95,40 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  if (user && isSuspendedRoute && !isSuspendedAccount) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
+
   // Bloquer l'accès des élèves au /dashboard/*
-  if (user && isDashboardRoute && isStudentAccount) {
+  if (user && isDashboardRoute && isStudentAccount && !isSuspendedAccount) {
     const url = request.nextUrl.clone()
     url.pathname = '/eleve'
     return NextResponse.redirect(url)
   }
 
   // Rediriger les parents vers le portail dédié
-  if (user && isDashboardRoute && isParentAccount) {
+  if (user && isDashboardRoute && isParentAccount && !isSuspendedAccount) {
     const url = request.nextUrl.clone()
     url.pathname = '/parent'
     return NextResponse.redirect(url)
   }
 
-  if (user && isParentRoute && isStudentAccount) {
+  if (user && isParentRoute && isStudentAccount && !isSuspendedAccount) {
     const url = request.nextUrl.clone()
     url.pathname = '/eleve'
     return NextResponse.redirect(url)
   }
 
-  if (user && isEleveRoute && isParentAccount) {
+  if (user && isEleveRoute && isParentAccount && !isSuspendedAccount) {
     const url = request.nextUrl.clone()
     url.pathname = '/parent'
     return NextResponse.redirect(url)
   }
 
   // Rediriger login parent → portail parent si déjà connecté (non-élève)
-  if (user && isParentLoginRoute && !isStudentAccount) {
+  if (user && isParentLoginRoute && !isStudentAccount && !isSuspendedAccount) {
     const url = request.nextUrl.clone()
     url.pathname = isParentAccount ? '/parent' : '/dashboard'
     return NextResponse.redirect(url)
@@ -147,7 +142,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Rediriger /login/eleve → /eleve pour les élèves déjà connectés
-  if (user && isStudentLoginRoute) {
+  if (user && isStudentLoginRoute && !isSuspendedAccount) {
     const { data: studentRow } = await supabase
       .from('students')
       .select('id')

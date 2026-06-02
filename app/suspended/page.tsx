@@ -21,70 +21,37 @@ export default async function SuspendedPage() {
 
   const { data: profileRaw } = await supabase
     .from('profiles')
-    .select('id, full_name, default_role, is_active, account_status, suspension_reason, suspended_until')
+    .select('full_name')
     .eq('id', user.id)
     .limit(1)
-
-  const profile = (profileRaw as Array<{
-    id: string
-    full_name: string | null
-    default_role: string | null
-    is_active: boolean
-    account_status?: 'ACTIVE' | 'SUSPENDED_TOTAL' | 'SUSPENDED_TEMPORARY' | null
-    suspension_reason?: string | null
-    suspended_until?: string | null
-  }> | null)?.[0]
-
-  if (!profile) redirect('/login')
+  const profile = (profileRaw as Array<{ full_name: string | null }> | null)?.[0]
+  const displayName = profile?.full_name?.split(' ')[0] ?? 'Utilisateur'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profileOperational } = await (supabase as any).rpc('is_profile_operational', { p_user_id: user.id })
+  const { data: suspensionCtxRaw } = await (supabase as any).rpc('get_my_suspension_context')
+  const suspensionCtx = (suspensionCtxRaw as Array<{
+    account_blocked: boolean
+    account_status: 'ACTIVE' | 'SUSPENDED_TOTAL' | 'SUSPENDED_TEMPORARY' | null
+    account_reason: string | null
+    account_suspended_until: string | null
+    school_blocked: boolean
+    school_id: string | null
+    school_name: string | null
+    school_reason: string | null
+    school_suspended_until: string | null
+    is_proviseur: boolean
+  }> | null)?.[0]
 
-  const profileStatus = profile.account_status ?? 'ACTIVE'
-  const accountSuspended = !profile.is_active || profileStatus !== 'ACTIVE' || !profileOperational
+  const accountSuspended = Boolean(suspensionCtx?.account_blocked)
+  const schoolSuspended = Boolean(suspensionCtx?.school_blocked)
 
-  const { data: rolesRaw } = await supabase
-    .from('user_school_roles')
-    .select('school_id, role_code, is_active')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-
-  const roles = (rolesRaw as Array<{ school_id: string; role_code: string; is_active: boolean }> | null) ?? []
-  const proviseurRole = roles.find(r => r.role_code === 'PROVISEUR') ?? null
-
-  const schoolIds = [...new Set(roles.map(r => r.school_id))]
-  const { data: schoolsRaw } = schoolIds.length
-    ? await supabase
-        .from('schools')
-        .select('id, name, is_active, platform_status, status_reason, suspended_until')
-        .in('id', schoolIds)
-    : { data: [] }
-
-  const schools = (schoolsRaw as Array<{
-    id: string
-    name: string
-    is_active: boolean
-    platform_status?: 'ACTIVE' | 'SUSPENDED' | 'DISABLED' | null
-    status_reason?: string | null
-    suspended_until?: string | null
-  }> | null) ?? []
-
-  const schoolOperationalPairs = await Promise.all(
-    schools.map(async school => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any).rpc('is_school_operational', { p_school_id: school.id })
-      return { school, operational: Boolean(data) }
-    })
-  )
-  const blockedSchool = schoolOperationalPairs.find(pair => !pair.operational)?.school ?? null
-
-  if (!accountSuspended && !blockedSchool) {
+  if (!accountSuspended && !schoolSuspended) {
     redirect('/dashboard')
   }
 
-  const canAppeal = Boolean(proviseurRole)
-  const accountMessage = profile.suspension_reason || 'Votre compte est temporairement suspendu.'
-  const schoolMessage = blockedSchool?.status_reason || 'Votre établissement est suspendu par la super administration.'
+  const canAppeal = Boolean(suspensionCtx?.is_proviseur)
+  const accountMessage = suspensionCtx?.account_reason || 'Votre compte est temporairement suspendu.'
+  const schoolMessage = suspensionCtx?.school_reason || 'Votre établissement est suspendu par la super administration.'
 
   return (
     <div className="mx-auto flex min-h-[70vh] w-full max-w-3xl items-center py-10">
@@ -96,7 +63,7 @@ export default async function SuspendedPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Accès suspendu</h1>
             <p className="text-sm text-slate-600">
-              Votre accès à EduNation est momentanément restreint.
+              Bonjour {displayName}, votre accès à EduNation est momentanément restreint.
             </p>
           </div>
         </div>
@@ -105,10 +72,10 @@ export default async function SuspendedPage() {
           <div className="rounded-xl border bg-white p-4">
             <div className="mb-2 flex items-center gap-2">
               <Badge variant="destructive">Suspension du compte</Badge>
-              {profileStatus === 'SUSPENDED_TEMPORARY' && profile.suspended_until && (
+              {suspensionCtx?.account_status === 'SUSPENDED_TEMPORARY' && suspensionCtx.account_suspended_until && (
                 <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                   <Clock className="h-3.5 w-3.5" />
-                  Jusqu&apos;au {new Date(profile.suspended_until).toLocaleDateString('fr-FR')}
+                  Jusqu&apos;au {new Date(suspensionCtx.account_suspended_until).toLocaleDateString('fr-FR')}
                 </span>
               )}
             </div>
@@ -116,14 +83,14 @@ export default async function SuspendedPage() {
           </div>
         )}
 
-        {!accountSuspended && blockedSchool && (
+        {!accountSuspended && schoolSuspended && (
           <div className="rounded-xl border bg-white p-4">
             <div className="mb-2 flex items-center gap-2">
               <Badge variant="warning">Suspension établissement</Badge>
-              {blockedSchool.suspended_until && (
+              {suspensionCtx?.school_suspended_until && (
                 <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                   <Clock className="h-3.5 w-3.5" />
-                  Jusqu&apos;au {new Date(blockedSchool.suspended_until).toLocaleDateString('fr-FR')}
+                  Jusqu&apos;au {new Date(suspensionCtx.school_suspended_until).toLocaleDateString('fr-FR')}
                 </span>
               )}
             </div>
@@ -132,7 +99,7 @@ export default async function SuspendedPage() {
         )}
 
         {canAppeal ? (
-          <SuspensionAppealForm schoolId={blockedSchool?.id ?? proviseurRole?.school_id ?? null} />
+          <SuspensionAppealForm schoolId={suspensionCtx?.school_id ?? null} />
         ) : (
           <div className="rounded-xl border bg-white p-4 text-sm text-slate-600">
             Cette suspension doit être traitée par le proviseur de votre établissement.
