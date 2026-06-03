@@ -2,41 +2,51 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { StaffDirectoryTable } from '@/features/staff/staff-directory-table'
 import type { StaffDirectoryRow } from '@/features/staff/staff-directory-table'
+import { StaffPageClient } from '@/features/staff/staff-page-client'
 import { UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { hasPermission, isSchoolFullAuthority } from '@/types/permissions'
-import { ROLE_LABELS, STAFF_ROLES, type UserRole } from '@/types/roles'
+import { STAFF_ROLES, type UserRole } from '@/types/roles'
 import type { Metadata } from 'next'
-import { cn } from '@/lib/utils'
-import { dashboard } from '@/lib/dashboard/ui-classes'
+import { getSchoolOrgChartData } from '@/lib/staff/org-chart-data'
 
 export const metadata: Metadata = {
   title: 'Gestion du personnel',
 }
 
-export default async function StaffPage() {
+type StaffPageProps = {
+  searchParams: Promise<{ view?: string }>
+}
+
+export default async function StaffPage({ searchParams }: StaffPageProps) {
   const supabase = await createClient()
+  const { view } = await searchParams
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const schoolRole = await getUserSchoolContext(user.id)
+  const schoolId = schoolRole?.school_id
+  if (!schoolId) redirect('/dashboard')
+
   const role = schoolRole?.role_code as UserRole | undefined
   const canInvite = role ? hasPermission(role, 'staff:invite') : false
   const canRemove = role ? isSchoolFullAuthority(role) : false
 
-  const { data: staffMembersRaw, count } = await supabase
-    .from('user_school_roles')
-    .select(`
-      id, user_id, role_code, is_active, created_at,
-      profiles (id, full_name, email, phone, avatar_url, is_active)
-    `, { count: 'exact' })
-    .eq('school_id', schoolRole?.school_id ?? '')
-    .in('role_code', STAFF_ROLES)
-    .order('created_at', { ascending: false })
+  const [{ data: staffMembersRaw, count }, orgChart] = await Promise.all([
+    supabase
+      .from('user_school_roles')
+      .select(`
+        id, user_id, role_code, is_active, created_at,
+        profiles (id, full_name, email, phone, avatar_url, is_active)
+      `, { count: 'exact' })
+      .eq('school_id', schoolId)
+      .in('role_code', STAFF_ROLES)
+      .order('created_at', { ascending: false }),
+    getSchoolOrgChartData(schoolId),
+  ])
 
   const staffMembers = staffMembersRaw as Array<{
     id: string
@@ -54,25 +64,27 @@ export default async function StaffPage() {
     } | null
   }> | null
 
-  const roleGroups = STAFF_ROLES.reduce((acc, role) => {
-    acc[role] = staffMembers?.filter(s => s.role_code === role).length ?? 0
+  const roleGroups = STAFF_ROLES.reduce((acc, roleCode) => {
+    acc[roleCode] = staffMembers?.filter(s => s.role_code === roleCode).length ?? 0
     return acc
   }, {} as Record<string, number>)
 
   const rows: StaffDirectoryRow[] = (staffMembers ?? []).map(member => ({
-    id: member.id,
-    userId: member.user_id,
-    roleCode: member.role_code as UserRole,
-    isActive: member.is_active,
-    createdAt: member.created_at,
-    fullName: member.profiles?.full_name?.trim() || '—',
-    email: member.profiles?.email ?? null,
-    phone: member.profiles?.phone ?? null,
-    isCurrentUser: member.user_id === user.id,
-  }))
+      id: member.id,
+      userId: member.user_id,
+      roleCode: member.role_code as UserRole,
+      isActive: member.is_active,
+      createdAt: member.created_at,
+      fullName: member.profiles?.full_name?.trim() || '—',
+      email: member.profiles?.email ?? null,
+      phone: member.profiles?.phone ?? null,
+      isCurrentUser: member.user_id === user.id,
+    }))
+
+  const initialView = view === 'organigramme' ? 'organigramme' as const : 'liste' as const
 
   return (
-    <div className={dashboard.page}>
+    <div className="space-y-5 animate-fade-in sm:space-y-6">
       <PageHeader
         title="Personnel"
         description={`${count ?? 0} membre${(count ?? 0) > 1 ? 's' : ''} du personnel`}
@@ -95,24 +107,14 @@ export default async function StaffPage() {
         }
       />
 
-      <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible lg:grid-cols-6">
-        {STAFF_ROLES.map(role => (
-          <div
-            key={role}
-            className={cn(
-              dashboard.card,
-              'min-w-[108px] shrink-0 snap-start p-3 text-center sm:min-w-0',
-            )}
-          >
-            <p className="text-2xl font-bold tabular-nums text-[#1a4d2e]">{roleGroups[role]}</p>
-            <p className="mt-0.5 text-[11px] font-medium leading-tight text-slate-500 sm:text-xs">
-              {ROLE_LABELS[role as UserRole]}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <StaffDirectoryTable members={rows} canRemove={canRemove} />
+      <StaffPageClient
+        initialView={initialView}
+        rows={rows}
+        canInvite={canInvite}
+        canRemove={canRemove}
+        orgChart={orgChart}
+        roleGroups={roleGroups}
+      />
     </div>
   )
 }

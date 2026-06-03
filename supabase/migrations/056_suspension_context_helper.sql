@@ -90,3 +90,4 @@ BEGIN
     ) AS is_proviseur;
 END;
 $$;
+

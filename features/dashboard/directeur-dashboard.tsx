@@ -10,7 +10,9 @@ import { StatCard } from '@/components/dashboard/stat-card'
 import { QuickLinkGrid } from '@/components/dashboard/quick-link-grid'
 import { SectionPanel, SectionRow } from '@/components/dashboard/section-panel'
 import { EmptyPanel } from '@/components/dashboard/empty-panel'
+import { StaffOrgChart } from '@/features/staff/staff-org-chart'
 import { getAdmissionStats, getProviseurQueue } from '@/lib/admissions/queries'
+import { getSchoolOrgChartData } from '@/lib/staff/org-chart-data'
 import { isSchoolFullAuthority } from '@/types/permissions'
 
 interface DirecteurDashboardProps {
@@ -39,7 +41,7 @@ export async function DirecteurDashboard({
 
   const isProviseur = isSchoolFullAuthority(role) || role === 'PROVISEUR' || role === 'DIRECTEUR_ADJOINT'
 
-  const [schoolYearRaw, studentCountResult, teacherCountResult, classCountResult, admissionStats, proviseurQueue] =
+  const [schoolYearRaw, studentCountResult, teacherCountResult, classCountResult, admissionStats, proviseurQueue, orgChart] =
     await Promise.all([
       supabase.from('school_years').select('id, name').eq('school_id', schoolId).eq('is_active', true).limit(1),
       supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('status', 'active'),
@@ -47,6 +49,7 @@ export async function DirecteurDashboard({
       supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
       getAdmissionStats(schoolId),
       isProviseur ? getProviseurQueue(schoolId) : Promise.resolve([]),
+      isProviseur ? getSchoolOrgChartData(schoolId) : Promise.resolve(null),
     ])
 
   const schoolYear = (schoolYearRaw.data as Array<{ id: string; name: string }> | null)?.[0]
@@ -132,6 +135,22 @@ export async function DirecteurDashboard({
       </div>
 
       <QuickLinkGrid links={quickLinks} />
+
+      {isProviseur && orgChart && (
+        <section className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Organigramme du personnel</h3>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Vue d&apos;ensemble de l&apos;équipe — {orgChart.schoolName}
+              </p>
+            </div>
+          </div>
+          <div className="p-4 sm:p-5">
+            <StaffOrgChart data={orgChart} variant="preview" />
+          </div>
+        </section>
+      )}
 
       {isProviseur && (
         <SectionPanel

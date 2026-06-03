@@ -46,6 +46,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   userCheck: <UserCheck className="h-4 w-4" />,
   send: <Send className="h-4 w-4" />,
   user: <GraduationCap className="h-4 w-4" />,
+  graduationCap: <GraduationCap className="h-4 w-4" />,
   clock: <Clock className="h-4 w-4" />,
   archive: <Archive className="h-4 w-4" />,
   megaphone: <Megaphone className="h-4 w-4" />,
@@ -98,6 +99,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
       ]},
       { group: 'Validation', items: [
         { id: 'bulletins-validation', label: 'Validation bulletins', icon: 'award', href: '/dashboard/report-cards' },
+        { id: 'promotions', label: 'Passage fin d\'année', icon: 'graduationCap', href: '/dashboard/promotions' },
       ]},
       { group: 'Assiduité', items: [
         { id: 'absences-p', label: 'Absences & présences', icon: 'userX', href: '/dashboard/attendance' },

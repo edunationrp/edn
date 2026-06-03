@@ -65,6 +65,9 @@ export type Permission =
   | 'reports:read'
   | 'reports:financial'
   | 'reports:academic'
+  // Passage fin d'année
+  | 'promotions:read'
+  | 'promotions:manage'
   // Audit
   | 'audit_logs:read'
   // Administration
@@ -103,6 +106,7 @@ export const ALL_SCHOOL_PERMISSIONS: Permission[] = [
   'announcements:read', 'announcements:create',
   'documents:read', 'documents:generate',
   'reports:read', 'reports:financial', 'reports:academic',
+  'promotions:read', 'promotions:manage',
   'audit_logs:read', 'admin:school',
 ]
 
@@ -115,6 +119,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'timetable:read', 'finance:read', 'report_cards:read',
     'messages:read', 'announcements:read', 'documents:read',
     'reports:read', 'reports:financial', 'reports:academic',
+    'promotions:read',
     'audit_logs:read', 'admin:platform', 'admin:school',
   ],
   PROVISEUR: [...ALL_SCHOOL_PERMISSIONS],
@@ -144,6 +149,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'messages:read', 'messages:send',
     'announcements:read',
     'reports:read', 'reports:academic',
+    'promotions:read',
   ],
   CONSEILLER: [
     'students:read',

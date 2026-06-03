@@ -18,6 +18,7 @@ export type PermissionGroupId =
   | 'communication'
   | 'documents'
   | 'reports'
+  | 'promotions'
   | 'audit'
   | 'admin'
 
@@ -182,6 +183,15 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'reports:read', label: 'Rapports généraux', description: 'Statistiques globales' },
       { key: 'reports:financial', label: 'Rapports financiers', description: 'Analyses de recouvrement' },
       { key: 'reports:academic', label: 'Rapports pédagogiques', description: 'Performance académique' },
+    ],
+  },
+  {
+    id: 'promotions',
+    label: 'Passage & fin d\'année',
+    description: 'Bilan de réussite et simulation de passage',
+    permissions: [
+      { key: 'promotions:read', label: 'Consulter le bilan', description: 'Voir les résultats par classe' },
+      { key: 'promotions:manage', label: 'Gérer le bilan', description: 'Calculer, corriger et préparer le passage' },
     ],
   },
   {
