@@ -6,6 +6,7 @@ export type StudentCourseResource = {
   title: string
   description: string | null
   fileName: string
+  fileSizeBytes: number | null
   type: string
   subjectId: string | null
   subjectName: string
@@ -24,7 +25,7 @@ export async function getStudentCourseResources(
   const { data: resourcesRaw } = await supabase
     .from('course_resources')
     .select(`
-      id, title, description, file_url, file_name, type, published_at,
+      id, title, description, file_url, file_name, file_size_bytes, type, published_at,
       uploaded_by, subject_id,
       subjects(name),
       profiles:uploaded_by(full_name)
@@ -40,6 +41,7 @@ export async function getStudentCourseResources(
     description: string | null
     file_url: string
     file_name: string
+    file_size_bytes: number | null
     type: string
     published_at: string | null
     uploaded_by: string
@@ -67,6 +69,7 @@ export async function getStudentCourseResources(
         title: row.title,
         description: row.description,
         fileName: row.file_name,
+        fileSizeBytes: row.file_size_bytes,
         type: row.type,
         subjectId: row.subject_id,
         subjectName: row.subjects?.name ?? 'Général',

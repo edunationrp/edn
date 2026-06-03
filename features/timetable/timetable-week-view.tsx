@@ -10,7 +10,8 @@ import { TimetableRequestsPanel } from '@/features/timetable/timetable-requests-
 import { TimetableSlotDialog, type SlotDialogMode } from '@/features/timetable/timetable-slot-dialog'
 import { DAY_LABELS, WEEKDAY_NUMBERS } from '@/lib/timetable/constants'
 import { notify } from '@/lib/feedback/toast'
-import { buildGridTimeRows, detectTimetableConflicts } from '@/lib/timetable/grid-utils'
+import { formatTimetableRoom } from '@/lib/timetable/display'
+import { buildGridTimeRows, detectTimetableConflicts, groupSlotsByGridCell } from '@/lib/timetable/grid-utils'
 import type {
   CalendarEventView,
   TimetableBreakView,
@@ -183,14 +184,10 @@ export function TimetableWeekView({
     return ids
   }, [conflicts])
 
-  const slotsByCell = useMemo(() => {
-    const grouped = new Map<string, TimetableSlotView[]>()
-    for (const slot of scheduleSlots) {
-      const key = `${slot.dayOfWeek}:${slot.startTime}`
-      grouped.set(key, [...(grouped.get(key) ?? []), slot])
-    }
-    return grouped
-  }, [scheduleSlots])
+  const slotsByCell = useMemo(
+    () => groupSlotsByGridCell(scheduleSlots, displayTimeRows),
+    [scheduleSlots, displayTimeRows],
+  )
 
   const teacherSlotIds = useMemo(
     () => new Set(teacherSlots.map(slot => slot.id)),
@@ -596,7 +593,7 @@ export function TimetableWeekView({
                                       <p className="mt-1 truncate text-[11px] font-semibold opacity-75">{slot.teacherName}</p>
                                       <p className="truncate text-[11px] opacity-70">
                                         {scheduleView === 'teacher' ? slot.className : slot.className}
-                                        {slot.room ? ` · Salle ${slot.room}` : ''}
+                                        {formatTimetableRoom(slot.room) ? ` · ${formatTimetableRoom(slot.room)}` : ''}
                                       </p>
                                       {slot.description && (
                                         <p className="mt-1 line-clamp-2 text-[10px] italic opacity-70">{slot.description}</p>

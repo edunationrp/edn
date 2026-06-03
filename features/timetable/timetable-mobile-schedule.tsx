@@ -3,6 +3,7 @@
 import type { ComponentType } from 'react'
 import { DAY_LABELS, DAY_SHORT_LABELS } from '@/lib/timetable/constants'
 import type { GridTimeRow } from '@/lib/timetable/grid-utils'
+import { formatTimetableRoom } from '@/lib/timetable/display'
 import type { TimetableBreakView, TimetableSlotView } from '@/lib/timetable/types'
 import {
   AlertTriangle,
@@ -152,8 +153,8 @@ export function TimetableMobileSchedule({
                                   {slot.className}{slot.room ? ` · Salle ${slot.room}` : ''}
                                 </p>
                               )}
-                              {viewOnly && slot.room && (
-                                <p className="text-xs opacity-70">Salle {slot.room}</p>
+                              {viewOnly && formatTimetableRoom(slot.room) && (
+                                <p className="text-xs text-slate-500">{formatTimetableRoom(slot.room)}</p>
                               )}
                               {slot.description && !viewOnly && (
                                 <p className="mt-2 line-clamp-2 text-xs leading-relaxed italic opacity-80">{slot.description}</p>

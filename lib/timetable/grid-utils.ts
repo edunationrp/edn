@@ -23,28 +23,67 @@ export type GridTimeRow = {
   kind: 'course' | 'pause' | 'lunch'
 }
 
+export function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + (m || 0)
+}
+
+export function findCourseRowForSlot(
+  slot: Pick<TimetableSlotView, 'startTime'>,
+  courseRows: GridTimeRow[],
+): GridTimeRow | null {
+  const startMin = timeToMinutes(slot.startTime)
+  let best: GridTimeRow | null = null
+  let bestDist = Number.POSITIVE_INFINITY
+
+  for (const row of courseRows) {
+    if (!row.start || !row.end || row.kind !== 'course') continue
+    const rs = timeToMinutes(row.start)
+    const re = timeToMinutes(row.end)
+    if (startMin >= rs && startMin < re) return row
+    const dist = Math.abs(startMin - rs)
+    if (dist < bestDist) {
+      bestDist = dist
+      best = row
+    }
+  }
+
+  return best
+}
+
+/** Regroupe les cours sur les plages horaires officielles (évite les lignes 08:00 / 08:30 en double). */
+export function groupSlotsByGridCell(
+  slots: TimetableSlotView[],
+  displayTimeRows: GridTimeRow[],
+): Map<string, TimetableSlotView[]> {
+  const courseRows = displayTimeRows.filter(row => row.kind === 'course')
+  const grouped = new Map<string, TimetableSlotView[]>()
+
+  for (const slot of slots) {
+    const row = findCourseRowForSlot(slot, courseRows)
+    if (!row?.start) continue
+    const key = `${slot.dayOfWeek}:${row.start}`
+    grouped.set(key, [...(grouped.get(key) ?? []), slot])
+  }
+
+  for (const [, list] of grouped) {
+    list.sort((a, b) => a.startTime.localeCompare(b.startTime))
+  }
+
+  return grouped
+}
+
 export function buildGridTimeRows(
   breaks: TimetableBreakView[],
-  slots: TimetableSlotView[],
+  _slots: TimetableSlotView[],
 ): GridTimeRow[] {
-  const courseStarts = new Set<string>()
-  for (const slot of DEFAULT_COURSE_SLOTS) courseStarts.add(slot.start)
-  for (const slot of slots) courseStarts.add(slot.startTime)
-
-  const courseRows: GridTimeRow[] = [...courseStarts]
-    .sort()
-    .map(start => {
-      const fromSlot = slots.find(s => s.startTime === start)
-      const fromDefault = DEFAULT_COURSE_SLOTS.find(s => s.start === start)
-      const end = fromSlot?.endTime ?? fromDefault?.end ?? addHour(start)
-      return {
-        id: `course-${start}`,
-        label: `${start} - ${end}`,
-        start,
-        end,
-        kind: 'course' as const,
-      }
-    })
+  const courseRows: GridTimeRow[] = DEFAULT_COURSE_SLOTS.map(({ start, end }) => ({
+    id: `course-${start}`,
+    label: `${start} - ${end}`,
+    start,
+    end,
+    kind: 'course' as const,
+  }))
 
   const breakRows: GridTimeRow[] = breaks.map(item => ({
     id: item.id,

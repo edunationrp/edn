@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getStudentEnrollmentContext } from '@/lib/eleve/student-context'
@@ -27,5 +28,15 @@ export default async function EleveCoursPage() {
 
   const resources = await getStudentCourseResources(ctx.classId, ctx.schoolYearId)
 
-  return <StudentCoursesView className={ctx.className} resources={resources} />
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-600">
+          Chargement des ressources…
+        </div>
+      }
+    >
+      <StudentCoursesView className={ctx.className} resources={resources} />
+    </Suspense>
+  )
 }

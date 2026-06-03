@@ -18,6 +18,10 @@ import {
   type StudentNotificationItem,
 } from '@/features/eleve/student-notifications-panel'
 import { EduBotFloatingButton } from '@/components/tuteur/edubot-floating-button'
+import { StudentGradeWelcomeAlert } from '@/features/eleve/student-grade-welcome-alert'
+import { StudentCourseWelcomeAlert } from '@/features/eleve/student-course-welcome-alert'
+import { StudentBulletinWelcomeAlert } from '@/features/eleve/student-bulletin-welcome-alert'
+import { StudentTimetableWelcomeAlert } from '@/features/eleve/student-timetable-welcome-alert'
 
 const NAV_ITEMS = [
   { href: '/eleve', label: 'Accueil', icon: Home, exact: true },
@@ -227,6 +231,10 @@ export function StudentShell({
 
   return (
     <div className="flex min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-[#F0F4F8]">
+      <StudentGradeWelcomeAlert notifications={notifications} />
+      <StudentCourseWelcomeAlert notifications={notifications} />
+      <StudentBulletinWelcomeAlert notifications={notifications} />
+      <StudentTimetableWelcomeAlert notifications={notifications} />
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-30 flex w-[min(88vw,280px)] flex-col overflow-y-auto bg-[#1B3A6B] text-white shadow-xl transition-transform duration-200 lg:w-[240px] lg:translate-x-0',

@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { formatDate } from '@/lib/utils'
+import { getStudentEnrollmentContext } from '@/lib/eleve/student-context'
+import { getStudentAbsencePageData } from '@/lib/eleve/student-attendance'
+import { StudentAbsencesView } from '@/features/eleve/student-absences-view'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Mes absences — EduNation' }
@@ -12,73 +12,56 @@ export default async function EleveAbsencesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login/eleve')
 
+  const ctx = await getStudentEnrollmentContext(user.id)
+  if (!ctx) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+          <h1 className="text-lg font-bold text-gray-900">Mes absences & retards</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            Aucune inscription active. Contacte le secrétariat de ton établissement.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const { data: studentRaw } = await supabase
     .from('students')
-    .select('id')
-    .eq('user_id', user.id)
+    .select('first_name, last_name')
+    .eq('id', ctx.studentId)
     .single()
 
-  const student = studentRaw as { id: string } | null
-  if (!student) redirect('/login/eleve')
+  const student = studentRaw as { first_name: string; last_name: string } | null
+  const studentName = student
+    ? `${student.first_name} ${student.last_name}`.trim()
+    : 'Élève'
 
-  const { data: recordsRaw } = await supabase
-    .from('attendance_records')
-    .select('id, status, recorded_at, subjects(name)')
-    .eq('student_id', student.id)
-    .in('status', ['absent', 'late'])
-    .order('recorded_at', { ascending: false })
+  const { data: schoolRaw } = await supabase
+    .from('schools')
+    .select('name, logo_url')
+    .eq('id', ctx.schoolId)
+    .single()
 
-  const records = (recordsRaw ?? []) as Array<{
-    id: string
-    status: string
-    recorded_at: string
-    subjects: { name: string } | null
-  }>
+  const school = schoolRaw as { name: string; logo_url: string | null } | null
+  const schoolName = school?.name ?? 'Établissement'
+  const schoolLogoUrl = school?.logo_url ?? null
 
-  const absences = records.filter(r => r.status === 'absent').length
-  const lates = records.filter(r => r.status === 'late').length
+  const { records, alertConfig } = await getStudentAbsencePageData(
+    ctx.studentId,
+    ctx.schoolId,
+    ctx.schoolYearId,
+    ctx.className,
+  )
 
   return (
-    <div className="w-full min-w-0 space-y-4 sm:space-y-5">
-      <h1 className="text-lg font-bold text-gray-900 sm:text-xl">Mes absences & retards</h1>
-
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-        <Card>
-          <CardContent className="flex items-center gap-3 py-4">
-            <span className="text-2xl font-bold text-red-500">{absences}</span>
-            <span className="text-sm text-muted-foreground">Absences</span>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 py-4">
-            <span className="text-2xl font-bold text-orange-500">{lates}</span>
-            <span className="text-sm text-muted-foreground">Retards</span>
-          </CardContent>
-        </Card>
-      </div>
-
-      {records.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Aucune absence enregistrée.</p>
-      ) : (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Historique</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {records.map(r => (
-              <div key={r.id} className="flex min-w-0 items-start justify-between gap-2 text-sm sm:items-center">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-gray-700">{r.subjects?.name ?? 'Cours'}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(r.recorded_at)}</p>
-                </div>
-                <Badge variant={r.status === 'absent' ? 'destructive' : 'secondary'}>
-                  {r.status === 'absent' ? 'Absent' : 'Retard'}
-                </Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    <StudentAbsencesView
+      records={records}
+      alertConfig={alertConfig}
+      className={ctx.className}
+      studentName={studentName}
+      schoolName={schoolName}
+      schoolLogoUrl={schoolLogoUrl}
+    />
   )
 }

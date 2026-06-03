@@ -1,6 +1,7 @@
 'use client'
 
 import { DAY_LABELS } from '@/lib/timetable/constants'
+import { formatTimetableRoom } from '@/lib/timetable/display'
 import { clampWatermarkOpacity } from '@/lib/schools/branding'
 import type { GridTimeRow } from '@/lib/timetable/grid-utils'
 import type { TimetableBreakView, TimetablePageMeta, TimetableSlotView } from '@/lib/timetable/types'
@@ -112,9 +113,11 @@ export function TimetablePrintSheet({
                               <div key={slot.id} className="timetable-print-slot">
                                 <p className="timetable-print-slot-subject">{slot.subjectName}</p>
                                 <p className="timetable-print-slot-meta">{slot.teacherName}</p>
-                                <p className="timetable-print-slot-meta">
-                                  {slot.className}{slot.room ? ` · ${slot.room}` : ''}
-                                </p>
+                                {formatTimetableRoom(slot.room) && (
+                                  <p className="timetable-print-slot-meta">
+                                    {formatTimetableRoom(slot.room)}
+                                  </p>
+                                )}
                                 {slot.description && (
                                   <p className="timetable-print-slot-desc">{slot.description}</p>
                                 )}
