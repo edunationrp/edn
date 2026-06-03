@@ -502,12 +502,13 @@ export async function savePromotionClassMappings(
     return { error: 'Configuration serveur incomplète.' }
   }
 
+  const { data: targetClassesRaw } = await admin
+    .from('classes')
+    .select('id')
+    .eq('school_year_id', session.target_school_year_id)
+
   const targetClassIds = new Set(
-    ((await admin
-      .from('classes')
-      .select('id')
-      .eq('school_year_id', session.target_school_year_id)) ?? []) as Array<{ id: string }>
-    ).map(c => c.id),
+    ((targetClassesRaw ?? []) as Array<{ id: string }>).map(c => c.id),
   )
 
   for (const row of mappings) {

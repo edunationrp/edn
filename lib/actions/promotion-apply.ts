@@ -50,7 +50,7 @@ async function buildApplyPlan(
   }
 
   const mappingsResult = await getPromotionClassMappings(session.id)
-  if ('error' in mappingsResult) return mappingsResult
+  if ('error' in mappingsResult) return { error: mappingsResult.error }
 
   if (!mappingsResult.allMapped) {
     return { error: 'Correspondances incomplètes. Terminez l\'étape « Préparer la rentrée ».' as const }
@@ -263,7 +263,7 @@ export async function getPromotionApplyPreview(sessionId: string) {
   }
 
   const plan = await buildApplyPlan(admin, access.schoolId, session)
-  if ('error' in plan && !('summary' in plan)) return plan
+  if ('error' in plan) return { error: plan.error }
 
   const { data: targetYear } = await access.supabase
     .from('school_years')
@@ -300,7 +300,7 @@ export async function applyPromotionSession(sessionId: string) {
   }
 
   const plan = await buildApplyPlan(admin, access.schoolId, session)
-  if ('error' in plan && !('summary' in plan)) return plan
+  if ('error' in plan) return { error: plan.error }
 
   if (!plan.summary.canApply) {
     return { error: plan.summary.blockers.join(' ') || 'Application impossible.' }
