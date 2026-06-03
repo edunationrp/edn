@@ -214,7 +214,7 @@ export default async function RolesPermissionsPage() {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in sm:space-y-6">
+    <div className="min-w-0 space-y-4 animate-fade-in sm:space-y-6">
       <PageHeader
         title="Rôles & Permissions"
         description="Matrice des droits, gestion de l'équipe et invitations sécurisées"

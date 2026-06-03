@@ -72,6 +72,23 @@ const SECTION_ICONS: Partial<Record<SettingsSectionId, React.ReactNode>> = {
   session: <LogOut className="h-4 w-4" />,
 }
 
+const SHORT_SECTION_LABELS: Partial<Record<SettingsSectionId, string>> = {
+  overview: 'Vue',
+  profile: 'Profil',
+  security: 'Sécurité',
+  notifications: 'Alertes',
+  'school-identity': 'École',
+  'school-academic': 'Pédagogie',
+  'school-calendar': 'Calendrier',
+  'school-finance': 'Finance',
+  organization: 'Organisation',
+  'access-management': 'Accès',
+  'parent-space': 'Parent',
+  teaching: 'Enseignement',
+  shortcuts: 'Raccourcis',
+  session: 'Session',
+}
+
 const NOTIFICATION_TYPE_LABELS: Record<NotificationTypeKey, string> = {
   payment: 'Paiements & frais',
   grade: 'Notes & bulletins',
@@ -116,9 +133,9 @@ function SettingsCard({
   return (
     <Card id={`settings-${id}`}>
       <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex flex-wrap items-center gap-2 text-base">
               {icon}
               {title}
             </CardTitle>
@@ -146,12 +163,17 @@ function ToggleRow({
   disabled?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-3">
-      <div className="min-w-0">
+    <div className="flex flex-col gap-3 rounded-lg border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{label}</p>
         {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
+      <Switch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        disabled={disabled}
+        className="shrink-0 self-start sm:self-center"
+      />
     </div>
   )
 }
@@ -176,6 +198,7 @@ export function SettingsClient({ data }: SettingsClientProps) {
   const [isPending, startTransition] = useTransition()
   const [opacitySavePending, setOpacitySavePending] = useState(false)
   const defaultTab = data.sections[0]?.id ?? 'profile'
+  const [activeTab, setActiveTab] = useState<SettingsSectionId>(defaultTab)
 
   const [profileForm, setProfileForm] = useState(data.profile)
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(data.preferences.notifications)
@@ -309,12 +332,35 @@ export function SettingsClient({ data }: SettingsClientProps) {
   }, [data.role])
 
   return (
-    <Tabs defaultValue={defaultTab} className="w-full">
-      <TabsList className="mb-1 flex w-full justify-start">
+    <Tabs value={activeTab} onValueChange={v => setActiveTab(v as SettingsSectionId)} className="min-w-0 w-full">
+      <div className="mb-3 md:hidden">
+        <Label htmlFor="settings-section" className="sr-only">
+          Section des paramètres
+        </Label>
+        <Select value={activeTab} onValueChange={v => setActiveTab(v as SettingsSectionId)}>
+          <SelectTrigger id="settings-section" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {data.sections.map(section => (
+              <SelectItem key={section.id} value={section.id}>
+                {SECTION_LABELS[section.id]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <TabsList className="mb-1 hidden h-auto w-full flex-wrap justify-start gap-1 p-1 md:flex">
         {data.sections.map(section => (
-          <TabsTrigger key={section.id} value={section.id} className="gap-1.5">
+          <TabsTrigger
+            key={section.id}
+            value={section.id}
+            className="gap-1.5 shrink-0 px-2.5 text-xs sm:px-3 sm:text-sm"
+          >
             {SECTION_ICONS[section.id]}
-            <span className="hidden xs:inline sm:inline">{SECTION_LABELS[section.id]}</span>
+            <span className="hidden lg:inline">{SECTION_LABELS[section.id]}</span>
+            <span className="lg:hidden">{SHORT_SECTION_LABELS[section.id] ?? SECTION_LABELS[section.id]}</span>
           </TabsTrigger>
         ))}
       </TabsList>
@@ -363,9 +409,9 @@ export function SettingsClient({ data }: SettingsClientProps) {
               )}
 
               {activeYear && (
-                <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  <span>
+                <div className="flex items-start gap-2 rounded-lg border px-3 py-2 text-sm">
+                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span className="min-w-0 break-words">
                     Année active : <strong>{activeYear.name}</strong>
                     {activeYearTerms.find(t => t.is_active) && (
                       <> — {activeYearTerms.find(t => t.is_active)?.name}</>
@@ -450,9 +496,13 @@ export function SettingsClient({ data }: SettingsClientProps) {
               </Select>
             </div>
             <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-              Rôle : <span className="font-medium text-foreground">{data.roleLabel}</span>
-              {' · '}
-              Établissement : <span className="font-medium text-foreground">{data.schoolName}</span>
+              <span className="block sm:inline">
+                Rôle : <span className="font-medium text-foreground">{data.roleLabel}</span>
+              </span>
+              <span className="hidden sm:inline">{' · '}</span>
+              <span className="mt-1 block sm:mt-0 sm:inline">
+                Établissement : <span className="font-medium text-foreground">{data.schoolName}</span>
+              </span>
             </div>
             <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
               {isPending ? 'Enregistrement…' : 'Enregistrer le profil'}

@@ -327,8 +327,8 @@ export function StaffDirectoryTable({ members, canRemove }: StaffDirectoryTableP
 
   return (
     <>
-      <DataTableShell>
-      <FilterBar>
+      <DataTableShell className="min-w-0">
+      <FilterBar className="sm:flex-wrap">
         <FilterSearch
           value={search}
           onChange={setSearch}

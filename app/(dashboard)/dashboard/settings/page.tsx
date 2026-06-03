@@ -172,7 +172,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 animate-fade-in sm:space-y-6">
+    <div className="mx-auto w-full min-w-0 max-w-4xl space-y-4 animate-fade-in sm:space-y-6">
       <PageHeader
         title="Paramètres"
         description="Profil, établissement, alertes et préférences selon votre rôle"

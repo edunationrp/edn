@@ -344,7 +344,7 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
   const selectedRoleMemberCount = data.roleCounts[selectedRoleDetail] ?? 0
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {activeTab !== 'invitations' && (
       <div className="relative overflow-hidden rounded-2xl border border-[#1a4d2e]/20 bg-gradient-to-br from-[#1a4d2e]/10 via-white to-blue-50/50 p-4 sm:p-6">
         <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -390,12 +390,12 @@ export function RolesPermissionsClient({ data }: { data: RolesPermissionsPayload
       )}
 
       <Tabs value={activeTab} onValueChange={v => handleTabChange(v as TabId)}>
-        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 p-1">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:flex sm:flex-wrap sm:justify-start">
           {visibleTabs.map(tab => (
-            <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
+            <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5 text-xs sm:text-sm">
               {tab.icon}
               <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+              <span className="truncate sm:hidden">{tab.label.split(' ')[0]}</span>
               {tab.id === 'invitations' && pendingInvites.length > 0 && (
                 <Badge variant="warning" className="ml-1 h-5 min-w-5 px-1 text-[10px]">
                   {pendingInvites.length}

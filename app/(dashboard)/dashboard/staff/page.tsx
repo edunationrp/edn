@@ -84,7 +84,7 @@ export default async function StaffPage({ searchParams }: StaffPageProps) {
   const initialView = view === 'organigramme' ? 'organigramme' as const : 'liste' as const
 
   return (
-    <div className="space-y-5 animate-fade-in sm:space-y-6">
+    <div className="min-w-0 space-y-5 animate-fade-in sm:space-y-6">
       <PageHeader
         title="Personnel"
         description={`${count ?? 0} membre${(count ?? 0) > 1 ? 's' : ''} du personnel`}

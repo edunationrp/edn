@@ -244,12 +244,13 @@ function RadialChart({
   }, [branches, showMissions, total])
 
   return (
-    <div className="relative mx-auto w-full max-w-[720px]">
+    <div className="relative mx-auto min-w-0 w-full max-w-[720px] overflow-hidden">
       <svg
         viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
-        className="h-auto w-full select-none"
+        className="h-auto w-full max-w-full select-none overflow-hidden"
         role="img"
         aria-label={`Organigramme du personnel de ${data.schoolName}`}
+        preserveAspectRatio="xMidYMid meet"
       >
         <defs>
           <filter id="org-shadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -471,12 +472,11 @@ export function StaffOrgChart({
   }
 
   const selectedBranch = data.branches.find(b => b.id === selectedId) ?? null
-  const showMissions = variant === 'full'
 
   if (variant === 'preview') {
     return (
-      <div className={cn('space-y-4', className)}>
-        <div className="hidden sm:block">
+      <div className={cn('min-w-0 space-y-4', className)}>
+        <div className="hidden min-w-0 overflow-hidden sm:block">
           <RadialChart
             data={data}
             selectedId={selectedId}
@@ -518,14 +518,14 @@ export function StaffOrgChart({
   }
 
   return (
-    <div className={cn('space-y-5', className)}>
-      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-6">
-        <div className={cn(dashboard.card, 'p-4 sm:p-6')}>
+    <div className={cn('min-w-0 space-y-5', className)}>
+      <div className="hidden min-w-0 lg:grid lg:grid-cols-1 lg:gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] xl:gap-6">
+        <div className={cn(dashboard.card, 'min-w-0 overflow-hidden p-4 sm:p-6')}>
           <RadialChart
             data={data}
             selectedId={selectedId}
             onSelect={id => handleSelect(id)}
-            showMissions={showMissions}
+            showMissions={false}
           />
           <p className="mt-2 text-center text-xs text-slate-500">
             Cliquez sur un rôle pour voir les membres et les missions associées.

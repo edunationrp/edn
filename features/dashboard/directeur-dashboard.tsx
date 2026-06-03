@@ -137,7 +137,7 @@ export async function DirecteurDashboard({
       <QuickLinkGrid links={quickLinks} />
 
       {isProviseur && orgChart && (
-        <section className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
             <div>
               <h3 className="text-sm font-bold text-slate-900">Organigramme du personnel</h3>
@@ -146,7 +146,7 @@ export async function DirecteurDashboard({
               </p>
             </div>
           </div>
-          <div className="p-4 sm:p-5">
+          <div className="min-w-0 p-4 sm:p-5">
             <StaffOrgChart data={orgChart} variant="preview" />
           </div>
         </section>

@@ -42,7 +42,7 @@ export function StaffPageClient({
   )
 
   return (
-    <Tabs defaultValue={defaultTab} className="space-y-4">
+    <Tabs defaultValue={defaultTab} className="min-w-0 space-y-4">
       <TabsList className="grid h-auto w-full max-w-md grid-cols-2 gap-1 p-1">
         <TabsTrigger value="liste" className="gap-1.5 text-xs sm:text-sm">
           <List className="h-3.5 w-3.5" />
@@ -95,8 +95,8 @@ export function StaffPageClient({
         <StaffOrgChart data={orgChart} canInvite={canInvite} variant="full" />
 
         {canInvite && (
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" asChild>
+          <div className="flex justify-stretch sm:justify-end">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
               <Link href="/dashboard/staff/roles-permissions?tab=invitations">
                 <UserPlus className="h-4 w-4" />
                 Inviter du personnel
