@@ -1,10 +1,9 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AlertTriangle, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { ReturnToLoginButton } from '@/features/auth/return-to-login-button'
 import { SuspensionAppealForm } from '@/features/auth/suspension-appeal-form'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -107,9 +106,7 @@ export default async function SuspendedPage() {
         )}
 
         <div className="flex justify-end">
-          <Button asChild variant="outline">
-            <Link href="/login">Retour à la connexion</Link>
-          </Button>
+          <ReturnToLoginButton />
         </div>
       </div>
     </div>
