@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { logQaVerificationEvent } from '@/lib/platform/qa-audit'
+import { logQaVerificationEvent } from '@/lib/platform/qa-audit.server'
 import { ensureQaDemoSchoolData } from '@/lib/platform/qa-demo-seed'
 import {
   QA_DEMO_DEFAULT_ROLE,
@@ -15,11 +15,13 @@ import {
   QA_VERIFICATION_COOKIE,
   QA_VERIFICATION_COOKIE_OPTIONS,
   encodeQaVerificationPayload,
-  isPlatformOwnerAccount,
   isQaInspectableRole,
-  readQaVerificationPayload,
   type QaInspectableSchool,
 } from '@/lib/platform/qa-verification'
+import {
+  isPlatformOwnerAccount,
+  readQaVerificationPayload,
+} from '@/lib/platform/qa-verification.server'
 import type { UserRole } from '@/types/roles'
 
 async function requirePlatformOwner(): Promise<

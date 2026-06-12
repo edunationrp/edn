@@ -7,7 +7,7 @@ import {
   QA_AUDIT_ACTION_END,
   QA_AUDIT_ACTION_START,
   type QaVerificationAuditRow,
-} from '@/lib/platform/qa-audit'
+} from '@/lib/platform/qa-verification'
 import { ClipboardList } from 'lucide-react'
 
 function actionLabel(action: string) {

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { excludeMessagingNotificationTypes } from '@/lib/notifications/categories'
 import { getEffectiveUserRole, isPlatformAdmin, isPlatformOwnerRole } from '@/lib/platform/access'
-import { getQaVerificationSession } from '@/lib/platform/qa-verification'
+import { getQaVerificationSession } from '@/lib/platform/qa-verification.server'
 import { ROLE_LABELS } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 

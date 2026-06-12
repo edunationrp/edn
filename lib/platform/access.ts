@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { getQaVerificationSession, isPlatformOwnerAccount } from '@/lib/platform/qa-verification'
+import { getQaVerificationSession, isPlatformOwnerAccount } from '@/lib/platform/qa-verification.server'
 import { hasPermission } from '@/types/permissions'
 import type { UserRole } from '@/types/roles'
 

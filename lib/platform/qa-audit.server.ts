@@ -1,22 +1,14 @@
+import 'server-only'
+
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { getQaRoleLabel } from '@/lib/platform/qa-verification'
+import {
+  QA_AUDIT_ACTION_END,
+  QA_AUDIT_ACTION_START,
+  getQaRoleLabel,
+  type QaVerificationAuditRow,
+} from '@/lib/platform/qa-verification'
 import type { UserRole } from '@/types/roles'
-
-export const QA_AUDIT_ACTION_START = 'qa_verification_start'
-export const QA_AUDIT_ACTION_END = 'qa_verification_end'
-
-export type QaVerificationAuditRow = {
-  id: string
-  action: string
-  schoolId: string | null
-  schoolName: string | null
-  roleCode: string | null
-  roleLabel: string | null
-  actorName: string
-  actorEmail: string
-  createdAt: string
-}
 
 type LogInput = {
   action: 'start' | 'end'

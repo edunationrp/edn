@@ -1,5 +1,5 @@
 import { createClient } from './server'
-import { getQaVerificationSession } from '@/lib/platform/qa-verification'
+import { getQaVerificationSession } from '@/lib/platform/qa-verification.server'
 
 export interface UserSchoolContext {
   school_id: string
