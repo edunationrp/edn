@@ -1,4 +1,5 @@
 import { createClient } from './server'
+import { getQaVerificationSession } from '@/lib/platform/qa-verification'
 
 export interface UserSchoolContext {
   school_id: string
@@ -6,6 +7,14 @@ export interface UserSchoolContext {
 }
 
 export async function getUserSchoolContext(userId: string): Promise<UserSchoolContext | null> {
+  const qaSession = await getQaVerificationSession(userId)
+  if (qaSession) {
+    return {
+      school_id: qaSession.schoolId,
+      role_code: qaSession.roleCode,
+    }
+  }
+
   const supabase = await createClient()
 
   const { data } = await supabase

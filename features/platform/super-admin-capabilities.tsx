@@ -90,7 +90,8 @@ const CAPABILITY_GROUPS: CapabilityGroup[] = [
     icon: LifeBuoy,
     items: [
       { label: 'Exports globaux et rapports complets', status: 'planned' },
-      { label: 'Impersonation support securisee', status: 'planned' },
+      { label: 'École démo reproductible', status: 'available', hint: 'École démo EduNation avec élèves/classes fictifs' },
+      { label: 'Impersonation support securisee', status: 'available', hint: "Mode vérification école + rôle + journal d'audit" },
       { label: 'Outils de nettoyage et deduplication', status: 'planned' },
     ],
   },

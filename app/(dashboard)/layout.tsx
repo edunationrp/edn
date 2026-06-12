@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { excludeMessagingNotificationTypes } from '@/lib/notifications/categories'
 import { getEffectiveUserRole, isPlatformAdmin, isPlatformOwnerRole } from '@/lib/platform/access'
+import { getQaVerificationSession } from '@/lib/platform/qa-verification'
 import { ROLE_LABELS } from '@/types/roles'
 import type { UserRole } from '@/types/roles'
 
@@ -84,28 +85,43 @@ export default async function DashboardLayout({
     return Boolean(school?.is_active)
   })
   const activeSchool = firstOperationalRole ? (schoolsById.get(firstOperationalRole.school_id) ?? null) : null
+  const qaSession = await getQaVerificationSession(user.id)
   const effectiveRole = await getEffectiveUserRole(user.id)
-  const isPlatformOwner = isPlatformAdmin(effectiveRole)
+  const inQaMode = Boolean(qaSession)
+  const isPlatformOwner = !inQaMode && isPlatformAdmin(effectiveRole)
   const defaultIsPlatformOwner = isPlatformOwnerRole(profile.default_role)
-  if (!isPlatformOwner && !activeSchool && !defaultIsPlatformOwner) {
+  if (!isPlatformOwner && !inQaMode && !activeSchool && !defaultIsPlatformOwner) {
     redirect('/suspended')
   }
   const currentRole = (effectiveRole ?? profile.default_role ?? 'ELEVE') as UserRole
-  const roleLabel = ROLE_LABELS[currentRole] ?? currentRole
+  const roleLabel = inQaMode
+    ? `${ROLE_LABELS[currentRole] ?? currentRole} (vérification)`
+    : (ROLE_LABELS[currentRole] ?? currentRole)
+
+  let displaySchool = activeSchool
+  if (qaSession) {
+    const { data: qaSchoolRaw } = await supabase
+      .from('schools')
+      .select('id, name, type, city, is_active, logo_url, logo_watermark_opacity')
+      .eq('id', qaSession.schoolId)
+      .limit(1)
+
+    displaySchool = (qaSchoolRaw as typeof schools | null)?.[0] ?? displaySchool
+  }
 
   const displaySchoolName = isPlatformOwner
     ? 'EduNation — Administration plateforme'
-    : (activeSchool?.name ?? 'Mon établissement')
+    : (displaySchool?.name ?? qaSession?.schoolName ?? 'Mon établissement')
 
   const displaySchoolYear = isPlatformOwner
     ? 'SaaS multi-établissements'
     : undefined
 
-  const { data: schoolYearRaw } = activeSchool && !isPlatformOwner
+  const { data: schoolYearRaw } = displaySchool && !isPlatformOwner
     ? await supabase
         .from('school_years')
         .select('id, name')
-        .eq('school_id', activeSchool.id)
+        .eq('school_id', displaySchool.id)
         .eq('is_active', true)
         .limit(1)
     : { data: [] }
@@ -142,15 +158,20 @@ export default async function DashboardLayout({
     .slice(0, 2)
     .toUpperCase()
 
-  const schoolLogoUrl = isPlatformOwner ? null : (activeSchool?.logo_url ?? null)
+  const schoolLogoUrl = isPlatformOwner ? null : (displaySchool?.logo_url ?? null)
   const schoolWatermarkOpacity = isPlatformOwner
     ? null
-    : (activeSchool?.logo_watermark_opacity ?? null)
+    : (displaySchool?.logo_watermark_opacity ?? null)
 
   return (
     <DashboardShell
       schoolLogoUrl={schoolLogoUrl}
       schoolWatermarkOpacity={schoolWatermarkOpacity}
+      qaVerification={
+        qaSession
+          ? { schoolName: qaSession.schoolName, roleCode: qaSession.roleCode }
+          : null
+      }
       sidebar={{
         userRole: currentRole,
         schoolName: displaySchoolName,

@@ -3,16 +3,24 @@
 import { useEffect, useState } from 'react'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Topbar } from '@/components/layout/topbar'
+import { QaVerificationBanner } from '@/components/layout/qa-verification-banner'
 import { useTopbarUnreadCounts } from '@/components/layout/use-topbar-unread'
 import { WatermarkBackground } from '@/components/schools/watermark-background'
 import { cn } from '@/lib/utils'
+import type { UserRole } from '@/types/roles'
 
 const SIDEBAR_COLLAPSED_KEY = 'edunation-sidebar-collapsed'
+
+type QaVerificationState = {
+  schoolName: string
+  roleCode: UserRole
+}
 
 type ShellProps = {
   children: React.ReactNode
   schoolLogoUrl?: string | null
   schoolWatermarkOpacity?: number | null
+  qaVerification?: QaVerificationState | null
   sidebar: Omit<React.ComponentProps<typeof Sidebar>, 'collapsed' | 'mobileOpen' | 'onNavigate'>
   topbar: Omit<React.ComponentProps<typeof Topbar>, 'collapsed' | 'onMenuClick' | 'onToggleSidebar'> & {
     userId?: string
@@ -23,6 +31,7 @@ export function DashboardShell({
   children,
   schoolLogoUrl,
   schoolWatermarkOpacity,
+  qaVerification = null,
   sidebar,
   topbar,
 }: ShellProps) {
@@ -92,6 +101,12 @@ export function DashboardShell({
             onMenuClick={() => setMobileNavOpen(true)}
             onToggleSidebar={toggleSidebarCollapsed}
           />
+          {qaVerification && (
+            <QaVerificationBanner
+              schoolName={qaVerification.schoolName}
+              roleCode={qaVerification.roleCode}
+            />
+          )}
         </div>
         <main className="relative mt-14 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:px-8 lg:py-7 print:mt-0 print:overflow-visible print:p-0">
           <div className="no-print contents">

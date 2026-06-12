@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
+import { getQaVerificationSession, isPlatformOwnerAccount } from '@/lib/platform/qa-verification'
 import { hasPermission } from '@/types/permissions'
 import type { UserRole } from '@/types/roles'
 
@@ -18,6 +19,11 @@ export function isPlatformOwnerRole(role: string | null | undefined): boolean {
 }
 
 export async function getEffectiveUserRole(userId: string): Promise<UserRole | null> {
+  const qaSession = await getQaVerificationSession(userId)
+  if (qaSession) {
+    return qaSession.roleCode
+  }
+
   const supabase = await createClient()
 
   const { data: profileRaw } = await supabase
@@ -48,10 +54,9 @@ export async function requirePlatformAdmin(): Promise<PlatformAccessError | Plat
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Session expirée.' }
 
-  const role = await getEffectiveUserRole(user.id)
-  if (!role || !isPlatformAdmin(role)) {
+  if (!(await isPlatformOwnerAccount(user.id))) {
     return { error: 'Accès réservé à la super-administration EduNation.' }
   }
 
-  return { user, role, supabase }
+  return { user, role: PLATFORM_OWNER_ROLE, supabase }
 }

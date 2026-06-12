@@ -68,6 +68,7 @@ const ROLE_NAV: Record<string, { label: string; nav: Array<{ group: string; item
         { id: 'users', label: 'Utilisateurs', icon: 'users', href: '/dashboard/platform/users' },
       ]},
       { group: 'Système', items: [
+        { id: 'inspect', label: 'Mode vérification', icon: 'userCheck', href: '/dashboard/platform/inspect' },
         { id: 'audit-logs', label: 'Journaux d\'audit', icon: 'shield', href: '/dashboard/platform/audit-logs' },
         { id: 'access-control', label: 'Contrôle d\'accès', icon: 'alert', href: '/dashboard/platform/access-control' },
         { id: 'settings', label: 'Paramètres', icon: 'settings', href: '/dashboard/platform/settings' },
