@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserSchoolContext } from '@/lib/supabase/helpers'
-import { SuperAdminDashboard } from '@/features/dashboard/super-admin-dashboard'
+import { SuperAdminHomeDashboard } from '@/features/dashboard/super-admin-home-dashboard'
 import { isPlatformAdmin, getEffectiveUserRole } from '@/lib/platform/access'
 import { DirecteurDashboard } from '@/features/dashboard/directeur-dashboard'
 import { SecretaireDashboard } from '@/features/dashboard/secretaire-dashboard'
@@ -74,7 +74,7 @@ export default async function DashboardPage() {
     : firstName
 
   if (isPlatformAdmin(effectiveRole)) {
-    return <SuperAdminDashboard userName={greetingName} />
+    return <SuperAdminHomeDashboard userId={user.id} userName={greetingName} />
   }
 
   switch (currentRole) {

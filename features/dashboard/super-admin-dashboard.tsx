@@ -11,13 +11,8 @@ import { QuickLinkGrid } from '@/components/dashboard/quick-link-grid'
 import { getPlatformOverview } from '@/lib/platform/queries'
 import { formatRelativeDate } from '@/lib/utils'
 import { SCHOOL_TYPES } from '@/lib/onboarding/constants'
-import { SuperAdminCapabilities } from '@/features/platform/super-admin-capabilities'
 
-type SuperAdminDashboardProps = {
-  userName?: string
-}
-
-export async function SuperAdminDashboard({ userName = 'Admin' }: SuperAdminDashboardProps) {
+export async function SuperAdminDashboard() {
   const overview = await getPlatformOverview()
 
   const today = new Date()
@@ -34,9 +29,9 @@ export async function SuperAdminDashboard({ userName = 'Admin' }: SuperAdminDash
   return (
     <DashboardPage>
       <WelcomeBanner
-        eyebrow={`${todayStr} · Propriétaire plateforme EduNation`}
-        title={`Bonjour ${userName}`}
-        description="Administration du SaaS EduNation — tous les établissements et organisations, sans rattachement à une école."
+        eyebrow={`${todayStr} · Vue plateforme EduNation`}
+        title="Indicateurs globaux"
+        description="KPI, croissance et activité de tous les établissements et organisations du SaaS."
         icon={<Shield className="h-14 w-14 text-white/35" />}
         actions={
           <>
@@ -176,16 +171,6 @@ export async function SuperAdminDashboard({ userName = 'Admin' }: SuperAdminDash
         </SectionPanel>
       </div>
 
-      <SectionPanel
-        title="Ce que le super admin peut faire"
-        description="Vue d'ensemble des capacites disponibles et a venir"
-        actionHref="/dashboard/platform/settings"
-        actionLabel="Parametres plateforme"
-      >
-        <div className="px-5 py-5">
-          <SuperAdminCapabilities />
-        </div>
-      </SectionPanel>
     </DashboardPage>
   )
 }
