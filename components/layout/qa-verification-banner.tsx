@@ -1,37 +1,29 @@
 'use client'
 
-import { useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { Eye, LogOut, ShieldAlert } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { endQaVerification } from '@/lib/actions/platform-qa-verification'
+import { Eye, ShieldAlert } from 'lucide-react'
+import { QaVerificationExitButton } from '@/components/layout/qa-verification-exit-button'
 import { getQaRoleLabel } from '@/lib/platform/qa-verification'
 import type { UserRole } from '@/types/roles'
-import { notify } from '@/lib/feedback/toast'
+import { cn } from '@/lib/utils'
 
 type QaVerificationBannerProps = {
   schoolName: string
   roleCode: UserRole
+  sidebarCollapsed?: boolean
 }
 
-export function QaVerificationBanner({ schoolName, roleCode }: QaVerificationBannerProps) {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
-
-  function handleExit() {
-    startTransition(async () => {
-      const result = await endQaVerification()
-      if ('error' in result) {
-        notify.error(result.error)
-        return
-      }
-      router.push(result.redirectTo)
-      router.refresh()
-    })
-  }
-
+export function QaVerificationBanner({
+  schoolName,
+  roleCode,
+  sidebarCollapsed = false,
+}: QaVerificationBannerProps) {
   return (
-    <div className="no-print border-b border-amber-300/80 bg-gradient-to-r from-amber-50 via-amber-50/95 to-orange-50 px-4 py-2.5 sm:px-5">
+    <div
+      className={cn(
+        'no-print fixed left-0 right-0 top-14 z-[19] border-b border-amber-300/80 bg-gradient-to-r from-amber-50 via-amber-50/95 to-orange-50 px-4 py-2.5 sm:px-5',
+        sidebarCollapsed ? 'lg:left-[72px]' : 'lg:left-[240px]',
+      )}
+    >
       <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5 sm:items-center">
           <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 sm:mt-0">
@@ -57,17 +49,7 @@ export function QaVerificationBanner({ schoolName, roleCode }: QaVerificationBan
             <ShieldAlert className="h-3.5 w-3.5" />
             Super admin
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="border-amber-400/80 bg-white/80 text-amber-950 hover:bg-white"
-            disabled={isPending}
-            onClick={handleExit}
-          >
-            <LogOut className="mr-1.5 h-3.5 w-3.5" />
-            {isPending ? 'Sortie…' : 'Quitter la vérification'}
-          </Button>
+          <QaVerificationExitButton />
         </div>
       </div>
     </div>

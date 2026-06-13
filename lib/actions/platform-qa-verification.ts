@@ -231,5 +231,5 @@ export async function endQaVerification(): Promise<
   revalidatePath('/dashboard', 'layout')
   revalidatePath('/dashboard/platform/inspect')
 
-  return { success: true, redirectTo: '/dashboard/platform/inspect' }
+  return { success: true, redirectTo: '/dashboard' }
 }

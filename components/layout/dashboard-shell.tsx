@@ -100,15 +100,22 @@ export function DashboardShell({
             collapsed={sidebarCollapsed}
             onMenuClick={() => setMobileNavOpen(true)}
             onToggleSidebar={toggleSidebarCollapsed}
+            qaVerificationActive={Boolean(qaVerification)}
           />
           {qaVerification && (
             <QaVerificationBanner
               schoolName={qaVerification.schoolName}
               roleCode={qaVerification.roleCode}
+              sidebarCollapsed={sidebarCollapsed}
             />
           )}
         </div>
-        <main className="relative mt-14 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:px-8 lg:py-7 print:mt-0 print:overflow-visible print:p-0">
+        <main
+          className={cn(
+            'relative flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:px-8 lg:py-7 print:mt-0 print:overflow-visible print:p-0',
+            qaVerification ? 'mt-[8.75rem]' : 'mt-14',
+          )}
+        >
           <div className="no-print contents">
             <WatermarkBackground logoUrl={schoolLogoUrl} opacity={schoolWatermarkOpacity} />
           </div>

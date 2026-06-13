@@ -8,6 +8,7 @@ import {
   isQaInspectableRole,
   type QaVerificationSession,
 } from '@/lib/platform/qa-verification'
+import { QA_DEMO_SCHOOL_ID, QA_DEMO_SCHOOL_NAME } from '@/lib/platform/qa-demo-school'
 
 export async function isPlatformOwnerAccount(userId: string): Promise<boolean> {
   const supabase = await createClient()
@@ -42,7 +43,16 @@ export async function getQaVerificationSession(userId: string): Promise<QaVerifi
     .limit(1)
 
   const school = (schoolRaw as Array<{ id: string; name: string }> | null)?.[0]
-  if (!school) return null
+  if (!school) {
+    if (payload.s === QA_DEMO_SCHOOL_ID) {
+      return {
+        schoolId: payload.s,
+        roleCode: payload.r,
+        schoolName: QA_DEMO_SCHOOL_NAME,
+      }
+    }
+    return null
+  }
 
   return {
     schoolId: payload.s,

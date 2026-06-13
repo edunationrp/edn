@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Bell, ExternalLink, Mail, Menu, PanelLeft, PanelLeftClose } from 'lucide-react'
 import { BrandLockupLight, LogoSVG } from '@/components/brand/logo'
 import { DashboardCommandSearch } from '@/components/layout/dashboard-command-search'
+import { QaVerificationExitButton } from '@/components/layout/qa-verification-exit-button'
 import { cn } from '@/lib/utils'
 
 interface TopbarProps {
@@ -18,6 +19,7 @@ interface TopbarProps {
   collapsed?: boolean
   onMenuClick?: () => void
   onToggleSidebar?: () => void
+  qaVerificationActive?: boolean
 }
 
 export function Topbar({
@@ -31,6 +33,7 @@ export function Topbar({
   collapsed = false,
   onMenuClick,
   onToggleSidebar,
+  qaVerificationActive = false,
 }: TopbarProps) {
   const initials =
     userInitials || userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
@@ -90,6 +93,13 @@ export function Topbar({
 
       {/* Droite : actions — jamais compressées */}
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+        {qaVerificationActive && (
+          <QaVerificationExitButton className="hidden sm:inline-flex" />
+        )}
+        {qaVerificationActive && (
+          <QaVerificationExitButton compact className="sm:hidden" />
+        )}
+
         <DashboardCommandSearch userRole={userRole} className="md:hidden" />
 
         <Link
